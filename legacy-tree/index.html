@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Fractal Tree Generator</title>
+    <meta name="description" content="Generate beautiful and organic 3D fractal trees interactively using Three.js. Customize angles, colors, leaves, and wind simulation.">
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- ES Module Shims for import maps -->
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/"
+        }
+      }
+    </script>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay -->
+    <main class="ui-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-area">
+                <span class="pulse-dot"></span>
+                <h1>Fractal3D</h1>
+            </div>
+            <p class="subtitle">Procedural Tree Synthesizer</p>
+        </header>
+
+        <!-- Sidebar / Controls -->
+        <section class="controls-panel">
+            <!-- Presets Section -->
+            <div class="control-group">
+                <h3>Presets</h3>
+                <div class="presets-grid">
+                    <button class="preset-btn active" data-preset="oak">Classic Oak</button>
+                    <button class="preset-btn" data-preset="cherry">Sakura Blossom</button>
+                    <button class="preset-btn" data-preset="pine">Winter Pine</button>
+                    <button class="preset-btn" data-preset="cyber">Neon Cyber</button>
+                    <button class="preset-btn" data-preset="golden">Golden Spiral</button>
+                </div>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <div class="tab-nav">
+                <button class="tab-btn active" data-tab="structure">Structure</button>
+                <button class="tab-btn" data-tab="leaves">Leaves & Color</button>
+                <button class="tab-btn" data-tab="environment">Wind & Light</button>
+            </div>
+
+            <!-- Tab Contents -->
+            <div class="tab-content active" id="tab-structure">
+                <!-- Depth -->
+                <div class="slider-control">
+                    <div class="slider-info">
+                        <label for="param-depth">Recursion Depth</label>
+                        <span class="value-display" id="val-depth">6</span>
+                    </div>
+                    <input type="range" id="param-depth" min="1" max="8" step="1" value="6">
+                </div>
+
+                <!-- Branching Factor -->
+                <div class="slider-control">
+                    <div class="slider-info">
+                        <label for="param-branches">Branches per Node</label>
+                        <span class="value-display" id="val-branches">3</span>
+                    </div>
+                    <input type="range" id="param-branches" min="2" max="5" step="1" value="3">
+                </div>
+
+                <!-- Length Decay -->
+                <div class="slider-control">
+                    <div class="slider-info">
+                        <label for="param-length-decay">Length Scale Factor</label>
+                        <span class="value-display" id="val-length-decay">0.75</span>
+                    </div>
+                    <input type="range" id="param-length-decay" min="0.5" max="0.9" step="0.01" value="0.75">
+                </div>
+
+                <!-- Thickness Decay -->
+                <div class="slider-control">
+                    <div class="slider-info">
+                        <label for="param-width-decay">Thickness Scale Factor</label>
+                        <span class="value-display" id="val-width-decay">0.70</span>
+                    </div>
+                    <input type="range" id="param-width-decay" min="0.5" max="0.9" step="0.01" value="0.70">
+                </div>
+
+                <!-- Angle Spread -->
+                <div class="slider-control">
+                    <div class="slider-info">
+                        <label for="param-angle">Branch Spread Angle</label>
+                        <span class="value-display" id="val-angle">35°</span>
+                    </div>
+                    <input type="range" id="param-angle" min="10" max="90" step="1" value="35">
+                </div>
+
+                <!-- Trunk Height -->
+                <div class="slider-control">
+                    <div class="slider-info">
+                        <label for="param-trunk-height">Initial Trunk Height</label>
+                        <span class="value-display" id="val-trunk-height">10</span>
+                    </div>
+                    <input type="range" id="param-trunk-height" min="5" max="20" step="0.5" value="10">
+                </div>
+            </div>
+
+            <div class="tab-content" id="tab-leaves">
+                <!-- Show Leaves -->
+                <div class="toggle-control">
+                    <label for="param-show-leaves">Generate Leaves</label>
+                    <label class="switch">
+                        <input type="checkbox" id="param-show-leaves" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <!-- Leaf Size -->
+                <div class="slider-control">
+                    <div class="slider-info">
+                        <label for="param-leaf-size">Leaf Size</label>
+                        <span class="value-display" id="val-leaf-size">0.4</span>
+                    </div>
+                    <input type="range" id="param-leaf-size" min="0.1" max="1.5" step="0.05" value="0.4">
+                </div>
+
+                <!-- Leaf Type -->
+                <div class="select-control">
+                    <label for="param-leaf-type">Leaf Style</label>
+                    <select id="param-leaf-type">
+                        <option value="spheres">Blossom Spheres</option>
+                        <option value="quads">Flat Leaves</option>
+                        <option value="stars">Sparkle Stars</option>
+                    </select>
+                </div>
+
+                <!-- Color Options -->
+                <div class="color-picker-control">
+                    <label for="param-color-trunk">Trunk Color</label>
+                    <div class="color-input-wrapper">
+                        <input type="color" id="param-color-trunk" value="#8b5a2b">
+                    </div>
+                </div>
+
+                <div class="color-picker-control">
+                    <label for="param-color-leaves">Leaf Color</label>
+                    <div class="color-input-wrapper">
+                        <input type="color" id="param-color-leaves" value="#4caf50">
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tab-environment">
+                <!-- Wind Strength -->
+                <div class="slider-control">
+                    <div class="slider-info">
+                        <label for="param-wind-strength">Wind Intensity</label>
+                        <span class="value-display" id="val-wind-strength">0.3</span>
+                    </div>
+                    <input type="range" id="param-wind-strength" min="0" max="1.5" step="0.05" value="0.3">
+                </div>
+
+                <!-- Wind Speed -->
+                <div class="slider-control">
+                    <div class="slider-info">
+                        <label for="param-wind-speed">Wind Speed</label>
+                        <span class="value-display" id="val-wind-speed">1.0</span>
+                    </div>
+                    <input type="range" id="param-wind-speed" min="0.1" max="4.0" step="0.1" value="1.0">
+                </div>
+
+                <!-- Background Theme -->
+                <div class="select-control">
+                    <label for="param-theme">Atmosphere</label>
+                    <select id="param-theme">
+                        <option value="void">Deep Void</option>
+                        <option value="sunset">Aurora Sunset</option>
+                        <option value="cyber">Cyber City Grid</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Footer Action Buttons -->
+            <div class="actions-panel">
+                <button id="btn-randomize" class="action-btn secondary-btn">Randomize</button>
+                <button id="btn-export" class="action-btn primary-btn">Export GLTF</button>
+            </div>
+        </section>
+
+        <!-- Stats Overlay -->
+        <footer class="stats-panel">
+            <div class="stat-item">
+                <span class="stat-lbl">Branches</span>
+                <span class="stat-val" id="stat-branches">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-lbl">Leaves</span>
+                <span class="stat-val" id="stat-leaves">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-lbl">FPS</span>
+                <span class="stat-val" id="stat-fps">--</span>
+            </div>
+        </footer>
+    </main>
+
+    <!-- App Script -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#050608">
+    <meta name="color-scheme" content="dark">
+    <title>3D Fractal Synth — Studio</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌌</text></svg>">
+    <link rel="stylesheet" href="css/cockpit.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="canvas-container">
+        <canvas id="fractal-canvas"></canvas>
+    </div>
+
+    <!-- Minimalist Studio UI -->
+    <div class="studio-ui" id="studio-ui">
+        
+        <!-- Top Navigation: Formula (Top-Left) and Material (Top-Right) -->
+        <header class="top-nav-bar">
+            <!-- 1. Fractal Formula Cycle Pill (Top-Left) -->
+            <div class="cycle-pill" id="formula-cycle-pill">
+                <button class="cycle-step-btn" id="formula-prev-btn" title="Previous Formula" aria-label="Previous Formula">‹</button>
+                <div class="cycle-content" id="formula-cycle-btn" title="Click to Cycle Formula">
+                    <span class="cycle-tag">FORMULA</span>
+                    <span class="cycle-title" id="formula-name-display">4D Quaternion Julia</span>
+                </div>
+                <button class="cycle-step-btn" id="formula-next-btn" title="Next Formula" aria-label="Next Formula">›</button>
+                <select id="formula-select" style="display: none;"></select>
+            </div>
+
+            <!-- 2. Natural Material Cycle Pill (Top-Right) -->
+            <div class="cycle-pill" id="material-cycle-pill">
+                <button class="cycle-step-btn" id="material-prev-btn" title="Previous Material" aria-label="Previous Material">‹</button>
+                <div class="cycle-content" id="material-cycle-btn" title="Click to Cycle Material">
+                    <span class="cycle-tag">MATERIAL</span>
+                    <span class="cycle-title" id="material-name-display">Desert Sandstone</span>
+                </div>
+                <button class="cycle-step-btn" id="material-next-btn" title="Next Material" aria-label="Next Material">›</button>
+                <select id="palette-preset-select" style="display: none;"></select>
+            </div>
+        </header>
+
+        <!-- Bottom-Right Action Dock: Simplified Settings & Dice Buttons -->
+        <div class="bottom-action-dock">
+            <!-- Simplified Settings Button (Gear) -->
+            <button class="dock-btn" id="btn-toggle-settings" title="Settings Menu" aria-label="Settings">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+            <!-- Simplified Dice Auto-Deform Button -->
+            <button class="dock-btn dock-dice-btn active" id="deform-dice-btn" title="Toggle Auto-Deform ON/OFF" aria-label="Auto Deform">
+                <span class="btn-icon">🎲</span>
+            </button>
+        </div>
+
+        <!-- Unified Studio Settings Drawer (Toggled by Settings Button) -->
+        <aside class="side-drawer drawer-right closed" id="settings-drawer">
+            <!-- Mobile Sheet Grab Handle -->
+            <div class="drawer-grab-handle"></div>
+
+            <!-- Tabs Header -->
+            <div class="drawer-tabs">
+                <button class="d-tab-btn active" data-tab="tab-settings-geo">Geometry</button>
+                <button class="d-tab-btn" data-tab="tab-settings-presets">Presets</button>
+                <button class="d-tab-btn" data-tab="tab-settings-light">Lighting</button>
+                <button class="d-tab-btn" data-tab="tab-settings-optics">Optics</button>
+                <button class="d-tab-btn" data-tab="tab-settings-cam">Camera</button>
+                <button class="d-tab-btn" data-tab="tab-settings-anim">Audio / Morph</button>
+            </div>
+
+            <div class="drawer-body">
+                <!-- Tab: Geometry Sliders -->
+                <div class="tab-pane active" id="tab-settings-geo">
+                    <div class="drawer-group">
+                        <div class="group-header-row">
+                            <label class="group-label">Geometry Parameters</label>
+                            <span class="sub-label" id="hud-formula-sub">Spherical 3D Fold</span>
+                        </div>
+                        <div class="sliders-stack" id="formula-params-container"></div>
+                    </div>
+                </div>
+
+                <!-- Tab: Curated Presets -->
+                <div class="tab-pane" id="tab-settings-presets">
+                    <div class="drawer-group">
+                        <label class="group-label">Curated Starting States</label>
+                        <div class="presets-flow" id="presets-grid"></div>
+                    </div>
+                </div>
+
+                <!-- Tab: Lighting Studio -->
+                <div class="tab-pane" id="tab-settings-light">
+                    <!-- Light 1: Key Directional Sun -->
+                    <div class="drawer-group light-card">
+                        <div class="group-header-row">
+                            <label class="group-label">
+                                <span class="light-badge light-badge-sun">☀️ Light 1</span>
+                                Key Directional Sun
+                            </label>
+                            <button class="light-toggle-pill active" id="btn-toggle-light-sun" title="Toggle Key Sun Light">ON</button>
+                        </div>
+                        <div class="sliders-stack" id="light-sun-container"></div>
+                    </div>
+
+                    <!-- Light 2: Rim / Backlight -->
+                    <div class="drawer-group light-card">
+                        <div class="group-header-row">
+                            <label class="group-label">
+                                <span class="light-badge light-badge-rim">💎 Light 2</span>
+                                Rim / Backlight
+                            </label>
+                            <button class="light-toggle-pill active" id="btn-toggle-light-rim" title="Toggle Rim Backlight">ON</button>
+                        </div>
+                        <div class="sliders-stack" id="light-rim-container"></div>
+                    </div>
+
+                    <!-- Light 3: Environment & Ambient Occlusion -->
+                    <div class="drawer-group light-card">
+                        <div class="group-header-row">
+                            <label class="group-label">
+                                <span class="light-badge light-badge-env">🌫️ Ambient</span>
+                                Occlusion & Depth Fog
+                            </label>
+                        </div>
+                        <div class="sliders-stack" id="light-env-container"></div>
+                    </div>
+
+                    <!-- Light 4: Volumetric Core Glow -->
+                    <div class="drawer-group light-card">
+                        <div class="group-header-row">
+                            <label class="group-label">
+                                <span class="light-badge light-badge-glow">✨ Core Glow</span>
+                                Volumetric Emission
+                            </label>
+                            <button class="light-toggle-pill" id="btn-toggle-light-glow" title="Toggle Core Glow">OFF</button>
+                        </div>
+                        <div class="sliders-stack" id="light-glow-container"></div>
+                    </div>
+                </div>
+
+                <!-- Tab: Surface Optics -->
+                <div class="tab-pane" id="tab-settings-optics">
+                    <div class="drawer-group">
+                        <label class="group-label">Surface Optics & Orbit Trap</label>
+                        <div class="sliders-stack" id="shading-params-container"></div>
+                    </div>
+                </div>
+
+                <!-- Tab: Camera & Motion -->
+                <div class="tab-pane" id="tab-settings-cam">
+                    <div class="drawer-group">
+                        <label class="group-label">Lens & Optics</label>
+                        <div class="sliders-stack" id="cam-params-container"></div>
+                    </div>
+
+                    <div class="drawer-group">
+                        <label class="group-label">Navigation Mode</label>
+                        <div class="segmented-control">
+                            <button class="seg-btn active" id="cam-mode-orbit">Orbit Turntable</button>
+                            <button class="seg-btn" id="cam-mode-flight">6-DOF Flight (V)</button>
+                        </div>
+                    </div>
+
+                    <div class="drawer-group">
+                        <label class="group-label">Auto-Rotation (Multi-Axis)</label>
+                        <div class="button-row">
+                            <button class="toggle-action-btn active" id="auto-rotate-btn">
+                                <span class="indicator-dot"></span>
+                                <span>Multi-Axis Orbit</span>
+                            </button>
+                            <button class="flat-action-btn" id="cam-reset-btn">Reset View</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Audio & Morphing Transport -->
+                <div class="tab-pane" id="tab-settings-anim">
+                    <!-- History & Undo/Redo -->
+                    <div class="drawer-group">
+                        <label class="group-label">History Actions</label>
+                        <div class="button-row">
+                            <button class="flat-action-btn" id="undo-btn" title="Undo change (Ctrl+Z)">↶ Undo</button>
+                            <button class="flat-action-btn" id="redo-btn" title="Redo change (Ctrl+Y)">↷ Redo</button>
+                        </div>
+                    </div>
+
+                    <!-- A/B Morph Crossfader -->
+                    <div class="drawer-group">
+                        <label class="group-label">A / B Morph Transition</label>
+                        <div class="button-row" style="margin-bottom: 10px;">
+                            <button class="flat-action-btn" id="snap-a-btn" title="Store State A">Snap A</button>
+                            <button class="flat-action-btn" id="snap-b-btn" title="Store State B">Snap B</button>
+                        </div>
+                        <div class="morph-track-container" style="display: flex; flex-direction: column; gap: 6px;">
+                            <span class="sub-label">A ➔ B Crossfade</span>
+                            <input type="range" class="morph-fader" id="morph-slider" min="0.0" max="1.0" step="0.01" value="0.0" style="width: 100%;">
+                        </div>
+                    </div>
+
+                    <!-- Audio Reactivity -->
+                    <div class="drawer-group">
+                        <div class="group-header-row">
+                            <label class="group-label">Audio Reactivity</label>
+                            <div class="eq-mini-stack" title="Sub-Bass / Low-Mid / High-Mid / Treble">
+                                <div class="eq-col" id="eq-bar-bass"></div>
+                                <div class="eq-col" id="eq-bar-lowmid"></div>
+                                <div class="eq-col" id="eq-bar-highmid"></div>
+                                <div class="eq-col" id="eq-bar-treble"></div>
+                            </div>
+                        </div>
+                        <div class="button-row" style="margin-top: 10px;">
+                            <button class="toggle-action-btn" id="audio-synth-btn" title="Built-in Generative Synth Beat">
+                                <span class="indicator-dot"></span>
+                                <span>🎵 Groove</span>
+                            </button>
+                            <button class="toggle-action-btn" id="audio-mic-btn" title="Live Microphone">
+                                <span class="indicator-dot"></span>
+                                <span>🎙️ Mic</span>
+                            </button>
+                            <label class="flat-action-btn" style="cursor: pointer; text-align: center; margin: 0; padding: 7px 10px;" title="Load Audio File">
+                                <span>📁 File</span>
+                                <input type="file" id="audio-file-input" accept="audio/*" style="display: none;">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Modulation Popover -->
+    <div class="popover hidden" id="mod-popover">
+        <div class="popover-header">
+            <span>Modulate: <strong id="mod-target-name">Parameter</strong></span>
+            <button class="icon-btn" id="mod-close-btn">&times;</button>
+        </div>
+        <div class="popover-body">
+            <label>Modulation Source</label>
+            <select id="mod-source">
+                <option value="none">Disabled (Manual)</option>
+                <option value="lfo">LFO Waveform</option>
+                <option value="audio">Audio Frequency Band</option>
+            </select>
+
+            <div id="mod-lfo-panel" style="display: none;">
+                <label>Waveform</label>
+                <select id="lfo-wave">
+                    <option value="sine">Sine</option>
+                    <option value="triangle">Triangle</option>
+                    <option value="saw">Sawtooth</option>
+                    <option value="noise">Smooth Organic Drift</option>
+                </select>
+                <label>Frequency (Hz)</label>
+                <input type="range" id="lfo-rate" min="0.05" max="3.0" step="0.05" value="0.5">
+                <label>Depth</label>
+                <input type="range" id="lfo-depth" min="0.05" max="1.0" step="0.05" value="0.35">
+            </div>
+
+            <div id="mod-audio-panel" style="display: none;">
+                <label>Frequency Band</label>
+                <select id="audio-band">
+                    <option value="bass">Sub-Bass (Kick/Pounding)</option>
+                    <option value="lowMid">Low-Mid (Bassline/Warmth)</option>
+                    <option value="highMid">High-Mid (Snare/Lead)</option>
+                    <option value="treble">Treble (Hi-Hats/Crisp)</option>
+                </select>
+                <label>Gain Sensitivity</label>
+                <input type="range" id="audio-gain" min="0.2" max="3.0" step="0.1" value="1.0">
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
