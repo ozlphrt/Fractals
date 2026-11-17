@@ -346,7 +346,7 @@ void main() {
     
     // Raymarching
     float t = 0.01;
-    float maxDist = 20.0;
+    float maxDist = 32.0;
     vec4 trap = vec4(100.0);
     vec4 finalTrap = vec4(0.0);
     int stepCount = 0;

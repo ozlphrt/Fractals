@@ -117,7 +117,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: 'Mandelbox',
         subtitle: 'Brutalist Box & Sphere Inversion Fold',
         defaultCam: {
-            pos: [2.05, 1.42, 2.28],
+            pos: [4.2, 3.2, 4.6],
             target: [0.0, 0.0, 0.0]
         },
         params: [

@@ -429,9 +429,11 @@ export class CameraController {
             const jMix = values.mb_julia_mix ?? 0.0;
             return 1.10 + 0.12 * jMix; // typically ~1.12
         } else if (id === 'mandelbox') {
-            const scale = Math.abs(values.mbox_scale ?? 2.3);
+            const scale = Math.abs(values.mbox_scale ?? 2.2);
             const foldLimit = values.mbox_fold_limit ?? 1.0;
-            return foldLimit * 1.5 + Math.min(1.5, (scale - 1.0) * 0.7); // typically ~2.40
+            // Mandelbox outer architecture extends outward with towers and spires to radius ~4.8 - 5.5
+            // Setting this correctly frames the entire majestic structure with comfortable 80% coverage
+            return 3.6 + foldLimit * 1.2 + Math.min(1.5, Math.max(0.0, scale - 1.0) * 0.5); // ~5.2 - 5.5
         } else if (id === 'kifs') {
             const ox = values.kifs_offset_x ?? 1.0;
             const oy = values.kifs_offset_y ?? 1.0;
