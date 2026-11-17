@@ -6,7 +6,7 @@
 export const PALETTE_PRESETS = [
     {
         id: 'desert_sandstone',
-        name: 'Desert Sandstone & Canyon',
+        name: 'Desert Sandstone',
         description: 'Warm terracotta, layered golden ochre, sun-baked clay, red sandstone cliffs',
         values: {
             trap_mode: 0,
@@ -28,7 +28,7 @@ export const PALETTE_PRESETS = [
     },
     {
         id: 'ancient_limestone',
-        name: 'Ancient Weathered Limestone',
+        name: 'Ancient Limestone',
         description: 'Chalky fossil stone, dry grey-green lichen, ivory calcium carbonate',
         values: {
             trap_mode: 0,
@@ -50,7 +50,7 @@ export const PALETTE_PRESETS = [
     },
     {
         id: 'volcanic_basalt',
-        name: 'Volcanic Basalt & Ash',
+        name: 'Volcanic Basalt',
         description: 'Dark charcoal volcanic stone, matte black solidified lava, cool grey pumice',
         values: {
             trap_mode: 1,
@@ -72,7 +72,7 @@ export const PALETTE_PRESETS = [
     },
     {
         id: 'forest_moss',
-        name: 'Forest Moss & Damp Bark',
+        name: 'Forest Moss',
         description: 'Rich woodland earthy moss, damp dark cedar bark, olive green humus',
         values: {
             trap_mode: 0,
@@ -94,7 +94,7 @@ export const PALETTE_PRESETS = [
     },
     {
         id: 'terracotta_adobe',
-        name: 'Terracotta & Sun-Baked Adobe',
+        name: 'Terracotta Clay',
         description: 'Warm Mediterranean red earth, fired terracotta pottery, orange-brown silt clay',
         values: {
             trap_mode: 0,
@@ -116,7 +116,7 @@ export const PALETTE_PRESETS = [
     },
     {
         id: 'riverbed_granite',
-        name: 'Riverbed Granite & Flint',
+        name: 'Riverbed Granite',
         description: 'Speckled grey feldspar, cool river stone, flint rock, dark mineral grain',
         values: {
             trap_mode: 1,
@@ -138,7 +138,7 @@ export const PALETTE_PRESETS = [
     },
     {
         id: 'driftwood_bone',
-        name: 'Weathered Driftwood & Bone',
+        name: 'Weathered Timber',
         description: 'Sun-bleached coastal silver timber, dry ivory bone marrow, weathered wood grey',
         values: {
             trap_mode: 0,
@@ -160,7 +160,7 @@ export const PALETTE_PRESETS = [
     },
     {
         id: 'nordic_slate',
-        name: 'Nordic Slate & Sea Cliff',
+        name: 'Nordic Slate',
         description: 'Blue-grey layered metamorphic shale, wet coastal sea rock, dark tidal flint',
         values: {
             trap_mode: 1,
@@ -182,7 +182,7 @@ export const PALETTE_PRESETS = [
     },
     {
         id: 'peat_bog_loam',
-        name: 'Peat Bog & Dark Loam',
+        name: 'Dark Loam',
         description: 'Rich fertile organic black loam, dark umber soil, decayed leaf mold',
         values: {
             trap_mode: 0,
@@ -204,7 +204,7 @@ export const PALETTE_PRESETS = [
     },
     {
         id: 'glacial_permafrost',
-        name: 'Glacial Permafrost & Calcite',
+        name: 'Glacial Calcite',
         description: 'Pale frosted mineral stone, compacted glacial silt, cold ivory calcite',
         values: {
             trap_mode: 2,

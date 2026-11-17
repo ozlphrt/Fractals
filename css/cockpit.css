@@ -94,52 +94,69 @@ body.zen-mode .studio-ui {
     gap: 10px;
 }
 
-/* Glass Stepper Cycle Pill */
+/* Glass Stepper Cycle Pill - Precision Luxury Aesthetic */
 .cycle-pill {
     display: flex;
     align-items: center;
-    background: rgba(10, 13, 20, 0.78);
-    backdrop-filter: blur(28px);
-    -webkit-backdrop-filter: blur(28px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 22px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    justify-content: space-between;
+    height: 40px;
+    background: linear-gradient(180deg, rgba(20, 26, 38, 0.76) 0%, rgba(10, 14, 22, 0.86) 100%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9999px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
     pointer-events: auto;
-    padding: 3px 6px;
-    max-width: 48%;
-    transition: var(--transition);
+    padding: 0 4px;
+    min-width: 170px;
+    max-width: 220px;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     user-select: none;
 }
 
 .cycle-pill:hover {
-    border-color: rgba(56, 189, 248, 0.35);
-    background: rgba(14, 18, 28, 0.88);
+    border-color: rgba(255, 255, 255, 0.22);
+    background: linear-gradient(180deg, rgba(28, 36, 52, 0.82) 0%, rgba(14, 18, 28, 0.92) 100%);
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.20);
+}
+
+.formula-pill:hover {
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55), 0 0 18px rgba(56, 189, 248, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.20);
+}
+
+.material-pill:hover {
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55), 0 0 18px rgba(251, 146, 60, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.20);
 }
 
 .cycle-step-btn {
     background: transparent;
     border: none;
-    color: var(--text-muted);
-    font-size: 1.3rem;
-    line-height: 1;
+    color: rgba(255, 255, 255, 0.40);
     width: 28px;
-    height: 34px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    border-radius: 12px;
-    transition: var(--transition);
+    border-radius: 50%;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
     flex-shrink: 0;
+    padding: 0;
+}
+
+.cycle-step-btn svg {
+    display: block;
+    transition: transform 0.18s ease;
 }
 
 .cycle-step-btn:hover {
-    color: #38bdf8;
-    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.10);
+    transform: scale(1.06);
 }
 
 .cycle-step-btn:active {
-    transform: scale(0.9);
+    transform: scale(0.88);
 }
 
 .cycle-content {
@@ -147,36 +164,68 @@ body.zen-mode .studio-ui {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 2px 8px;
+    padding: 0 6px;
     cursor: pointer;
-    min-width: 80px;
-    max-width: 180px;
+    flex: 1;
+    min-width: 0;
     text-align: center;
     overflow: hidden;
 }
 
+.cycle-eyebrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4.5px;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+.cycle-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.dot-formula {
+    background: #38bdf8;
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.85);
+}
+
+.dot-material {
+    background: #fb923c;
+    box-shadow: 0 0 6px rgba(251, 146, 60, 0.85);
+}
+
 .cycle-tag {
-    font-size: 0.58rem;
+    font-size: 0.54rem;
     font-weight: 700;
-    letter-spacing: 0.1em;
-    color: var(--text-muted);
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.48);
     text-transform: uppercase;
-    line-height: 1.1;
+    line-height: 1;
 }
 
 .cycle-title {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: #f8fafc;
+    letter-spacing: -0.01em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    width: 100%;
-    line-height: 1.25;
+    max-width: 100%;
+    line-height: 1.2;
+    transition: color 0.18s ease;
 }
 
-.cycle-content:hover .cycle-title {
+.formula-pill:hover .cycle-title {
     color: #38bdf8;
+}
+
+.material-pill:hover .cycle-title {
+    color: #fdba74;
 }
 
 /* Bottom Action Dock: Bottom Right Corner */
@@ -1007,33 +1056,50 @@ select option:checked,
         top: calc(env(safe-area-inset-top, 0px) + 8px);
         left: 8px;
         right: 8px;
-        gap: 6px;
+        gap: 8px;
     }
 
     .cycle-pill {
-        max-width: calc(50vw - 12px);
-        padding: 2px 4px;
-        border-radius: 18px;
+        flex: 1;
+        min-width: 0;
+        max-width: calc(50% - 4px);
+        height: 38px;
+        padding: 0 2px;
+        border-radius: 9999px;
     }
 
     .cycle-step-btn {
-        width: 22px;
-        height: 28px;
-        font-size: 1.15rem;
+        width: 24px;
+        height: 24px;
+    }
+
+    .cycle-step-btn svg {
+        width: 10px;
+        height: 10px;
     }
 
     .cycle-content {
-        padding: 1px 3px;
-        min-width: 50px;
-        max-width: calc(50vw - 58px);
+        padding: 0 3px;
+        min-width: 0;
+    }
+
+    .cycle-eyebrow {
+        gap: 3.5px;
+        margin-bottom: 1px;
+    }
+
+    .cycle-dot {
+        width: 4px;
+        height: 4px;
     }
 
     .cycle-tag {
-        font-size: 0.5rem;
+        font-size: 0.48rem;
+        letter-spacing: 0.08em;
     }
 
     .cycle-title {
-        font-size: 0.72rem;
+        font-size: 0.70rem;
     }
 
     .bottom-action-dock {

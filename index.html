@@ -26,24 +26,38 @@
         <!-- Top Navigation: Formula (Top-Left) and Material (Top-Right) -->
         <header class="top-nav-bar">
             <!-- 1. Fractal Formula Cycle Pill (Top-Left) -->
-            <div class="cycle-pill" id="formula-cycle-pill">
-                <button class="cycle-step-btn" id="formula-prev-btn" title="Previous Formula" aria-label="Previous Formula">‹</button>
+            <div class="cycle-pill formula-pill" id="formula-cycle-pill">
+                <button class="cycle-step-btn" id="formula-prev-btn" title="Previous Formula" aria-label="Previous Formula">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                </button>
                 <div class="cycle-content" id="formula-cycle-btn" title="Click to Cycle Formula">
-                    <span class="cycle-tag">FORMULA</span>
+                    <div class="cycle-eyebrow">
+                        <span class="cycle-dot dot-formula"></span>
+                        <span class="cycle-tag">FORMULA</span>
+                    </div>
                     <span class="cycle-title" id="formula-name-display">4D Quaternion Julia</span>
                 </div>
-                <button class="cycle-step-btn" id="formula-next-btn" title="Next Formula" aria-label="Next Formula">›</button>
+                <button class="cycle-step-btn" id="formula-next-btn" title="Next Formula" aria-label="Next Formula">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
                 <select id="formula-select" style="display: none;"></select>
             </div>
 
             <!-- 2. Natural Material Cycle Pill (Top-Right) -->
-            <div class="cycle-pill" id="material-cycle-pill">
-                <button class="cycle-step-btn" id="material-prev-btn" title="Previous Material" aria-label="Previous Material">‹</button>
+            <div class="cycle-pill material-pill" id="material-cycle-pill">
+                <button class="cycle-step-btn" id="material-prev-btn" title="Previous Material" aria-label="Previous Material">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                </button>
                 <div class="cycle-content" id="material-cycle-btn" title="Click to Cycle Material">
-                    <span class="cycle-tag">MATERIAL</span>
+                    <div class="cycle-eyebrow">
+                        <span class="cycle-dot dot-material"></span>
+                        <span class="cycle-tag">MATERIAL</span>
+                    </div>
                     <span class="cycle-title" id="material-name-display">Desert Sandstone</span>
                 </div>
-                <button class="cycle-step-btn" id="material-next-btn" title="Next Material" aria-label="Next Material">›</button>
+                <button class="cycle-step-btn" id="material-next-btn" title="Next Material" aria-label="Next Material">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
                 <select id="palette-preset-select" style="display: none;"></select>
             </div>
         </header>
