@@ -58,7 +58,7 @@ export class CameraController {
         // Moment of Inertia (Full 360 Unconstrained Angular Velocity)
         this.angularVelYaw = 0.0;
         this.angularVelPitch = 0.0;
-        this.inertiaFriction = 0.965; // High persistence flywheel inertia (spins for a long time)
+        this.inertiaFriction = 0.978; // Sustained monumental flywheel inertia (heavy physical mass)
         this.dragResponsiveness = 0.00065; // Heavy mass resistance to mouse dragging
 
         // Flight controls state
@@ -190,11 +190,13 @@ export class CameraController {
                 this.lastMouseX = e.clientX;
                 this.lastMouseY = e.clientY;
 
-                if (e.buttons === 1) { // Left drag -> Direct responsive 360 rotation + momentum
-                    const rotSpeed = 0.005;
-                    this.rotateOrbit(dx * rotSpeed, dy * rotSpeed);
-                    this.angularVelYaw = dx * 0.003;
-                    this.angularVelPitch = dy * 0.003;
+                if (e.buttons === 1) { // Left drag -> Heavy moment of inertia 360 orbit
+                    const targetVelX = dx * 0.0028;
+                    const targetVelY = dy * 0.0028;
+                    // Heavy physical flywheel drag: smoothly accumulates torque with mass resistance
+                    this.angularVelYaw += (targetVelX - this.angularVelYaw) * 0.22;
+                    this.angularVelPitch += (targetVelY - this.angularVelPitch) * 0.22;
+                    this.rotateOrbit(this.angularVelYaw, this.angularVelPitch);
                 } else if (e.buttons === 2) { // Right drag -> Pan
                     const panSpeed = this.orbitRadius * 0.0015;
                     const right = this.getRightVector();
@@ -269,10 +271,11 @@ export class CameraController {
                 lastTouchX = curX;
                 lastTouchY = curY;
 
-                const rotSpeed = 0.006;
-                this.rotateOrbit(dx * rotSpeed, dy * rotSpeed);
-                this.angularVelYaw = dx * 0.0035;
-                this.angularVelPitch = dy * 0.0035;
+                const targetVelX = dx * 0.0028;
+                const targetVelY = dy * 0.0028;
+                this.angularVelYaw += (targetVelX - this.angularVelYaw) * 0.22;
+                this.angularVelPitch += (targetVelY - this.angularVelPitch) * 0.22;
+                this.rotateOrbit(this.angularVelYaw, this.angularVelPitch);
             } else if (e.touches.length === 2) {
                 if (e.cancelable) e.preventDefault();
                 // Pinch to Zoom
@@ -555,13 +558,13 @@ export class CameraController {
 
             if (moved) this.hasMoved = true;
         } else if (this.mode === 'orbit') {
-            const hasAngularImpulse = (Math.abs(this.angularVelYaw) > 0.00005 || Math.abs(this.angularVelPitch) > 0.00005);
+            const hasAngularImpulse = (Math.abs(this.angularVelYaw) > 0.00002 || Math.abs(this.angularVelPitch) > 0.00002);
 
             if (!this.isDraggingOrbit && hasAngularImpulse) {
-                // Apply 360 unconstrained momentum glide when released
+                // Apply 360 unconstrained heavy momentum glide when released
                 this.rotateOrbit(this.angularVelYaw, this.angularVelPitch);
 
-                // Viscous friction drag
+                // Heavy viscous friction drag (preserves sustained weighty glide)
                 this.angularVelYaw *= this.inertiaFriction;
                 this.angularVelPitch *= this.inertiaFriction;
             } else if (!this.isDraggingOrbit && this.autoRotate) {
