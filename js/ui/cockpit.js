@@ -32,18 +32,21 @@ export class CockpitUI {
             this.renderFormulaParams();
             this.updateHeaderInfo();
             if (this.camera) this.camera.resetToDefaultZoom();
-            const r = this.camera.computeFractalBoundingRadius(formula, this.state.values);
-            const tanHalfFov = Math.tan((60 * 0.5) * (Math.PI / 180.0));
-            const idealDist = (0.80 * r) / tanHalfFov;
-            this.camera.orbitRadius = idealDist;
-            const defCam = formula.defaultCam || { pos: [0, 0, idealDist], target: [0, 0, 0] };
-            const dir = [defCam.pos[0] - defCam.target[0], defCam.pos[1] - defCam.target[1], defCam.pos[2] - defCam.target[2]];
-            const dLen = Math.hypot(dir[0], dir[1], dir[2]) || 1.0;
-            this.camera.resetView([
-                defCam.target[0] + dir[0] * (idealDist / dLen),
-                defCam.target[1] + dir[1] * (idealDist / dLen),
-                defCam.target[2] + dir[2] * (idealDist / dLen)
-            ], defCam.target);
+            this.raymarcher.resetAccumulation();
+        });
+
+        this.state.onFormulaMorph((morph) => {
+            if (this.elFormulaSelect) this.elFormulaSelect.value = morph.toId;
+            const targetFormula = FORMULAS[morph.toId];
+            if (targetFormula) {
+                const elFormulaDisplay = document.getElementById('formula-name-display');
+                if (elFormulaDisplay) elFormulaDisplay.textContent = targetFormula.name;
+                const elFormulaName = document.getElementById('hud-formula-name');
+                if (elFormulaName) elFormulaName.textContent = targetFormula.name;
+                const elFormulaSub = document.getElementById('hud-formula-sub');
+                if (elFormulaSub) elFormulaSub.textContent = targetFormula.subtitle;
+            }
+            this.raymarcher.resetAccumulation();
         });
     }
 
@@ -372,17 +375,18 @@ export class CockpitUI {
         // Formula Switcher
         if (this.elFormulaSelect) {
             this.elFormulaSelect.addEventListener('change', (e) => {
-                this.state.setFormula(e.target.value);
+                this.state.startFormulaMorph(e.target.value, 1.6);
             });
         }
 
         // 1. Fractal Formula Stepper & Cycler
         const formulaIds = Object.keys(FORMULAS);
         const switchFormulaByIndex = (direction) => {
-            const currentIdx = formulaIds.indexOf(this.state.activeFormulaId);
+            const currentActive = this.state.formulaMorph ? this.state.formulaMorph.toId : this.state.activeFormulaId;
+            const currentIdx = formulaIds.indexOf(currentActive);
             let nextIdx = (currentIdx + direction + formulaIds.length) % formulaIds.length;
             const nextId = formulaIds[nextIdx];
-            this.state.setFormula(nextId);
+            this.state.startFormulaMorph(nextId, 1.6);
             if (this.elFormulaSelect) this.elFormulaSelect.value = nextId;
             this.raymarcher.resetAccumulation();
         };

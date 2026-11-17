@@ -1,6 +1,8 @@
 // js/camera/controller.js
 // Dual camera system: Full 360-Degree Spherical Trackball Orbit + 6-DOF Proximity-Scaled Free-Flight
 
+import { FORMULAS } from '../formulas/registry.js';
+
 function rotateVec(v, axis, angle) {
     const c = Math.cos(angle);
     const s = Math.sin(angle);
@@ -442,10 +444,21 @@ export class CameraController {
     }
 
     // Auto zoom controller: smoothly keeps exactly 80% of the fractal inside the viewport (20% extends outside) at all times
-    updateAutoZoom(formula, values, fov = 60, dt = 0.016) {
+    updateAutoZoom(formula, values, fov = 60, dt = 0.016, formulaMorph = null) {
         if (this.mode !== 'orbit') return;
 
-        const objRadius = this.computeFractalBoundingRadius(formula, values);
+        let objRadius;
+        if (formulaMorph && FORMULAS[formulaMorph.fromId] && FORMULAS[formulaMorph.toId]) {
+            const fA = FORMULAS[formulaMorph.fromId];
+            const fB = FORMULAS[formulaMorph.toId];
+            const rA = this.computeFractalBoundingRadius(fA, values);
+            const rB = this.computeFractalBoundingRadius(fB, values);
+            const t = formulaMorph.progress;
+            const s = t * t * (3.0 - 2.0 * t); // smooth cubic blend
+            objRadius = rA + (rB - rA) * s;
+        } else {
+            objRadius = this.computeFractalBoundingRadius(formula, values);
+        }
         
         // Half-angle of visible frustum along shorter screen dimension
         const halfFovRad = (fov * 0.5) * (Math.PI / 180.0);

@@ -1,8 +1,10 @@
 // js/renderer/raymarcher.js
-/*  */// WebGL2 Raymarching Engine:
-// - Dynamic Shader Compilation per Formula
+// WebGL2 Metamorphic Raymarching Engine:
+// - Seamless 3D Distance Field Metamorphosis across all fractal formulas
 // - 2-Pass Adaptive Pipeline: Low-res fast render while moving / modulating -> High-res 2x SSAA accumulation when still
 // - Soft shadows, Iteration-based AO, 4-Channel Orbit Traps, Inigo Quilez Cosine Palette, Volumetric Step Glow, Fog
+
+import { FORMULAS, FORMULA_NUM_IDS } from '../formulas/registry.js';
 
 export class Raymarcher {
     constructor(canvas, stateManager) {
@@ -29,14 +31,13 @@ export class Raymarcher {
         this.quadVAO = null;
         this.quadVBO = null;
 
-        // Program cache per formula ID
-        this.programs = new Map();
+        // Master Program & Uniform Locations
         this.currentProgram = null;
         this.uniformLocations = new Map();
 
-        // Resolution management (1.0x native full resolution)
-        this.activeScale = 1.0;
-        this.targetScale = 1.0;
+        // Resolution management (Performance-tuned with FXAA anti-aliasing)
+        this.activeScale = 0.72;
+        this.targetScale = 0.72;
         this.stillFrames = 0;
         this.ssaaAccumulation = 0;
         this.maxSSAA = 8;
@@ -55,11 +56,10 @@ export class Raymarcher {
 
         this.initQuad();
         this.initCompositeShader();
-        this.rebuildActiveFormula();
+        this.initMasterProgram();
 
         // Listen for formula changes
         this.state.onFormulaChange(() => {
-            this.rebuildActiveFormula();
             this.resetAccumulation();
         });
     }
@@ -281,13 +281,63 @@ mat3 rotZ(float a) {
 `;
     }
 
-    buildRaymarcherBody(formula) {
-        return `
-// Active Formula Uniforms
-${formula.params.map(p => `uniform ${p.type === 'int' ? 'int' : 'float'} ${p.uniform};`).join('\n')}
+    buildRaymarcherBody() {
+        // Collect all uniforms across all formulas
+        const seenUniforms = new Set();
+        const uniformDecls = [];
+        for (const f of Object.values(FORMULAS)) {
+            for (const p of f.params) {
+                if (!seenUniforms.has(p.uniform)) {
+                    seenUniforms.add(p.uniform);
+                    uniformDecls.push(`uniform ${p.type === 'int' ? 'int' : 'float'} ${p.uniform};`);
+                }
+            }
+        }
 
-// Formula Distance Estimator
-${formula.glsl}
+        return `
+// Master Formula Uniforms
+uniform int u_formula_a;
+uniform int u_formula_b;
+uniform float u_formula_morph;
+
+${uniformDecls.join('\n')}
+
+// Distance Estimator Engines
+${FORMULAS['mandelbulb'].glsl}
+${FORMULAS['mandelbox'].glsl}
+${FORMULAS['kifs'].glsl}
+${FORMULAS['quat_julia'].glsl}
+
+// Master Evaluator by Numeric ID
+float evalFormulaById(int id, vec3 pos, out vec4 trap) {
+    if (id == 0) return mapFractal_quat_julia(pos, trap);
+    if (id == 1) return mapFractal_mandelbulb(pos, trap);
+    if (id == 2) return mapFractal_mandelbox(pos, trap);
+    if (id == 3) return mapFractal_kifs(pos, trap);
+    trap = vec4(0.0);
+    return length(pos) - 1.0;
+}
+
+// Seamless Metamorphic Distance Field Interpolation
+float mapFractal(vec3 pos, out vec4 trap) {
+    if (u_formula_morph <= 0.001) {
+        return evalFormulaById(u_formula_a, pos, trap);
+    }
+    if (u_formula_morph >= 0.999) {
+        return evalFormulaById(u_formula_b, pos, trap);
+    }
+    vec4 trapA = vec4(100.0);
+    vec4 trapB = vec4(100.0);
+    float dA = evalFormulaById(u_formula_a, pos, trapA);
+    float dB = evalFormulaById(u_formula_b, pos, trapB);
+    
+    // Quintic ease-in-out for ultra smooth geometric metamorphosis
+    float t = u_formula_morph;
+    float s = t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+    
+    trap = mix(trapA, trapB, s);
+    return mix(dA, dB, s);
+}
 
 // Distance wrapper with dummy trap
 float map(vec3 pos) {
@@ -485,14 +535,7 @@ void main() {
 `;
     }
 
-    rebuildActiveFormula() {
-        const formula = this.state.getActiveFormula();
-        if (this.programs.has(formula.id)) {
-            this.currentProgram = this.programs.get(formula.id);
-            this.cacheUniformLocations(formula);
-            return;
-        }
-
+    initMasterProgram() {
         const gl = this.gl;
         const vsSource = `#version 300 es
         in vec2 a_pos;
@@ -500,21 +543,24 @@ void main() {
             gl_Position = vec4(a_pos, 0.0, 1.0);
         }`;
 
-        const fsSource = this.buildCommonFragmentHeader() + this.buildRaymarcherBody(formula);
+        const fsSource = this.buildCommonFragmentHeader() + this.buildRaymarcherBody();
 
         try {
             const vs = this.compileShader(gl.VERTEX_SHADER, vsSource);
             const fs = this.compileShader(gl.FRAGMENT_SHADER, fsSource);
-            const prog = this.createProgram(vs, fs);
-            this.programs.set(formula.id, prog);
-            this.currentProgram = prog;
-            this.cacheUniformLocations(formula);
+            this.masterProgram = this.createProgram(vs, fs);
+            this.currentProgram = this.masterProgram;
+            this.cacheUniformLocations();
         } catch (e) {
-            console.error('Failed to compile fractal shader:', e);
+            console.error('Failed to compile master fractal shader:', e);
         }
     }
 
-    cacheUniformLocations(formula) {
+    rebuildActiveFormula() {
+        this.resetAccumulation();
+    }
+
+    cacheUniformLocations() {
         const gl = this.gl;
         this.uniformLocations.clear();
 
@@ -532,15 +578,18 @@ void main() {
             'u_backlight_intensity', 'u_backlight_elevation',
             'u_rim_color_r', 'u_rim_color_g', 'u_rim_color_b',
             'u_glow_intensity', 'u_glow_color_r', 'u_glow_color_g', 'u_glow_color_b',
-            'u_fog_density'
+            'u_fog_density',
+            'u_formula_a', 'u_formula_b', 'u_formula_morph'
         ];
 
         for (const u of standardUniforms) {
             this.uniformLocations.set(u, gl.getUniformLocation(this.currentProgram, u));
         }
 
-        for (const p of formula.params) {
-            this.uniformLocations.set(p.uniform, gl.getUniformLocation(this.currentProgram, p.uniform));
+        for (const formula of Object.values(FORMULAS)) {
+            for (const p of formula.params) {
+                this.uniformLocations.set(p.uniform, gl.getUniformLocation(this.currentProgram, p.uniform));
+            }
         }
     }
 
@@ -671,13 +720,30 @@ void main() {
         set1f('u_glow_color_b', this.state.get('glow_color_b') ?? 1.0);
         set1f('u_fog_density', this.state.get('fog_density') ?? 0.15);
 
-        // Upload Active Formula Math Uniforms
-        for (const p of formula.params) {
-            const val = this.state.get(p.id);
-            if (p.type === 'int') {
-                set1i(p.uniform, Math.round(val));
-            } else {
-                set1f(p.uniform, val);
+        // Formula morph uniforms
+        if (this.state.formulaMorph) {
+            const morph = this.state.formulaMorph;
+            const fA = FORMULA_NUM_IDS[morph.fromId] ?? 0;
+            const fB = FORMULA_NUM_IDS[morph.toId] ?? 0;
+            set1i('u_formula_a', fA);
+            set1i('u_formula_b', fB);
+            set1f('u_formula_morph', morph.progress);
+        } else {
+            const curId = FORMULA_NUM_IDS[this.state.activeFormulaId] ?? 0;
+            set1i('u_formula_a', curId);
+            set1i('u_formula_b', curId);
+            set1f('u_formula_morph', 0.0);
+        }
+
+        // Upload all formula parameters across all engines
+        for (const f of Object.values(FORMULAS)) {
+            for (const p of f.params) {
+                const val = this.state.get(p.id) ?? p.default;
+                if (p.type === 'int') {
+                    set1i(p.uniform, Math.round(val));
+                } else {
+                    set1f(p.uniform, val);
+                }
             }
         }
 

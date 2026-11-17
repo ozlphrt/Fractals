@@ -67,6 +67,9 @@ class FractalSynthApp {
             // 2. Modulation update
             this.modulation.update(dt);
 
+            // 2b. Step 3D metamorphic formula morphing
+            const isFormulaMorphing = this.state.updateFormulaMorph(dt);
+
             // 3. Step physical slider inertia (heavy moment of inertia for sliders)
             const slidersMoving = this.state.updateInertia(dt);
 
@@ -94,12 +97,12 @@ class FractalSynthApp {
             }
 
             // 5b. Auto zoom to include 80% of the fractal inside the viewport at all times
-            this.camera.updateAutoZoom(activeFormula, this.state.values, this.state.get('fov') || 60, dt);
+            this.camera.updateAutoZoom(activeFormula, this.state.values, this.state.get('fov') || 60, dt, this.state.formulaMorph);
 
             // 6. Camera flight / orbit update
             const camMoved = this.camera.update(dt, surfaceDE);
 
-            const isMorphing = (this.state.morphAnim !== null);
+            const isMorphing = (this.state.morphAnim !== null) || isFormulaMorphing;
             const isDynamic = camMoved || slidersMoving || isMorphing || (hasMod && (this.audio.isPlaying || this.modulation.bindings.size > 0));
 
             // 7. Raymarch render

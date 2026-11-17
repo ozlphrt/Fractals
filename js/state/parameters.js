@@ -124,6 +124,10 @@ export class StateManager {
         this.historyIndex = -1;
         this.maxHistory = 30;
 
+        // Metamorphic 3D formula transition
+        this.formulaMorph = null;
+        this.formulaMorphListeners = new Set();
+        
         // Listeners for UI / Renderer sync
         this.listeners = new Set();
         this.formulaChangeListeners = new Set();
@@ -236,21 +240,60 @@ export class StateManager {
         return FORMULAS[this.activeFormulaId];
     }
 
-    setFormula(formulaId) {
+    setFormula(formulaId, immediate = false) {
         if (!FORMULAS[formulaId] || this.activeFormulaId === formulaId) return;
-        this.activeFormulaId = formulaId;
-        // Snapshot resets
-        this.snapshotA = null;
-        this.snapshotB = null;
-        this.morphProgress = 0.0;
-        
-        // Smooth deformation animation
-        this.morphAnim = null;
-        this.formulaMorphCount = 0;
-        this.minMorphsPerFormula = 3; // At least 3 morphs on same formula before switching
-        
-        this.formulaChangeListeners.forEach(cb => cb(this.getActiveFormula()));
-        this.pushHistory();
+        if (immediate) {
+            this.formulaMorph = null;
+            this.activeFormulaId = formulaId;
+            this.snapshotA = null;
+            this.snapshotB = null;
+            this.morphProgress = 0.0;
+            this.morphAnim = null;
+            this.formulaMorphCount = 0;
+            this.formulaChangeListeners.forEach(cb => cb(this.getActiveFormula()));
+            this.pushHistory();
+        } else {
+            this.startFormulaMorph(formulaId, 1.6);
+        }
+    }
+
+    startFormulaMorph(toFormulaId, duration = 1.6) {
+        if (!FORMULAS[toFormulaId] || this.activeFormulaId === toFormulaId) return;
+        if (this.formulaMorph && this.formulaMorph.toId === toFormulaId) return;
+
+        const fromId = this.activeFormulaId;
+        this.formulaMorph = {
+            fromId: fromId,
+            toId: toFormulaId,
+            duration: Math.max(0.2, duration),
+            elapsed: 0.0,
+            progress: 0.0
+        };
+
+        this.formulaMorphListeners.forEach(cb => cb(this.formulaMorph));
+    }
+
+    updateFormulaMorph(dt) {
+        if (!this.formulaMorph) return false;
+
+        this.formulaMorph.elapsed += dt;
+        const rawT = Math.min(1.0, this.formulaMorph.elapsed / this.formulaMorph.duration);
+        this.formulaMorph.progress = rawT;
+
+        if (rawT >= 1.0) {
+            const nextId = this.formulaMorph.toId;
+            this.formulaMorph = null;
+            this.activeFormulaId = nextId;
+            this.formulaMorphCount = 0;
+            this.formulaChangeListeners.forEach(cb => cb(this.getActiveFormula()));
+            this.pushHistory();
+        }
+        return true;
+    }
+
+    onFormulaMorph(cb) {
+        this.formulaMorphListeners.add(cb);
+        return () => this.formulaMorphListeners.delete(cb);
     }
 
     subscribe(paramOrCb, maybeCb) {
