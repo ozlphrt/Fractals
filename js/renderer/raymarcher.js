@@ -257,6 +257,7 @@ uniform float u_rim_color_r, u_rim_color_g, u_rim_color_b;
 uniform float u_glow_intensity;
 uniform float u_glow_color_r, u_glow_color_g, u_glow_color_b;
 uniform float u_fog_density;
+uniform float u_near_clip;
 
 // Rotation utilities
 mat3 rotX(float a) {
@@ -304,16 +305,16 @@ vec3 cosinePalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
     return a + b * cos(6.28318 * (c * t + d));
 }
 
-// Soft Shadow (optimized 10 steps with dynamic safety, prevents flat silhouette crushing)
+// Soft Shadow (optimized 8 steps with dynamic safety, prevents flat silhouette crushing)
 float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
     float res = 1.0;
     float t = mint;
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 8; i++) {
         if (t >= maxt) break;
         float h = map(ro + rd * t);
-        if (h < 0.0004) return 0.12;
+        if (h < 0.0005) return 0.12;
         res = min(res, k * h / t);
-        t += clamp(h, 0.02, 0.35);
+        t += clamp(h, 0.03, 0.40);
     }
     return clamp(res, 0.12, 1.0);
 }
@@ -345,7 +346,7 @@ void main() {
     vec3 rd = normalize(p.x * uu * fovFactor + p.y * vv * fovFactor + ww);
     
     // Raymarching
-    float t = 0.01;
+    float t = max(0.01, u_near_clip);
     float maxDist = 32.0;
     vec4 trap = vec4(100.0);
     vec4 finalTrap = vec4(0.0);
@@ -359,19 +360,24 @@ void main() {
         vec3 curPos = ro + rd * t;
         float d = mapFractal(curPos, trap);
         
-        // Fast polynomial volumetric glow
-        if (u_glow_intensity > 0.005) {
+        // Fast polynomial volumetric glow (culled in near clearance zone)
+        if (u_glow_intensity > 0.005 && t >= u_near_clip) {
             float g = max(0.0, 1.0 - d * 2.5);
             glow += g * g;
         }
         
         if (d < u_hit_epsilon * (1.0 + t * 0.08)) {
+            // Near-clip culling: completely do not draw pieces too close to camera
+            if (t < u_near_clip) {
+                t += max(0.05, abs(d) + 0.02);
+                continue;
+            }
             hit = true;
             t = max(0.005, t - d * 0.4);
             finalTrap = trap;
             break;
         }
-        t += max(u_hit_epsilon * 0.45, d * 0.76);
+        t += max(u_hit_epsilon * 0.5, d * 0.88);
     }
     
     vec3 sunDir = normalize(vec3(
@@ -407,10 +413,10 @@ void main() {
         if (length(palC) < 0.02) palC = vec3(1.0);
         vec3 palD = vec3(u_pal_d_r, u_pal_d_g, u_pal_d_b) + vec3(u_color_phase);
         
-        // Micro geological strata & rock mineral grain
-        float strata = sin(pos.y * 14.0 + sin(pos.x * 6.0 + pos.z * 6.0) * 0.45) * 0.5 + 0.5;
-        float mineralGrain = sin(pos.x * 55.0) * sin(pos.y * 55.0) * sin(pos.z * 55.0);
-        float tCoord = trapVal * u_color_cycle + strata * 0.08 + mineralGrain * 0.03;
+        // Micro geological strata & rock mineral grain (smooth natural gradation, zero grid moiré)
+        float strata = sin(pos.y * 10.0 + sin(pos.x * 5.0 + pos.z * 5.0) * 0.4) * 0.5 + 0.5;
+        float mineralGrain = sin(pos.x * 16.0 + pos.y * 20.0) * sin(pos.y * 16.0 + pos.z * 20.0);
+        float tCoord = trapVal * u_color_cycle + strata * 0.05 + mineralGrain * 0.015;
         vec3 albedo = clamp(cosinePalette(tCoord, palA, palB, palC, palD), 0.0, 1.0);
         
         // Deep crevice weathering
@@ -421,9 +427,14 @@ void main() {
         vec3 rimColor = vec3(u_rim_color_r, u_rim_color_g, u_rim_color_b);
         if (length(rimColor) < 0.1) rimColor = vec3(0.45, 0.65, 0.90);
         
-        // Main Sun Light
+        // Main Sun Light (Shadow terminator guard eliminates grazing self-shadow fishbone ripples)
         float dif = clamp(dot(nor, sunDir), 0.0, 1.0);
-        float sha = softShadow(pos + nor * 0.015, sunDir, 0.03, 5.0, u_shadow_softness);
+        float sha = 1.0;
+        if (dif > 0.02) {
+            sha = softShadow(pos + nor * max(0.025, u_hit_epsilon * 3.0), sunDir, 0.035, 5.0, u_shadow_softness);
+        } else {
+            sha = 0.12;
+        }
         
         // Specular highlight (Fresnel + Blinn-Phong)
         vec3 hal = normalize(sunDir - rd);
@@ -521,7 +532,7 @@ void main() {
             'u_backlight_intensity', 'u_backlight_elevation',
             'u_rim_color_r', 'u_rim_color_g', 'u_rim_color_b',
             'u_glow_intensity', 'u_glow_color_r', 'u_glow_color_g', 'u_glow_color_b',
-            'u_fog_density'
+            'u_fog_density', 'u_near_clip'
         ];
 
         for (const u of standardUniforms) {
@@ -580,7 +591,7 @@ void main() {
         this.stillFrames = 0;
     }
 
-    renderFormulaPass(formula, targetFBO, camera, time, renderW, renderH) {
+    renderFormulaPass(formula, targetFBO, camera, time, renderW, renderH, isMoving = false) {
         const gl = this.gl;
         const prog = this.getProgramForFormula(formula);
         if (!prog) return;
@@ -610,7 +621,10 @@ void main() {
         gl.uniform1f(uniformMap.get('u_fov'), this.state.get('fov'));
         gl.uniform2f(uniformMap.get('u_subpixel_jitter'), 0.0, 0.0);
 
-        set1i('u_max_steps', this.state.get('max_steps'));
+        // Adaptive max ray steps: 85 steps during motion for locked 60 FPS, full 150 steps when still
+        const userSteps = this.state.get('max_steps') ?? 150;
+        const activeSteps = isMoving ? Math.min(85, userSteps) : userSteps;
+        set1i('u_max_steps', activeSteps);
         set1f('u_hit_epsilon', this.state.get('hit_epsilon'));
         set1i('u_trap_mode', this.state.get('trap_mode'));
         set1f('u_color_cycle', this.state.get('color_cycle'));
@@ -648,6 +662,13 @@ void main() {
         set1f('u_glow_color_b', this.state.get('glow_color_b') ?? 1.0);
         set1f('u_fog_density', this.state.get('fog_density') ?? 0.15);
 
+        // Near-clip culling: only active for Mandelbox to prevent camera close-up wall clipping
+        if (formula.id === 'mandelbox') {
+            set1f('u_near_clip', this.state.get('mbox_near_clip') ?? 0.70);
+        } else {
+            set1f('u_near_clip', 0.0);
+        }
+
         // Upload Active Formula Math Uniforms
         for (const p of formula.params) {
             const val = this.state.get(p.id) ?? p.default;
@@ -664,8 +685,8 @@ void main() {
     render(camera, time, isMovingOrModulating = false) {
         const gl = this.gl;
 
-        // Performance-tuned resolution scaling: 0.72x renders with FXAA at 60 FPS
-        this.activeScale = 0.72;
+        // Adaptive resolution scaling: 0.65x while interacting/modulating for solid 60 FPS, 0.78x with FXAA when still
+        this.activeScale = isMovingOrModulating ? 0.65 : 0.78;
         const renderW = Math.max(64, Math.floor(this.canvas.width * this.activeScale));
         const renderH = Math.max(64, Math.floor(this.canvas.height * this.activeScale));
         this.updateFBOs(renderW, renderH);
@@ -679,13 +700,13 @@ void main() {
             const formulaB = FORMULAS[morph.toId];
 
             // Render Formula A into FBO A
-            this.renderFormulaPass(formulaA, this.fboA, camera, time, renderW, renderH);
+            this.renderFormulaPass(formulaA, this.fboA, camera, time, renderW, renderH, isMovingOrModulating);
 
             // Render Formula B into FBO B
-            this.renderFormulaPass(formulaB, this.fboB, camera, time, renderW, renderH);
+            this.renderFormulaPass(formulaB, this.fboB, camera, time, renderW, renderH, isMovingOrModulating);
         } else {
             const currentFormula = this.state.getActiveFormula();
-            this.renderFormulaPass(currentFormula, this.fboA, camera, time, renderW, renderH);
+            this.renderFormulaPass(currentFormula, this.fboA, camera, time, renderW, renderH, isMovingOrModulating);
         }
 
         // --- DIRECT SCREEN COMPOSITE & BLEND PASS (WITH FXAA ANTI-ALIASING) ---

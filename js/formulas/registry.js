@@ -131,24 +131,25 @@ float mapFractal(vec3 pos, out vec4 trap) {
             { id: 'mbox_rot_z', name: 'Step Rot Z', min: -0.5, max: 0.5, step: 0.01, default: 0.0, uniform: 'u_mbox_rot_z', type: 'float' },
             { id: 'mbox_offset_x', name: 'Offset Shift X', min: -1.0, max: 1.0, step: 0.01, default: 0.0, uniform: 'u_mbox_offset_x', type: 'float' },
             { id: 'mbox_offset_y', name: 'Offset Shift Y', min: -1.0, max: 1.0, step: 0.01, default: 0.0, uniform: 'u_mbox_offset_y', type: 'float' },
-            { id: 'mbox_offset_z', name: 'Offset Shift Z', min: -1.0, max: 1.0, step: 0.01, default: 0.0, uniform: 'u_mbox_offset_z', type: 'float' }
+            { id: 'mbox_offset_z', name: 'Offset Shift Z', min: -1.0, max: 1.0, step: 0.01, default: 0.0, uniform: 'u_mbox_offset_z', type: 'float' },
+            { id: 'mbox_near_clip', name: 'Camera Clearance', min: 0.2, max: 2.5, step: 0.05, default: 0.70, uniform: 'u_mbox_near_clip', type: 'float' }
         ],
         presets: [
             {
                 name: 'Default Metropolis',
-                values: { mbox_scale: 2.2, mbox_iterations: 9, mbox_fold_limit: 1.0, mbox_min_radius: 0.5, mbox_fixed_radius: 1.0, mbox_rot_x: 0, mbox_rot_y: 0, mbox_rot_z: 0, mbox_offset_x: 0, mbox_offset_y: 0, mbox_offset_z: 0 }
+                values: { mbox_scale: 2.2, mbox_iterations: 9, mbox_fold_limit: 1.0, mbox_min_radius: 0.5, mbox_fixed_radius: 1.0, mbox_rot_x: 0, mbox_rot_y: 0, mbox_rot_z: 0, mbox_offset_x: 0, mbox_offset_y: 0, mbox_offset_z: 0, mbox_near_clip: 0.70 }
             },
             {
                 name: 'Infinite Sci-Fi Grid',
-                values: { mbox_scale: -1.9, mbox_iterations: 10, mbox_fold_limit: 0.85, mbox_min_radius: 0.35, mbox_fixed_radius: 1.15, mbox_rot_x: 0.08, mbox_rot_y: -0.05, mbox_rot_z: 0.06, mbox_offset_x: 0.1, mbox_offset_y: -0.05, mbox_offset_z: 0.12 }
+                values: { mbox_scale: -1.9, mbox_iterations: 10, mbox_fold_limit: 0.85, mbox_min_radius: 0.35, mbox_fixed_radius: 1.15, mbox_rot_x: 0.08, mbox_rot_y: -0.05, mbox_rot_z: 0.06, mbox_offset_x: 0.1, mbox_offset_y: -0.05, mbox_offset_z: 0.12, mbox_near_clip: 0.70 }
             },
             {
                 name: 'Gothic Colosseum',
-                values: { mbox_scale: 2.8, mbox_iterations: 10, mbox_fold_limit: 1.2, mbox_min_radius: 0.45, mbox_fixed_radius: 1.4, mbox_rot_x: 0.0, mbox_rot_y: 0.15, mbox_rot_z: 0.0, mbox_offset_x: -0.2, mbox_offset_y: 0.0, mbox_offset_z: 0.1 }
+                values: { mbox_scale: 2.8, mbox_iterations: 10, mbox_fold_limit: 1.2, mbox_min_radius: 0.45, mbox_fixed_radius: 1.4, mbox_rot_x: 0.0, mbox_rot_y: 0.15, mbox_rot_z: 0.0, mbox_offset_x: -0.2, mbox_offset_y: 0.0, mbox_offset_z: 0.1, mbox_near_clip: 0.70 }
             },
             {
                 name: 'Negative Folding Hive',
-                values: { mbox_scale: -2.6, mbox_iterations: 10, mbox_fold_limit: 0.7, mbox_min_radius: 0.28, mbox_fixed_radius: 0.9, mbox_rot_x: 0.12, mbox_rot_y: 0.2, mbox_rot_z: -0.1, mbox_offset_x: 0.0, mbox_offset_y: 0.2, mbox_offset_z: 0.0 }
+                values: { mbox_scale: -2.6, mbox_iterations: 10, mbox_fold_limit: 0.7, mbox_min_radius: 0.28, mbox_fixed_radius: 0.9, mbox_rot_x: 0.12, mbox_rot_y: 0.2, mbox_rot_z: -0.1, mbox_offset_x: 0.0, mbox_offset_y: 0.2, mbox_offset_z: 0.0, mbox_near_clip: 0.70 }
             }
         ],
         glsl: `
@@ -444,8 +445,8 @@ float mapFractal(vec3 pos, out vec4 trap) {
         z = quatSq(z) + c;
         mz2 = dot(z, z);
         
-        orbit.x = min(orbit.x, mz2);
-        orbit.y = min(orbit.y, abs(z.y * z.z));
+        orbit.x = min(orbit.x, sqrt(mz2));
+        orbit.y = min(orbit.y, abs(z.y) + abs(z.z));
         orbit.z = min(orbit.z, abs(z.w));
         orbit.w = float(i);
         
