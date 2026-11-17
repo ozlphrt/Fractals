@@ -413,10 +413,19 @@ void main() {
         if (length(palC) < 0.02) palC = vec3(1.0);
         vec3 palD = vec3(u_pal_d_r, u_pal_d_g, u_pal_d_b) + vec3(u_color_phase);
         
-        // Micro geological strata & rock mineral grain (smooth natural gradation, zero grid moiré)
-        float strata = sin(pos.y * 10.0 + sin(pos.x * 5.0 + pos.z * 5.0) * 0.4) * 0.5 + 0.5;
-        float mineralGrain = sin(pos.x * 16.0 + pos.y * 20.0) * sin(pos.y * 16.0 + pos.z * 20.0);
-        float tCoord = trapVal * u_color_cycle + strata * 0.05 + mineralGrain * 0.015;
+        // Triplanar Texture Mapping: Blends 3 orthogonal planes weighted by surface normal
+        // Completely eliminates texture stretching, parallel grooves, and vertical slope distortion
+        vec3 triWeight = abs(nor);
+        triWeight = pow(triWeight, vec3(3.0));
+        triWeight /= max(1e-4, triWeight.x + triWeight.y + triWeight.z);
+
+        // Project natural geological strata & mineral textures across each axis
+        float texX = sin(pos.y * 8.0 + sin(pos.z * 4.0) * 0.3) * 0.5 + 0.5;
+        float texY = sin(pos.x * 8.0 + sin(pos.z * 4.0) * 0.3) * 0.5 + 0.5;
+        float texZ = sin(pos.x * 8.0 + sin(pos.y * 4.0) * 0.3) * 0.5 + 0.5;
+        float triTex = triWeight.x * texX + triWeight.y * texY + triWeight.z * texZ;
+
+        float tCoord = trapVal * u_color_cycle + (triTex - 0.5) * 0.06;
         vec3 albedo = clamp(cosinePalette(tCoord, palA, palB, palC, palD), 0.0, 1.0);
         
         // Deep crevice weathering

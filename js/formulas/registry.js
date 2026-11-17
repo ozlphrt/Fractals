@@ -33,7 +33,7 @@ export const FORMULAS = {
             },
             {
                 name: 'Organic Power 7',
-                values: { mb_power: 7.0, mb_iterations: 12, mb_julia_mix: 0.08, mb_julia_cx: -0.2, mb_julia_cy: 0.15, mb_julia_cz: 0.1 }
+                values: { mb_power: 7.0, mb_iterations: 12, mb_julia_mix: 0.0, mb_julia_cx: 0.0, mb_julia_cy: 0.0, mb_julia_cz: 0.0 }
             },
             {
                 name: 'Smooth Romanesco Power 6',
@@ -41,11 +41,11 @@ export const FORMULAS = {
             },
             {
                 name: 'Monolithic Power 9',
-                values: { mb_power: 9.0, mb_iterations: 14, mb_julia_mix: 0.05, mb_julia_cx: -0.15, mb_julia_cy: 0.2, mb_julia_cz: -0.1 }
+                values: { mb_power: 9.0, mb_iterations: 14, mb_julia_mix: 0.0, mb_julia_cx: 0.0, mb_julia_cy: 0.0, mb_julia_cz: 0.0 }
             }
         ],
         glsl: `
-// Canonical Smooth Mandelbulb DE (Pure spherical harmonics, zero spikes, zero horns)
+// Canonical Symmetrical Mandelbulb DE (Equally distributed spherical harmonics, zero polar sheets/pancakes)
 float mapFractal(vec3 pos, out vec4 trap) {
     vec3 w = pos;
     vec4 orbit = vec4(100.0);
@@ -64,14 +64,18 @@ float mapFractal(vec3 pos, out vec4 trap) {
         float r = sqrt(m);
         dz = power * pow(r, power - 1.0) * dz + 1.0;
         
-        // Canonical continuous spherical harmonics (Inigo Quilez / Daniel White)
-        float b = power * acos(clamp(w.y / max(1e-5, r), -1.0, 1.0));
-        float a = power * atan(w.x, w.z);
+        // Canonical Symmetrical Spherical Coordinates (removes polar pinch & stretched sheets)
+        float theta = acos(clamp(w.z / max(1e-5, r), -1.0, 1.0));
+        float phi = atan(w.y, w.x);
         
-        w = c + pow(r, power) * vec3(sin(b) * sin(a), cos(b), sin(b) * cos(a));
+        theta *= power;
+        phi *= power;
+        
+        float zr = pow(r, power);
+        w = c + zr * vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
         
         orbit.x = min(orbit.x, r);
-        orbit.y = min(orbit.y, abs(w.x) + abs(w.y));
+        orbit.y = min(orbit.y, abs(sin(theta) * cos(phi)));
         orbit.z = min(orbit.z, abs(dot(w, vec3(0.577))));
         orbit.w = float(i);
         
@@ -89,21 +93,23 @@ float mapFractal(vec3 pos, out vec4 trap) {
             const maxIt = Math.min(16, state.mb_iterations ?? 12);
             let x = p[0], y = p[1], z = p[2];
             const jMix = state.mb_julia_mix ?? 0.0;
-            const cx = (1.0 - jMix) * x + jMix * (state.mb_julia_cx ?? -0.3);
-            const cy = (1.0 - jMix) * y + jMix * (state.mb_julia_cy ?? 0.25);
-            const cz = (1.0 - jMix) * z + jMix * (state.mb_julia_cz ?? 0.15);
+            const cx = (1.0 - jMix) * x + jMix * (state.mb_julia_cx ?? 0.0);
+            const cy = (1.0 - jMix) * y + jMix * (state.mb_julia_cy ?? 0.0);
+            const cz = (1.0 - jMix) * z + jMix * (state.mb_julia_cz ?? 0.0);
             let dz = 1.0;
             let m = x * x + y * y + z * z;
 
             for (let i = 0; i < maxIt; i++) {
                 const r = Math.sqrt(m);
                 dz = power * Math.pow(r, power - 1.0) * dz + 1.0;
-                const b = power * Math.acos(Math.max(-1.0, Math.min(1.0, y / Math.max(1e-5, r))));
-                const a = power * Math.atan2(x, z);
-                const rPow = Math.pow(r, power);
-                x = cx + rPow * Math.sin(b) * Math.sin(a);
-                y = cy + rPow * Math.cos(b);
-                z = cz + rPow * Math.sin(b) * Math.cos(a);
+                let theta = Math.acos(Math.max(-1.0, Math.min(1.0, z / Math.max(1e-5, r))));
+                let phi = Math.atan2(y, x);
+                theta *= power;
+                phi *= power;
+                const zr = Math.pow(r, power);
+                x = cx + zr * Math.sin(theta) * Math.cos(phi);
+                y = cy + zr * Math.sin(theta) * Math.sin(phi);
+                z = cz + zr * Math.cos(theta);
                 m = x * x + y * y + z * z;
                 if (m > 8.0) break;
             }
