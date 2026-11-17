@@ -277,6 +277,62 @@ body.zen-mode .studio-ui {
     box-shadow: 0 0 20px rgba(56, 189, 248, 0.35), 0 8px 30px rgba(0, 0, 0, 0.6);
 }
 
+/* Manual Camera Reset Zoom Button */
+.dock-camera-btn {
+    width: 0;
+    height: 48px;
+    opacity: 0;
+    transform: scale(0.6);
+    pointer-events: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    color: #38bdf8;
+    background: rgba(12, 22, 38, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.35), 0 8px 30px rgba(0, 0, 0, 0.6);
+    transition: width 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                margin 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.dock-camera-btn svg {
+    flex-shrink: 0;
+}
+
+.dock-camera-btn.visible {
+    width: 48px;
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+    border: 1px solid rgba(56, 189, 248, 0.65);
+    animation: cameraPulseGlow 3s infinite ease-in-out;
+}
+
+.dock-camera-btn:hover {
+    transform: scale(1.1);
+    background: rgba(18, 32, 54, 0.96);
+    border-color: #38bdf8;
+    box-shadow: 0 0 28px rgba(56, 189, 248, 0.6), 0 10px 36px rgba(0, 0, 0, 0.7);
+}
+
+.dock-camera-btn:active {
+    transform: scale(0.92);
+}
+
+@keyframes cameraPulseGlow {
+    0%, 100% {
+        box-shadow: 0 0 16px rgba(56, 189, 248, 0.35), 0 8px 30px rgba(0, 0, 0, 0.6);
+        border-color: rgba(56, 189, 248, 0.45);
+    }
+    50% {
+        box-shadow: 0 0 26px rgba(56, 189, 248, 0.7), 0 8px 32px rgba(0, 0, 0, 0.7);
+        border-color: rgba(56, 189, 248, 0.9);
+    }
+}
+
 .dock-dice-btn {
     font-size: 1.45rem;
 }
@@ -1111,6 +1167,14 @@ select option:checked,
     .dock-btn {
         width: 46px;
         height: 46px;
+    }
+
+    .dock-camera-btn {
+        height: 46px;
+    }
+
+    .dock-camera-btn.visible {
+        width: 46px;
     }
 
     .dock-dice-btn {

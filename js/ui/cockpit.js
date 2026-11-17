@@ -31,6 +31,7 @@ export class CockpitUI {
         this.state.onFormulaChange((formula) => {
             this.renderFormulaParams();
             this.updateHeaderInfo();
+            if (this.camera) this.camera.resetToDefaultZoom();
             const r = this.camera.computeFractalBoundingRadius(formula, this.state.values);
             const tanHalfFov = Math.tan((60 * 0.5) * (Math.PI / 180.0));
             const idealDist = (0.80 * r) / tanHalfFov;
@@ -320,6 +321,31 @@ export class CockpitUI {
     }
 
     setupEventListeners() {
+        // Manual Zoom Override Reset Camera Button
+        const btnResetZoom = document.getElementById('btn-reset-zoom');
+        if (btnResetZoom) {
+            btnResetZoom.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (this.camera) {
+                    this.camera.resetToDefaultZoom();
+                }
+                this.raymarcher.resetAccumulation();
+            });
+        }
+
+        // Hook Camera Zoom Override State Callback to show/hide Camera Icon
+        if (this.camera) {
+            this.camera.onZoomOverrideChange = (isOverridden) => {
+                if (btnResetZoom) {
+                    if (isOverridden) {
+                        btnResetZoom.classList.add('visible');
+                    } else {
+                        btnResetZoom.classList.remove('visible');
+                    }
+                }
+            };
+        }
+
         // Unified Settings Drawer Toggle (Top app bar Settings button)
         const btnToggleSettings = document.getElementById('btn-toggle-settings');
         if (btnToggleSettings && this.elSettingsDrawer) {

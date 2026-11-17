@@ -42,6 +42,11 @@ export class CameraController {
         this.target = [0.0, 0.0, 0.0];
         this.up = [0.0, 1.0, 0.0];
         this.orbitRadius = 1.2;
+        this.idealDistance = 1.2;
+        
+        // Manual Zoom Override State & Callback
+        this.isZoomOverridden = false;
+        this.onZoomOverrideChange = null;
         
         // Flight rotation euler (yaw, pitch, roll)
         this.yaw = 0.0;
@@ -101,6 +106,20 @@ export class CameraController {
         this.hasMoved = true;
     }
 
+    setZoomOverridden(overridden) {
+        if (this.isZoomOverridden !== overridden) {
+            this.isZoomOverridden = overridden;
+            if (this.onZoomOverrideChange) {
+                this.onZoomOverrideChange(this.isZoomOverridden);
+            }
+        }
+    }
+
+    resetToDefaultZoom() {
+        this.setZoomOverridden(false);
+        this.hasMoved = true;
+    }
+
     reset(pos, target) {
         this.resetView(pos, target);
     }
@@ -118,6 +137,7 @@ export class CameraController {
         this.yaw = Math.atan2(-dx, -dz);
         this.pitch = 0;
         this.roll = 0;
+        this.setZoomOverridden(false);
         this.hasMoved = true;
     }
 
@@ -206,6 +226,7 @@ export class CameraController {
                     this.pos[1] = this.target[1] + offset[1];
                     this.pos[2] = this.target[2] + offset[2];
                     this.hasMoved = true;
+                    this.setZoomOverridden(true);
                 }
             } else {
                 this.speedMultiplier = Math.max(0.1, Math.min(10.0, this.speedMultiplier * (e.deltaY < 0 ? 1.15 : 0.87)));
@@ -258,6 +279,9 @@ export class CameraController {
                 const currentPinchDist = Math.hypot(dx, dy);
                 if (initialPinchDist > 5 && currentPinchDist > 5) {
                     const ratio = initialPinchDist / currentPinchDist;
+                    if (Math.abs(ratio - 1.0) > 0.02) {
+                        this.setZoomOverridden(true);
+                    }
                     const targetRadius = Math.max(0.02, Math.min(60.0, initialRadius * ratio));
                     const currentOffset = [
                         this.pos[0] - this.target[0],
@@ -430,10 +454,21 @@ export class CameraController {
         // Exactly 80% of object inside viewport (20% extends outside)
         // Visible span = 0.80 * Object Diameter ==> D = (0.80 * objRadius) / tanHalfFov
         const idealDistance = (0.80 * objRadius) / tanHalfFov;
+        this.idealDistance = idealDistance;
+
+        // If user has overridden the zoom factor, respect manual zoom (do not force orbitRadius)
+        if (this.isZoomOverridden) return;
 
         // Smooth critically damped exponential ease
-        const lerpSpeed = Math.min(1.0, 4.5 * dt);
+        const lerpSpeed = Math.min(1.0, 5.5 * dt);
         this.orbitRadius += (idealDistance - this.orbitRadius) * lerpSpeed;
+
+        // Smoothly recenter target if it was panned
+        if (Math.hypot(this.target[0], this.target[1], this.target[2]) > 0.001) {
+            this.target[0] += (0.0 - this.target[0]) * lerpSpeed;
+            this.target[1] += (0.0 - this.target[1]) * lerpSpeed;
+            this.target[2] += (0.0 - this.target[2]) * lerpSpeed;
+        }
 
         // Reposition camera pos smoothly along orbit vector
         const offset = [
