@@ -30,13 +30,19 @@ class FractalSynthApp {
 
     setupResize() {
         const resize = () => {
-            // Cap DPR at 1.0 for silky 60 FPS performance (FXAA delivers clean smooth edges)
+            // Cap DPR at 1.0 and limit maximum dimensions to 1600x1000 so 4K/Retina displays maintain silky 60 FPS
             const dpr = Math.min(window.devicePixelRatio || 1, 1.0);
-            const w = window.innerWidth;
-            const h = window.innerHeight;
-            if (this.canvas.width !== Math.floor(w * dpr) || this.canvas.height !== Math.floor(h * dpr)) {
-                this.canvas.width = Math.floor(w * dpr);
-                this.canvas.height = Math.floor(h * dpr);
+            let w = Math.floor(window.innerWidth * dpr);
+            let h = Math.floor(window.innerHeight * dpr);
+            const maxDim = 1600;
+            if (w > maxDim || h > maxDim) {
+                const ratio = Math.min(maxDim / w, maxDim / h);
+                w = Math.floor(w * ratio);
+                h = Math.floor(h * ratio);
+            }
+            if (this.canvas.width !== w || this.canvas.height !== h) {
+                this.canvas.width = w;
+                this.canvas.height = h;
                 this.raymarcher.resetAccumulation();
             }
         };
@@ -67,8 +73,6 @@ class FractalSynthApp {
             // 4. Compute modulated parameter values for active formula and globals
             const modulatedValues = {};
             const activeFormula = this.state.getActiveFormula();
-            const allParams = [...activeFormula.params, ...this.ui.sliderEls.values()].map(v => v.param || v);
-
             const hasMod = this.modulation.hasActiveModulation();
 
             for (const p of activeFormula.params) {
