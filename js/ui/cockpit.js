@@ -431,14 +431,14 @@ export class CockpitUI {
         // Light 1 (Sun) ON/OFF Toggle Pill
         const btnToggleSun = document.getElementById('btn-toggle-light-sun');
         if (btnToggleSun) {
-            let savedSunIntensity = this.state.get('sun_intensity') || 1.4;
+            let savedSunIntensity = this.state.get('sun_intensity') || 1.6;
             btnToggleSun.addEventListener('click', () => {
                 const current = this.state.get('sun_intensity');
                 if (current > 0.01) {
                     savedSunIntensity = current;
                     this.state.setWithInertia('sun_intensity', 0.0);
                 } else {
-                    this.state.setWithInertia('sun_intensity', savedSunIntensity || 1.4);
+                    this.state.setWithInertia('sun_intensity', savedSunIntensity || 1.6);
                 }
             });
             this.state.subscribe('sun_intensity', (val) => {
@@ -451,14 +451,14 @@ export class CockpitUI {
         // Light 2 (Rim) ON/OFF Toggle Pill
         const btnToggleRim = document.getElementById('btn-toggle-light-rim');
         if (btnToggleRim) {
-            let savedRimIntensity = this.state.get('backlight_intensity') || 1.2;
+            let savedRimIntensity = this.state.get('backlight_intensity') || 1.5;
             btnToggleRim.addEventListener('click', () => {
                 const current = this.state.get('backlight_intensity');
                 if (current > 0.01) {
                     savedRimIntensity = current;
                     this.state.setWithInertia('backlight_intensity', 0.0);
                 } else {
-                    this.state.setWithInertia('backlight_intensity', savedRimIntensity || 1.2);
+                    this.state.setWithInertia('backlight_intensity', savedRimIntensity || 1.5);
                 }
             });
             this.state.subscribe('backlight_intensity', (val) => {
@@ -471,14 +471,14 @@ export class CockpitUI {
         // Light 4 (Core Glow) ON/OFF Toggle Pill
         const btnToggleGlow = document.getElementById('btn-toggle-light-glow');
         if (btnToggleGlow) {
-            let savedGlowIntensity = 0.5;
+            let savedGlowIntensity = this.state.get('glow_intensity') || 0.05;
             btnToggleGlow.addEventListener('click', () => {
                 const current = this.state.get('glow_intensity');
                 if (current > 0.01) {
                     savedGlowIntensity = current;
                     this.state.setWithInertia('glow_intensity', 0.0);
                 } else {
-                    this.state.setWithInertia('glow_intensity', savedGlowIntensity || 0.5);
+                    this.state.setWithInertia('glow_intensity', savedGlowIntensity || 0.05);
                 }
             });
             this.state.subscribe('glow_intensity', (val) => {

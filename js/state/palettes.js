@@ -5,6 +5,32 @@
 
 export const PALETTE_PRESETS = [
     {
+        id: 'dark_loam',
+        name: 'Dark Loam',
+        description: 'Rich fertile organic black loam, dark umber soil, decayed leaf mold',
+        values: {
+            trap_mode: 0,
+            color_cycle: 0.45,
+            color_phase: 0.05,
+            pal_a_r: 0.30, pal_a_g: 0.24, pal_a_b: 0.18,
+            pal_b_r: 0.18, pal_b_g: 0.14, pal_b_b: 0.10,
+            pal_c_r: 1.00, pal_c_g: 1.00, pal_c_b: 1.00,
+            pal_d_r: 0.05, pal_d_g: 0.10, pal_d_b: 0.15,
+            metallic: 0.02,
+            roughness: 0.85,
+            ao_strength: 1.40,
+            sun_intensity: 1.60,
+            sun_azimuth: 0.91,
+            sun_elevation: 0.90,
+            sun_color_r: 0.96, sun_color_g: 0.90, sun_color_b: 0.80,
+            shadow_softness: 12.00,
+            backlight_intensity: 1.50,
+            backlight_elevation: -0.30,
+            rim_color_r: 0.10, rim_color_g: 0.12, rim_color_b: 0.34,
+            glow_intensity: 0.05
+        }
+    },
+    {
         id: 'desert_sandstone',
         name: 'Desert Sandstone',
         description: 'Warm terracotta, layered golden ochre, sun-baked clay, red sandstone cliffs',
@@ -177,28 +203,6 @@ export const PALETTE_PRESETS = [
             sun_color_r: 0.90, sun_color_g: 0.94, sun_color_b: 0.98,
             backlight_intensity: 1.2,
             rim_color_r: 0.52, rim_color_g: 0.62, rim_color_b: 0.74,
-            glow_intensity: 0.0
-        }
-    },
-    {
-        id: 'peat_bog_loam',
-        name: 'Dark Loam',
-        description: 'Rich fertile organic black loam, dark umber soil, decayed leaf mold',
-        values: {
-            trap_mode: 0,
-            color_cycle: 0.45,
-            color_phase: 0.05,
-            pal_a_r: 0.30, pal_a_g: 0.24, pal_a_b: 0.18,
-            pal_b_r: 0.18, pal_b_g: 0.14, pal_b_b: 0.10,
-            pal_c_r: 1.00, pal_c_g: 1.00, pal_c_b: 1.00,
-            pal_d_r: 0.05, pal_d_g: 0.10, pal_d_b: 0.15,
-            metallic: 0.02,
-            roughness: 0.85,
-            ao_strength: 1.40,
-            sun_intensity: 1.35,
-            sun_color_r: 0.96, sun_color_g: 0.90, sun_color_b: 0.80,
-            backlight_intensity: 0.85,
-            rim_color_r: 0.52, rim_color_g: 0.46, rim_color_b: 0.40,
             glow_intensity: 0.0
         }
     },

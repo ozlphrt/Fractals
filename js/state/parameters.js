@@ -13,53 +13,53 @@ export const GLOBAL_PARAMS = [
     
     // Shading & Cosine Palette (Inigo Quilez natural earth/mineral formula)
     { id: 'trap_mode', name: 'Orbit Trap Source', min: 0, max: 3, step: 1, default: 0, uniform: 'u_trap_mode', type: 'int', group: 'shading', enumNames: ['Origin Dist', 'Coord Planes', 'Spherical/Axis', 'Iteration Count'] },
-    { id: 'color_cycle', name: 'Color Frequency', min: 0.1, max: 3.0, step: 0.05, default: 0.5, uniform: 'u_color_cycle', type: 'float', group: 'shading' },
-    { id: 'color_phase', name: 'Color Phase', min: 0.0, max: 6.28, step: 0.05, default: 0.1, uniform: 'u_color_phase', type: 'float', group: 'shading' },
+    { id: 'color_cycle', name: 'Color Frequency', min: 0.1, max: 3.0, step: 0.05, default: 0.45, uniform: 'u_color_cycle', type: 'float', group: 'shading' },
+    { id: 'color_phase', name: 'Color Phase', min: 0.0, max: 6.28, step: 0.05, default: 0.05, uniform: 'u_color_phase', type: 'float', group: 'shading' },
     // Cosine Palette A (Base Center)
-    { id: 'pal_a_r', name: 'Base Red', min: 0.0, max: 1.0, step: 0.01, default: 0.65, uniform: 'u_pal_a_r', type: 'float', group: 'shading' },
-    { id: 'pal_a_g', name: 'Base Green', min: 0.0, max: 1.0, step: 0.01, default: 0.42, uniform: 'u_pal_a_g', type: 'float', group: 'shading' },
-    { id: 'pal_a_b', name: 'Base Blue', min: 0.0, max: 1.0, step: 0.01, default: 0.28, uniform: 'u_pal_a_b', type: 'float', group: 'shading' },
+    { id: 'pal_a_r', name: 'Base Red', min: 0.0, max: 1.0, step: 0.01, default: 0.30, uniform: 'u_pal_a_r', type: 'float', group: 'shading' },
+    { id: 'pal_a_g', name: 'Base Green', min: 0.0, max: 1.0, step: 0.01, default: 0.24, uniform: 'u_pal_a_g', type: 'float', group: 'shading' },
+    { id: 'pal_a_b', name: 'Base Blue', min: 0.0, max: 1.0, step: 0.01, default: 0.18, uniform: 'u_pal_a_b', type: 'float', group: 'shading' },
     // Cosine Palette B (Amplitude / Vibrancy)
-    { id: 'pal_b_r', name: 'Vibrancy Red', min: 0.0, max: 1.0, step: 0.01, default: 0.38, uniform: 'u_pal_b_r', type: 'float', group: 'shading' },
-    { id: 'pal_b_g', name: 'Vibrancy Green', min: 0.0, max: 1.0, step: 0.01, default: 0.26, uniform: 'u_pal_b_g', type: 'float', group: 'shading' },
-    { id: 'pal_b_b', name: 'Vibrancy Blue', min: 0.0, max: 1.0, step: 0.01, default: 0.18, uniform: 'u_pal_b_b', type: 'float', group: 'shading' },
+    { id: 'pal_b_r', name: 'Vibrancy Red', min: 0.0, max: 1.0, step: 0.01, default: 0.18, uniform: 'u_pal_b_r', type: 'float', group: 'shading' },
+    { id: 'pal_b_g', name: 'Vibrancy Green', min: 0.0, max: 1.0, step: 0.01, default: 0.14, uniform: 'u_pal_b_g', type: 'float', group: 'shading' },
+    { id: 'pal_b_b', name: 'Vibrancy Blue', min: 0.0, max: 1.0, step: 0.01, default: 0.10, uniform: 'u_pal_b_b', type: 'float', group: 'shading' },
     // Cosine Palette C (Frequency)
     { id: 'pal_c_r', name: 'Freq Red', min: 0.1, max: 3.0, step: 0.05, default: 1.0, uniform: 'u_pal_c_r', type: 'float', group: 'shading' },
     { id: 'pal_c_g', name: 'Freq Green', min: 0.1, max: 3.0, step: 0.05, default: 1.0, uniform: 'u_pal_c_g', type: 'float', group: 'shading' },
     { id: 'pal_c_b', name: 'Freq Blue', min: 0.1, max: 3.0, step: 0.05, default: 1.0, uniform: 'u_pal_c_b', type: 'float', group: 'shading' },
     // Cosine Palette D (Phase Spread)
-    { id: 'pal_d_r', name: 'Phase Red', min: 0.0, max: 1.0, step: 0.01, default: 0.0, uniform: 'u_pal_d_r', type: 'float', group: 'shading' },
-    { id: 'pal_d_g', name: 'Phase Green', min: 0.0, max: 1.0, step: 0.01, default: 0.15, uniform: 'u_pal_d_g', type: 'float', group: 'shading' },
-    { id: 'pal_d_b', name: 'Phase Blue', min: 0.0, max: 1.0, step: 0.01, default: 0.30, uniform: 'u_pal_d_b', type: 'float', group: 'shading' },
+    { id: 'pal_d_r', name: 'Phase Red', min: 0.0, max: 1.0, step: 0.01, default: 0.05, uniform: 'u_pal_d_r', type: 'float', group: 'shading' },
+    { id: 'pal_d_g', name: 'Phase Green', min: 0.0, max: 1.0, step: 0.01, default: 0.10, uniform: 'u_pal_d_g', type: 'float', group: 'shading' },
+    { id: 'pal_d_b', name: 'Phase Blue', min: 0.0, max: 1.0, step: 0.01, default: 0.15, uniform: 'u_pal_d_b', type: 'float', group: 'shading' },
     
     // Lighting Studio
     // Light 1: Key Directional Sun
-    { id: 'sun_intensity', name: 'Sun Intensity', min: 0.0, max: 3.0, step: 0.05, default: 1.4, uniform: 'u_sun_intensity', type: 'float', group: 'light_sun' },
-    { id: 'sun_azimuth', name: 'Azimuth (Heading)', min: -3.14, max: 3.14, step: 0.05, default: 0.8, uniform: 'u_sun_azimuth', type: 'float', group: 'light_sun' },
-    { id: 'sun_elevation', name: 'Elevation (Pitch)', min: 0.1, max: 1.5, step: 0.05, default: 0.9, uniform: 'u_sun_elevation', type: 'float', group: 'light_sun' },
-    { id: 'sun_color_r', name: 'Sun Red', min: 0.0, max: 1.0, step: 0.02, default: 1.0, uniform: 'u_sun_color_r', type: 'float', group: 'light_sun' },
-    { id: 'sun_color_g', name: 'Sun Green', min: 0.0, max: 1.0, step: 0.02, default: 0.92, uniform: 'u_sun_color_g', type: 'float', group: 'light_sun' },
-    { id: 'sun_color_b', name: 'Sun Blue', min: 0.0, max: 1.0, step: 0.02, default: 0.78, uniform: 'u_sun_color_b', type: 'float', group: 'light_sun' },
+    { id: 'sun_intensity', name: 'Sun Intensity', min: 0.0, max: 3.0, step: 0.05, default: 1.60, uniform: 'u_sun_intensity', type: 'float', group: 'light_sun' },
+    { id: 'sun_azimuth', name: 'Azimuth (Heading)', min: -3.14, max: 3.14, step: 0.05, default: 0.91, uniform: 'u_sun_azimuth', type: 'float', group: 'light_sun' },
+    { id: 'sun_elevation', name: 'Elevation (Pitch)', min: 0.1, max: 1.5, step: 0.05, default: 0.90, uniform: 'u_sun_elevation', type: 'float', group: 'light_sun' },
+    { id: 'sun_color_r', name: 'Sun Red', min: 0.0, max: 1.0, step: 0.02, default: 0.96, uniform: 'u_sun_color_r', type: 'float', group: 'light_sun' },
+    { id: 'sun_color_g', name: 'Sun Green', min: 0.0, max: 1.0, step: 0.02, default: 0.90, uniform: 'u_sun_color_g', type: 'float', group: 'light_sun' },
+    { id: 'sun_color_b', name: 'Sun Blue', min: 0.0, max: 1.0, step: 0.02, default: 0.80, uniform: 'u_sun_color_b', type: 'float', group: 'light_sun' },
     { id: 'shadow_softness', name: 'Shadow Softness', min: 2.0, max: 32.0, step: 1.0, default: 12.0, uniform: 'u_shadow_softness', type: 'float', group: 'light_sun' },
 
     // Light 2: Rim & Silhouette Backlight
-    { id: 'backlight_intensity', name: 'Rim Intensity', min: 0.0, max: 3.0, step: 0.05, default: 1.2, uniform: 'u_backlight_intensity', type: 'float', group: 'light_rim' },
-    { id: 'backlight_elevation', name: 'Vertical Angle', min: -1.5, max: 1.5, step: 0.05, default: -0.3, uniform: 'u_backlight_elevation', type: 'float', group: 'light_rim' },
-    { id: 'rim_color_r', name: 'Rim Red', min: 0.0, max: 1.0, step: 0.02, default: 0.45, uniform: 'u_rim_color_r', type: 'float', group: 'light_rim' },
-    { id: 'rim_color_g', name: 'Rim Green', min: 0.0, max: 1.0, step: 0.02, default: 0.65, uniform: 'u_rim_color_g', type: 'float', group: 'light_rim' },
-    { id: 'rim_color_b', name: 'Rim Blue', min: 0.0, max: 1.0, step: 0.02, default: 0.92, uniform: 'u_rim_color_b', type: 'float', group: 'light_rim' },
+    { id: 'backlight_intensity', name: 'Rim Intensity', min: 0.0, max: 3.0, step: 0.05, default: 1.50, uniform: 'u_backlight_intensity', type: 'float', group: 'light_rim' },
+    { id: 'backlight_elevation', name: 'Vertical Angle', min: -1.5, max: 1.5, step: 0.05, default: -0.30, uniform: 'u_backlight_elevation', type: 'float', group: 'light_rim' },
+    { id: 'rim_color_r', name: 'Rim Red', min: 0.0, max: 1.0, step: 0.02, default: 0.10, uniform: 'u_rim_color_r', type: 'float', group: 'light_rim' },
+    { id: 'rim_color_g', name: 'Rim Green', min: 0.0, max: 1.0, step: 0.02, default: 0.12, uniform: 'u_rim_color_g', type: 'float', group: 'light_rim' },
+    { id: 'rim_color_b', name: 'Rim Blue', min: 0.0, max: 1.0, step: 0.02, default: 0.34, uniform: 'u_rim_color_b', type: 'float', group: 'light_rim' },
 
     // Light 3: Environment & Ambient Occlusion
-    { id: 'ao_strength', name: 'Ambient Occlusion (AO)', min: 0.0, max: 1.5, step: 0.05, default: 0.7, uniform: 'u_ao_strength', type: 'float', group: 'light_env' },
+    { id: 'ao_strength', name: 'Ambient Occlusion (AO)', min: 0.0, max: 1.5, step: 0.05, default: 1.40, uniform: 'u_ao_strength', type: 'float', group: 'light_env' },
     { id: 'fog_density', name: 'Atmospheric Fog', min: 0.0, max: 0.8, step: 0.02, default: 0.15, uniform: 'u_fog_density', type: 'float', group: 'light_env' },
 
     // Light 4: Volumetric Core Glow
-    { id: 'glow_intensity', name: 'Glow Intensity', min: 0.0, max: 2.5, step: 0.05, default: 0.0, uniform: 'u_glow_intensity', type: 'float', group: 'light_glow' },
+    { id: 'glow_intensity', name: 'Glow Intensity', min: 0.0, max: 2.5, step: 0.05, default: 0.05, uniform: 'u_glow_intensity', type: 'float', group: 'light_glow' },
     { id: 'glow_color_r', name: 'Glow Red', min: 0.0, max: 1.0, step: 0.02, default: 0.0, uniform: 'u_glow_color_r', type: 'float', group: 'light_glow' },
     { id: 'glow_color_g', name: 'Glow Green', min: 0.0, max: 1.0, step: 0.02, default: 0.8, uniform: 'u_glow_color_g', type: 'float', group: 'light_glow' },
     { id: 'glow_color_b', name: 'Glow Blue', min: 0.0, max: 1.0, step: 0.02, default: 1.0, uniform: 'u_glow_color_b', type: 'float', group: 'light_glow' },
-    { id: 'roughness', name: 'Surface Roughness', min: 0.05, max: 1.0, step: 0.02, default: 0.35, uniform: 'u_roughness', type: 'float', group: 'shading' },
-    { id: 'metallic', name: 'Metallic Reflectance', min: 0.0, max: 1.0, step: 0.02, default: 0.5, uniform: 'u_metallic', type: 'float', group: 'shading' }
+    { id: 'roughness', name: 'Surface Roughness', min: 0.05, max: 1.0, step: 0.02, default: 0.85, uniform: 'u_roughness', type: 'float', group: 'shading' },
+    { id: 'metallic', name: 'Metallic Reflectance', min: 0.0, max: 1.0, step: 0.02, default: 0.02, uniform: 'u_metallic', type: 'float', group: 'shading' }
 ];
 
 // Parameter boundaries that guarantee solid, interconnected sculptural forms
