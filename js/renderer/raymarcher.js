@@ -1,10 +1,10 @@
 // js/renderer/raymarcher.js
 // WebGL2 Metamorphic Raymarching Engine:
-// - Seamless 3D Distance Field Metamorphosis across all fractal formulas
-// - 2-Pass Adaptive Pipeline: Low-res fast render while moving / modulating -> High-res 2x SSAA accumulation when still
+// - Modular per-formula shaders with instant pre-compilation (zero runtime lag, zero ANGLE stalls)
+// - Seamless dual-FBO metamorphic cross-morph with quintic ease and FXAA anti-aliasing
 // - Soft shadows, Iteration-based AO, 4-Channel Orbit Traps, Inigo Quilez Cosine Palette, Volumetric Step Glow, Fog
 
-import { FORMULAS, FORMULA_NUM_IDS } from '../formulas/registry.js';
+import { FORMULAS } from '../formulas/registry.js';
 
 export class Raymarcher {
     constructor(canvas, stateManager) {
@@ -31,32 +31,29 @@ export class Raymarcher {
         this.quadVAO = null;
         this.quadVBO = null;
 
-        // Master Program & Uniform Locations
-        this.currentProgram = null;
-        this.uniformLocations = new Map();
+        // Program cache per formula ID
+        this.programs = new Map();
+        this.uniformLocationsMap = new Map();
 
         // Resolution management (Performance-tuned with FXAA anti-aliasing)
         this.activeScale = 0.72;
         this.targetScale = 0.72;
         this.stillFrames = 0;
-        this.ssaaAccumulation = 0;
-        this.maxSSAA = 8;
 
-        // Ping-pong accumulation textures & FBOs to prevent feedback loop
-        this.accumTextures = [null, null];
-        this.accumFBOs = [null, null];
-        this.accumIndex = 0;
+        // Offscreen Framebuffers for smooth cross-morphing
+        this.fboA = null;
+        this.fboTextureA = null;
+        this.fboB = null;
+        this.fboTextureB = null;
         this.fboWidth = 0;
         this.fboHeight = 0;
 
         // Composite shader program
         this.compositeProgram = null;
-        this.accumProgram = null;
-        this.compositeVAO = null;
 
         this.initQuad();
         this.initCompositeShader();
-        this.initMasterProgram();
+        this.precompileAllFormulas();
 
         // Listen for formula changes
         this.state.onFormulaChange(() => {
@@ -98,12 +95,14 @@ export class Raymarcher {
             gl_Position = vec4(a_pos, 0.0, 1.0);
         }`;
 
-        // Screen output shader: applies FXAA edge-smoothing anti-aliasing + ACES tone mapping + gamma curve
+        // Screen output shader: applies FXAA edge-smoothing + seamless morph blend + ACES tone mapping + gamma curve
         const fsCompositeSource = `#version 300 es
         precision highp float;
         in vec2 v_uv;
         out vec4 fragColor;
-        uniform sampler2D u_tex;
+        uniform sampler2D u_tex_a;
+        uniform sampler2D u_tex_b;
+        uniform float u_blend;
         uniform vec2 u_tex_size;
         
         vec3 aces(vec3 x) {
@@ -165,33 +164,27 @@ export class Raymarcher {
 
         void main() {
             vec2 rcpFrame = vec2(1.0) / max(vec2(1.0), u_tex_size);
-            vec3 rawCol = sampleFXAA(u_tex, v_uv, rcpFrame);
+            vec3 colA = sampleFXAA(u_tex_a, v_uv, rcpFrame);
+            vec3 rawCol;
+            
+            if (u_blend > 0.001) {
+                vec3 colB = sampleFXAA(u_tex_b, v_uv, rcpFrame);
+                // Quintic smoothstep for seamless organic transition
+                float t = clamp(u_blend, 0.0, 1.0);
+                float s = t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+                rawCol = mix(colA, colB, s);
+            } else {
+                rawCol = colA;
+            }
+            
             vec3 mapped = aces(rawCol);
             mapped = pow(mapped, vec3(1.0 / 2.2));
             fragColor = vec4(mapped, 1.0);
         }`;
 
-        // Raw linear accumulation shader
-        const fsAccumSource = `#version 300 es
-        precision highp float;
-        in vec2 v_uv;
-        out vec4 fragColor;
-        uniform sampler2D u_current_tex;
-        uniform sampler2D u_accum_tex;
-        uniform float u_accum_blend;
-
-        void main() {
-            vec4 curr = texture(u_current_tex, v_uv);
-            vec4 prev = texture(u_accum_tex, v_uv);
-            fragColor = vec4(mix(prev.rgb, curr.rgb, u_accum_blend), 1.0);
-        }`;
-
         const vs = this.compileShader(gl.VERTEX_SHADER, vsSource);
         const fsComp = this.compileShader(gl.FRAGMENT_SHADER, fsCompositeSource);
         this.compositeProgram = this.createProgram(vs, fsComp);
-
-        const fsAccum = this.compileShader(gl.FRAGMENT_SHADER, fsAccumSource);
-        this.accumProgram = this.createProgram(vs, fsAccum);
     }
 
     compileShader(type, source) {
@@ -281,63 +274,13 @@ mat3 rotZ(float a) {
 `;
     }
 
-    buildRaymarcherBody() {
-        // Collect all uniforms across all formulas
-        const seenUniforms = new Set();
-        const uniformDecls = [];
-        for (const f of Object.values(FORMULAS)) {
-            for (const p of f.params) {
-                if (!seenUniforms.has(p.uniform)) {
-                    seenUniforms.add(p.uniform);
-                    uniformDecls.push(`uniform ${p.type === 'int' ? 'int' : 'float'} ${p.uniform};`);
-                }
-            }
-        }
-
+    buildRaymarcherBody(formula) {
         return `
-// Master Formula Uniforms
-uniform int u_formula_a;
-uniform int u_formula_b;
-uniform float u_formula_morph;
+// Active Formula Uniforms
+${formula.params.map(p => `uniform ${p.type === 'int' ? 'int' : 'float'} ${p.uniform};`).join('\n')}
 
-${uniformDecls.join('\n')}
-
-// Distance Estimator Engines
-${FORMULAS['mandelbulb'].glsl}
-${FORMULAS['mandelbox'].glsl}
-${FORMULAS['kifs'].glsl}
-${FORMULAS['quat_julia'].glsl}
-
-// Master Evaluator by Numeric ID
-float evalFormulaById(int id, vec3 pos, out vec4 trap) {
-    if (id == 0) return mapFractal_quat_julia(pos, trap);
-    if (id == 1) return mapFractal_mandelbulb(pos, trap);
-    if (id == 2) return mapFractal_mandelbox(pos, trap);
-    if (id == 3) return mapFractal_kifs(pos, trap);
-    trap = vec4(0.0);
-    return length(pos) - 1.0;
-}
-
-// Seamless Metamorphic Distance Field Interpolation
-float mapFractal(vec3 pos, out vec4 trap) {
-    if (u_formula_morph <= 0.001) {
-        return evalFormulaById(u_formula_a, pos, trap);
-    }
-    if (u_formula_morph >= 0.999) {
-        return evalFormulaById(u_formula_b, pos, trap);
-    }
-    vec4 trapA = vec4(100.0);
-    vec4 trapB = vec4(100.0);
-    float dA = evalFormulaById(u_formula_a, pos, trapA);
-    float dB = evalFormulaById(u_formula_b, pos, trapB);
-    
-    // Quintic ease-in-out for ultra smooth geometric metamorphosis
-    float t = u_formula_morph;
-    float s = t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
-    
-    trap = mix(trapA, trapB, s);
-    return mix(dA, dB, s);
-}
+// Formula Distance Estimator
+${formula.glsl}
 
 // Distance wrapper with dummy trap
 float map(vec3 pos) {
@@ -368,7 +311,7 @@ float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
     for (int i = 0; i < 10; i++) {
         if (t >= maxt) break;
         float h = map(ro + rd * t);
-        if (h < 0.0004) return 0.12; // Maintain 12% ambient bleed floor so geometry never gets crushed into flat mud
+        if (h < 0.0004) return 0.12;
         res = min(res, k * h / t);
         t += clamp(h, 0.02, 0.35);
     }
@@ -416,7 +359,7 @@ void main() {
         vec3 curPos = ro + rd * t;
         float d = mapFractal(curPos, trap);
         
-        // Fast polynomial volumetric glow (instant single-cycle evaluation, no transcendentals)
+        // Fast polynomial volumetric glow
         if (u_glow_intensity > 0.005) {
             float g = max(0.0, 1.0 - d * 2.5);
             glow += g * g;
@@ -424,12 +367,11 @@ void main() {
         
         if (d < u_hit_epsilon * (1.0 + t * 0.08)) {
             hit = true;
-            // 1-step linear surface refinement
             t = max(0.005, t - d * 0.4);
             finalTrap = trap;
             break;
         }
-        t += max(u_hit_epsilon * 0.45, d * 0.76); // High-efficiency safe step factor
+        t += max(u_hit_epsilon * 0.45, d * 0.76);
     }
     
     vec3 sunDir = normalize(vec3(
@@ -449,13 +391,13 @@ void main() {
         // Orbit trap selection for coloring
         float trapVal = 0.0;
         if (u_trap_mode == 0) {
-            trapVal = finalTrap.x; // Origin dist
+            trapVal = finalTrap.x;
         } else if (u_trap_mode == 1) {
-            trapVal = finalTrap.y; // Coordinate planes
+            trapVal = finalTrap.y;
         } else if (u_trap_mode == 2) {
-            trapVal = finalTrap.z; // Spherical/axis
+            trapVal = finalTrap.z;
         } else {
-            trapVal = finalTrap.w / 16.0; // Iteration count
+            trapVal = finalTrap.w / 16.0;
         }
         
         vec3 palA = vec3(u_pal_a_r, u_pal_a_g, u_pal_a_b);
@@ -465,13 +407,13 @@ void main() {
         if (length(palC) < 0.02) palC = vec3(1.0);
         vec3 palD = vec3(u_pal_d_r, u_pal_d_g, u_pal_d_b) + vec3(u_color_phase);
         
-        // Micro geological strata & rock mineral grain (real natural texture, not flat plastic)
+        // Micro geological strata & rock mineral grain
         float strata = sin(pos.y * 14.0 + sin(pos.x * 6.0 + pos.z * 6.0) * 0.45) * 0.5 + 0.5;
         float mineralGrain = sin(pos.x * 55.0) * sin(pos.y * 55.0) * sin(pos.z * 55.0);
         float tCoord = trapVal * u_color_cycle + strata * 0.08 + mineralGrain * 0.03;
         vec3 albedo = clamp(cosinePalette(tCoord, palA, palB, palC, palD), 0.0, 1.0);
         
-        // Deep crevice weathering: natural darkening in crevices
+        // Deep crevice weathering
         albedo = mix(albedo * 0.65, albedo, clamp(ao * 1.2, 0.0, 1.0));
         
         vec3 sunColor = vec3(u_sun_color_r, u_sun_color_g, u_sun_color_b);
@@ -488,32 +430,25 @@ void main() {
         float spe = pow(clamp(dot(nor, hal), 0.0, 1.0), 32.0 / max(0.01, u_roughness));
         float fre = pow(clamp(1.0 + dot(nor, rd), 0.0, 1.0), 4.0);
 
-        // Curated Rim Light / Backlight (Opposing angle behind the object)
+        // Rim Light / Backlight
         vec3 backDir = normalize(vec3(-sunDir.x, sin(u_backlight_elevation), -sunDir.z));
         float backDif = clamp(dot(nor, backDir), 0.0, 1.0);
         
-        // Backlight specular rim highlight & grazing silhouette rim
         vec3 backHal = normalize(backDir - rd);
         float backSpe = pow(clamp(dot(nor, backHal), 0.0, 1.0), 16.0 / max(0.01, u_roughness));
         float rimFresnel = pow(clamp(1.0 + dot(nor, rd), 0.0, 1.0), 3.0);
         
-        // Sky / Ground Hemispheric Light Fill (prevents mud silhouette)
+        // Sky / Ground Hemispheric Light Fill
         float hemi = clamp(0.5 + 0.5 * nor.y, 0.0, 1.0);
         vec3 skyCol = vec3(0.35, 0.45, 0.60);
         vec3 groundCol = vec3(0.18, 0.14, 0.10);
         vec3 ambFill = mix(groundCol, skyCol, hemi);
 
         vec3 lin = vec3(0.0);
-        // Key Sun illumination
         lin += albedo * sunColor * dif * sha * u_sun_intensity;
-        // Specular highlights (metallic surfaces tint specular with albedo)
         vec3 specColor = mix(sunColor, albedo, u_metallic);
         lin += specColor * spe * sha * u_sun_intensity * (0.3 + 0.7 * u_metallic);
-        
-        // Ambient fill with natural hemispheric coloration and AO
         lin += albedo * ambFill * ao * 0.65;
-        
-        // Curated rim & backlight tinted with rimColor
         lin += albedo * rimColor * backDif * u_backlight_intensity * ao * 0.6;
         lin += rimColor * backSpe * u_backlight_intensity * 0.7;
         lin += rimColor * rimFresnel * clamp(dot(-rd, backDir) * 0.5 + 0.5, 0.0, 1.0) * u_backlight_intensity * 0.8;
@@ -535,7 +470,11 @@ void main() {
 `;
     }
 
-    initMasterProgram() {
+    getProgramForFormula(formula) {
+        if (this.programs.has(formula.id)) {
+            return this.programs.get(formula.id);
+        }
+
         const gl = this.gl;
         const vsSource = `#version 300 es
         in vec2 a_pos;
@@ -543,26 +482,30 @@ void main() {
             gl_Position = vec4(a_pos, 0.0, 1.0);
         }`;
 
-        const fsSource = this.buildCommonFragmentHeader() + this.buildRaymarcherBody();
+        const fsSource = this.buildCommonFragmentHeader() + this.buildRaymarcherBody(formula);
 
         try {
             const vs = this.compileShader(gl.VERTEX_SHADER, vsSource);
             const fs = this.compileShader(gl.FRAGMENT_SHADER, fsSource);
-            this.masterProgram = this.createProgram(vs, fs);
-            this.currentProgram = this.masterProgram;
-            this.cacheUniformLocations();
+            const prog = this.createProgram(vs, fs);
+            this.programs.set(formula.id, prog);
+            this.cacheUniformLocations(formula, prog);
+            return prog;
         } catch (e) {
-            console.error('Failed to compile master fractal shader:', e);
+            console.error(`Failed to compile fractal shader for ${formula.id}:`, e);
+            return null;
         }
     }
 
-    rebuildActiveFormula() {
-        this.resetAccumulation();
+    precompileAllFormulas() {
+        for (const formula of Object.values(FORMULAS)) {
+            this.getProgramForFormula(formula);
+        }
     }
 
-    cacheUniformLocations() {
+    cacheUniformLocations(formula, prog) {
         const gl = this.gl;
-        this.uniformLocations.clear();
+        const uniformMap = new Map();
 
         const standardUniforms = [
             'u_resolution', 'u_time', 'u_cam_pos', 'u_cam_target', 'u_cam_up', 'u_fov', 'u_subpixel_jitter',
@@ -578,19 +521,18 @@ void main() {
             'u_backlight_intensity', 'u_backlight_elevation',
             'u_rim_color_r', 'u_rim_color_g', 'u_rim_color_b',
             'u_glow_intensity', 'u_glow_color_r', 'u_glow_color_g', 'u_glow_color_b',
-            'u_fog_density',
-            'u_formula_a', 'u_formula_b', 'u_formula_morph'
+            'u_fog_density'
         ];
 
         for (const u of standardUniforms) {
-            this.uniformLocations.set(u, gl.getUniformLocation(this.currentProgram, u));
+            uniformMap.set(u, gl.getUniformLocation(prog, u));
         }
 
-        for (const formula of Object.values(FORMULAS)) {
-            for (const p of formula.params) {
-                this.uniformLocations.set(p.uniform, gl.getUniformLocation(this.currentProgram, p.uniform));
-            }
+        for (const p of formula.params) {
+            uniformMap.set(p.uniform, gl.getUniformLocation(prog, p.uniform));
         }
+
+        this.uniformLocationsMap.set(formula.id, uniformMap);
     }
 
     updateFBOs(width, height) {
@@ -600,86 +542,73 @@ void main() {
         this.fboWidth = width;
         this.fboHeight = height;
 
-        if (this.fbo) gl.deleteFramebuffer(this.fbo);
-        if (this.fboTexture) gl.deleteTexture(this.fboTexture);
-        for (let i = 0; i < 2; i++) {
-            if (this.accumFBOs[i]) gl.deleteFramebuffer(this.accumFBOs[i]);
-            if (this.accumTextures[i]) gl.deleteTexture(this.accumTextures[i]);
-        }
+        if (this.fboA) gl.deleteFramebuffer(this.fboA);
+        if (this.fboTextureA) gl.deleteTexture(this.fboTextureA);
+        if (this.fboB) gl.deleteFramebuffer(this.fboB);
+        if (this.fboTextureB) gl.deleteTexture(this.fboTextureB);
 
-        // Offscreen raymarch texture
-        this.fboTexture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.fboTexture);
+        // FBO A
+        this.fboTextureA = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.fboTextureA);
         gl.texImage2D(gl.TEXTURE_2D, 0, this.internalFormat, width, height, 0, gl.RGBA, this.texType, null);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-        this.fbo = gl.createFramebuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.fboTexture, 0);
+        this.fboA = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.fboA);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.fboTextureA, 0);
 
-        // Ping-pong accumulation textures & framebuffers
-        for (let i = 0; i < 2; i++) {
-            this.accumTextures[i] = gl.createTexture();
-            gl.bindTexture(gl.TEXTURE_2D, this.accumTextures[i]);
-            gl.texImage2D(gl.TEXTURE_2D, 0, this.internalFormat, width, height, 0, gl.RGBA, this.texType, null);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        // FBO B (for smooth cross-morphing)
+        this.fboTextureB = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.fboTextureB);
+        gl.texImage2D(gl.TEXTURE_2D, 0, this.internalFormat, width, height, 0, gl.RGBA, this.texType, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-            this.accumFBOs[i] = gl.createFramebuffer();
-            gl.bindFramebuffer(gl.FRAMEBUFFER, this.accumFBOs[i]);
-            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.accumTextures[i], 0);
-        }
+        this.fboB = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.fboB);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.fboTextureB, 0);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 
     resetAccumulation() {
         this.stillFrames = 0;
-        this.ssaaAccumulation = 0;
-        this.accumIndex = 0;
     }
 
-    render(camera, time, isMovingOrModulating = false) {
+    renderFormulaPass(formula, targetFBO, camera, time, renderW, renderH) {
         const gl = this.gl;
-        const formula = this.state.getActiveFormula();
+        const prog = this.getProgramForFormula(formula);
+        if (!prog) return;
 
-        // Performance-tuned resolution scaling: 0.72x renders 48% fewer pixels while FXAA maintains clean, sharp edges at 60 FPS
-        this.activeScale = 0.72;
-        const renderW = Math.max(64, Math.floor(this.canvas.width * this.activeScale));
-        const renderH = Math.max(64, Math.floor(this.canvas.height * this.activeScale));
-        this.updateFBOs(renderW, renderH);
+        const uniformMap = this.uniformLocationsMap.get(formula.id);
+        if (!uniformMap) return;
 
-        // Subpixel jitter
-        let jitterX = 0.0, jitterY = 0.0;
-
-        // --- PASS 1: Raymarch to FBO ---
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, targetFBO);
         gl.viewport(0, 0, renderW, renderH);
-        gl.useProgram(this.currentProgram);
+        gl.useProgram(prog);
         gl.bindVertexArray(this.quadVAO);
 
-        // Upload Standard Uniforms
         const set1f = (name, val) => {
-            const loc = this.uniformLocations.get(name);
+            const loc = uniformMap.get(name);
             if (loc) gl.uniform1f(loc, val);
         };
         const set1i = (name, val) => {
-            const loc = this.uniformLocations.get(name);
+            const loc = uniformMap.get(name);
             if (loc) gl.uniform1i(loc, val);
         };
 
-        gl.uniform2f(this.uniformLocations.get('u_resolution'), renderW, renderH);
-        gl.uniform1f(this.uniformLocations.get('u_time'), time);
-        gl.uniform3fv(this.uniformLocations.get('u_cam_pos'), camera.pos);
-        gl.uniform3fv(this.uniformLocations.get('u_cam_target'), camera.target);
-        gl.uniform3fv(this.uniformLocations.get('u_cam_up'), camera.getUpVector());
-        gl.uniform1f(this.uniformLocations.get('u_fov'), this.state.get('fov'));
-        gl.uniform2f(this.uniformLocations.get('u_subpixel_jitter'), jitterX, jitterY);
+        gl.uniform2f(uniformMap.get('u_resolution'), renderW, renderH);
+        gl.uniform1f(uniformMap.get('u_time'), time);
+        gl.uniform3fv(uniformMap.get('u_cam_pos'), camera.pos);
+        gl.uniform3fv(uniformMap.get('u_cam_target'), camera.target);
+        gl.uniform3fv(uniformMap.get('u_cam_up'), camera.getUpVector());
+        gl.uniform1f(uniformMap.get('u_fov'), this.state.get('fov'));
+        gl.uniform2f(uniformMap.get('u_subpixel_jitter'), 0.0, 0.0);
 
         set1i('u_max_steps', this.state.get('max_steps'));
         set1f('u_hit_epsilon', this.state.get('hit_epsilon'));
@@ -708,7 +637,6 @@ void main() {
         set1f('u_sun_color_b', this.state.get('sun_color_b') ?? 0.80);
         set1f('u_shadow_softness', this.state.get('shadow_softness') ?? 12.0);
         set1f('u_ao_strength', this.state.get('ao_strength') ?? 0.7);
-        // Light 2: Rim & Silhouette Backlight
         set1f('u_backlight_intensity', this.state.get('backlight_intensity') ?? 1.2);
         set1f('u_backlight_elevation', this.state.get('backlight_elevation') ?? -0.3);
         set1f('u_rim_color_r', this.state.get('rim_color_r') ?? 0.45);
@@ -720,43 +648,63 @@ void main() {
         set1f('u_glow_color_b', this.state.get('glow_color_b') ?? 1.0);
         set1f('u_fog_density', this.state.get('fog_density') ?? 0.15);
 
-        // Formula morph uniforms
-        if (this.state.formulaMorph) {
-            const morph = this.state.formulaMorph;
-            const fA = FORMULA_NUM_IDS[morph.fromId] ?? 0;
-            const fB = FORMULA_NUM_IDS[morph.toId] ?? 0;
-            set1i('u_formula_a', fA);
-            set1i('u_formula_b', fB);
-            set1f('u_formula_morph', morph.progress);
-        } else {
-            const curId = FORMULA_NUM_IDS[this.state.activeFormulaId] ?? 0;
-            set1i('u_formula_a', curId);
-            set1i('u_formula_b', curId);
-            set1f('u_formula_morph', 0.0);
-        }
-
-        // Upload all formula parameters across all engines
-        for (const f of Object.values(FORMULAS)) {
-            for (const p of f.params) {
-                const val = this.state.get(p.id) ?? p.default;
-                if (p.type === 'int') {
-                    set1i(p.uniform, Math.round(val));
-                } else {
-                    set1f(p.uniform, val);
-                }
+        // Upload Active Formula Math Uniforms
+        for (const p of formula.params) {
+            const val = this.state.get(p.id) ?? p.default;
+            if (p.type === 'int') {
+                set1i(p.uniform, Math.round(val));
+            } else {
+                set1f(p.uniform, val);
             }
         }
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
 
-        // --- DIRECT SCREEN RENDER & TONE MAPPING (WITH FXAA ANTI-ALIASING) ---
+    render(camera, time, isMovingOrModulating = false) {
+        const gl = this.gl;
+
+        // Performance-tuned resolution scaling: 0.72x renders with FXAA at 60 FPS
+        this.activeScale = 0.72;
+        const renderW = Math.max(64, Math.floor(this.canvas.width * this.activeScale));
+        const renderH = Math.max(64, Math.floor(this.canvas.height * this.activeScale));
+        this.updateFBOs(renderW, renderH);
+
+        const morph = this.state.formulaMorph;
+        let blendAmount = 0.0;
+
+        if (morph && FORMULAS[morph.fromId] && FORMULAS[morph.toId]) {
+            blendAmount = morph.progress;
+            const formulaA = FORMULAS[morph.fromId];
+            const formulaB = FORMULAS[morph.toId];
+
+            // Render Formula A into FBO A
+            this.renderFormulaPass(formulaA, this.fboA, camera, time, renderW, renderH);
+
+            // Render Formula B into FBO B
+            this.renderFormulaPass(formulaB, this.fboB, camera, time, renderW, renderH);
+        } else {
+            const currentFormula = this.state.getActiveFormula();
+            this.renderFormulaPass(currentFormula, this.fboA, camera, time, renderW, renderH);
+        }
+
+        // --- DIRECT SCREEN COMPOSITE & BLEND PASS (WITH FXAA ANTI-ALIASING) ---
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         gl.useProgram(this.compositeProgram);
+        gl.bindVertexArray(this.quadVAO);
 
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, this.fboTexture);
-        gl.uniform1i(gl.getUniformLocation(this.compositeProgram, 'u_tex'), 0);
+        gl.bindTexture(gl.TEXTURE_2D, this.fboTextureA);
+        gl.uniform1i(gl.getUniformLocation(this.compositeProgram, 'u_tex_a'), 0);
+
+        if (blendAmount > 0.001) {
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, this.fboTextureB);
+            gl.uniform1i(gl.getUniformLocation(this.compositeProgram, 'u_tex_b'), 1);
+        }
+
+        gl.uniform1f(gl.getUniformLocation(this.compositeProgram, 'u_blend'), blendAmount);
         gl.uniform2f(gl.getUniformLocation(this.compositeProgram, 'u_tex_size'), renderW, renderH);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);

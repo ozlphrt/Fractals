@@ -9,13 +9,6 @@ export const FORMULA_IDS = {
     KIFS: 'kifs'
 };
 
-export const FORMULA_NUM_IDS = {
-    'quat_julia': 0,
-    'mandelbulb': 1,
-    'mandelbox': 2,
-    'kifs': 3
-};
-
 export const FORMULAS = {
     [FORMULA_IDS.MANDELBULB]: {
         id: FORMULA_IDS.MANDELBULB,
@@ -53,7 +46,7 @@ export const FORMULAS = {
         ],
         glsl: `
 // Canonical Smooth Mandelbulb DE (Pure spherical harmonics, zero spikes, zero horns)
-float mapFractal_mandelbulb(vec3 pos, out vec4 trap) {
+float mapFractal(vec3 pos, out vec4 trap) {
     vec3 w = pos;
     vec4 orbit = vec4(100.0);
     
@@ -160,7 +153,7 @@ float mapFractal_mandelbulb(vec3 pos, out vec4 trap) {
         ],
         glsl: `
 // Canonical Robust Mandelbox DE (Smooth, continuous distance estimation with zero branch stutter)
-float mapFractal_mandelbox(vec3 pos, out vec4 trap) {
+float mapFractal(vec3 pos, out vec4 trap) {
     vec3 offset = pos + vec3(u_mbox_offset_x, u_mbox_offset_y, u_mbox_offset_z);
     vec3 z = offset;
     float dr = 1.0;
@@ -298,7 +291,7 @@ float mapFractal_mandelbox(vec3 pos, out vec4 trap) {
         ],
         glsl: `
 // Canonical Robust Kaleidoscopic IFS DE (Lipschitz scale-invariant, 100% surface preservation)
-float mapFractal_kifs(vec3 pos, out vec4 trap) {
+float mapFractal(vec3 pos, out vec4 trap) {
     vec3 z = pos;
     float scale = u_kifs_scale;
     vec3 offset = vec3(u_kifs_offset_x, u_kifs_offset_y, u_kifs_offset_z);
@@ -423,7 +416,7 @@ vec4 quatSq(vec4 q) {
     );
 }
 
-float mapFractal_quat_julia(vec3 pos, out vec4 trap) {
+float mapFractal(vec3 pos, out vec4 trap) {
     vec4 z = vec4(pos, u_qj_slice_w);
     
     // Exact 4D Plane Rotations
