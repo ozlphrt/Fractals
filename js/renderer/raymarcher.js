@@ -375,10 +375,11 @@ void main() {
                 continue;
             }
             hit = true;
+            t += d;
             finalTrap = trap;
             break;
         }
-        t += d * 0.82;
+        t += d * 0.75;
     }
     
     vec3 sunDir = normalize(vec3(
@@ -392,19 +393,19 @@ void main() {
     
     if (hit) {
         vec3 pos = ro + rd * t;
-        vec3 nor = calcNormal(pos, clamp(0.0008 + t * 0.0002, 0.0006, 0.0018));
+        vec3 nor = calcNormal(pos, clamp(0.0006 + t * 0.0002, 0.0004, 0.0015));
         float ao = calcAO(pos, nor);
         
         // Orbit trap selection for coloring
         float trapVal = 0.0;
         if (u_trap_mode == 0) {
-            trapVal = finalTrap.w * 0.25;
-        } else if (u_trap_mode == 1) {
             trapVal = finalTrap.x;
-        } else if (u_trap_mode == 2) {
+        } else if (u_trap_mode == 1) {
             trapVal = finalTrap.y;
-        } else {
+        } else if (u_trap_mode == 2) {
             trapVal = finalTrap.z;
+        } else {
+            trapVal = finalTrap.w / 16.0;
         }
         
         vec3 palA = vec3(u_pal_a_r, u_pal_a_g, u_pal_a_b);
