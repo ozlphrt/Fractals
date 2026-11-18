@@ -921,8 +921,6 @@ void main() {
                 return 4.8;
             case 'jerusalem':
                 return 5.4;
-            case 'quat_mandelbrot':
-                return 4.6;
             default:
                 return 6.5;
         }

@@ -9,8 +9,7 @@ export const FORMULA_IDS = {
     KIFS: 'kifs',
     APOLLONIAN: 'apollonian',
     BURNING_SHIP: 'burning_ship',
-    JERUSALEM: 'jerusalem',
-    QUAT_MANDELBROT: 'quat_mandelbrot'
+    JERUSALEM: 'jerusalem'
 };
 
 export const FORMULAS = {
@@ -811,114 +810,6 @@ float mapFractal(vec3 pos, out vec4 trap) {
             const dz = Math.max(0.0, Math.abs(zz) - 1.0);
             const boxDist = Math.hypot(dx, dy, dz);
             return 0.65 * boxDist / Math.max(1e-4, dr);
-        }
-    },
-
-    [FORMULA_IDS.QUAT_MANDELBROT]: {
-        id: FORMULA_IDS.QUAT_MANDELBROT,
-        name: '4D Quat Mandelbrot',
-        subtitle: 'Hypercomplex 4D Mandelbrot Escape-Time Set',
-        defaultCam: {
-            pos: [1.4, 1.0, 2.1],
-            target: [0.0, 0.0, 0.0]
-        },
-        params: [
-            { id: 'qm_slice_w', name: '4D W-Slice', min: -1.0, max: 1.0, step: 0.02, default: 0.18, uniform: 'u_qm_slice_w', type: 'float' },
-            { id: 'qm_rot_xw', name: '4D Rot X-W', min: -3.14, max: 3.14, step: 0.02, default: 0.52, uniform: 'u_qm_rot_xw', type: 'float' },
-            { id: 'qm_rot_yw', name: '4D Rot Y-W', min: -3.14, max: 3.14, step: 0.02, default: -0.38, uniform: 'u_qm_rot_yw', type: 'float' },
-            { id: 'qm_iterations', name: 'Iterations', min: 6, max: 24, step: 1, default: 13, uniform: 'u_qm_iterations', type: 'int' }
-        ],
-        presets: [
-            {
-                name: 'Classic 4D Cardioid Core',
-                values: { qm_slice_w: 0.18, qm_rot_xw: 0.52, qm_rot_yw: -0.38, qm_iterations: 13 }
-            },
-            {
-                name: 'Satellite Needle Spire',
-                values: { qm_slice_w: 0.22, qm_rot_xw: 0.45, qm_rot_yw: -0.30, qm_iterations: 14 }
-            },
-            {
-                name: 'Hyper-Seahorse Valley',
-                values: { qm_slice_w: -0.15, qm_rot_xw: -0.65, qm_rot_yw: 0.50, qm_iterations: 15 }
-            },
-            {
-                name: 'Antennae Starburst',
-                values: { qm_slice_w: 0.38, qm_rot_xw: 0.85, qm_rot_yw: 0.60, qm_iterations: 16 }
-            }
-        ],
-        glsl: `
-// 4D Hypercomplex Mandelbrot Set DE (Bicomplex multiplication eliminates parallel circular disc degeneracy)
-vec4 quatSq(vec4 q) {
-    return vec4(
-        q.x * q.x - q.y * q.y - q.z * q.z + q.w * q.w,
-        2.0 * (q.x * q.y - q.z * q.w),
-        2.0 * (q.x * q.z - q.y * q.w),
-        2.0 * (q.x * q.w + q.y * q.z)
-    );
-}
-
-float mapFractal(vec3 pos, out vec4 trap) {
-    vec4 c = vec4(pos, u_qm_slice_w);
-    
-    // 4D Hyperplane Rotations
-    float cosXW = cos(u_qm_rot_xw); float sinXW = sin(u_qm_rot_xw);
-    float cosYW = cos(u_qm_rot_yw); float sinYW = sin(u_qm_rot_yw);
-    vec2 xw = mat2(cosXW, -sinXW, sinXW, cosXW) * vec2(c.x, c.w);
-    c.x = xw.x; c.w = xw.y;
-    vec2 yw = mat2(cosYW, -sinYW, sinYW, cosYW) * vec2(c.y, c.w);
-    c.y = yw.x; c.w = yw.y;
-    
-    vec4 z = c;
-    float md2 = 1.0;
-    float mz2 = dot(z, z);
-    vec4 orbit = vec4(100.0);
-    int maxIt = int(u_qm_iterations);
-    
-    for (int i = 0; i < 20; i++) {
-        if (i >= maxIt) break;
-        
-        md2 = 4.0 * mz2 * md2 + 1.0;
-        z = quatSq(z) + c;
-        mz2 = dot(z, z);
-        
-        orbit.x = min(orbit.x, mz2);
-        orbit.y = min(orbit.y, abs(z.y * z.z));
-        orbit.z = min(orbit.z, abs(z.w));
-        orbit.w = float(i);
-        
-        if (mz2 > 16.0) break;
-    }
-    
-    trap = orbit;
-    return 0.25 * sqrt(mz2 / max(md2, 1e-6)) * log(max(1.0001, mz2));
-}
-`,
-        cpuEvalDE: (p, state) => {
-            let cx = p[0], cy = p[1], cz = p[2], cw = state.qm_slice_w ?? 0.18;
-            const cosXW = Math.cos(state.qm_rot_xw ?? 0.52), sinXW = Math.sin(state.qm_rot_xw ?? 0.52);
-            const cosYW = Math.cos(state.qm_rot_yw ?? -0.38), sinYW = Math.sin(state.qm_rot_yw ?? -0.38);
-            const nxw0 = cosXW * cx - sinXW * cw, nxw1 = sinXW * cx + cosXW * cw;
-            cx = nxw0; cw = nxw1;
-            const nyw0 = cosYW * cy - sinYW * cw, nyw1 = sinYW * cy + cosYW * cw;
-            cy = nyw0; cw = nyw1;
-
-            let zx = cx, zy = cy, zz = cz, zw = cw;
-            const maxIt = Math.min(14, state.qm_iterations ?? 13);
-            let md2 = 1.0;
-            let mz2 = zx * zx + zy * zy + zz * zz + zw * zw;
-
-            for (let i = 0; i < maxIt; i++) {
-                md2 = 4.0 * mz2 * md2 + 1.0;
-                const nx = zx * zx - zy * zy - zz * zz + zw * zw + cx;
-                const ny = 2.0 * (zx * zy - zz * zw) + cy;
-                const nz = 2.0 * (zx * zz - zy * zw) + cz;
-                const nw = 2.0 * (zx * zw + zy * zz) + cw;
-                zx = nx; zy = ny; zz = nz; zw = nw;
-                mz2 = zx * zx + zy * zy + zz * zz + zw * zw;
-                if (mz2 > 16.0) break;
-            }
-            if (mz2 < 1.0) return 0.0;
-            return 0.35 * Math.sqrt(mz2) * Math.log(mz2) / Math.max(1e-4, Math.sqrt(md2));
         }
     }
 };

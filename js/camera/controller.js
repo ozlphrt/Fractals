@@ -39,17 +39,17 @@ export class CameraController {
         // Camera Modes
         this.mode = 'orbit'; // 'orbit' | 'flight'
 
-        // Coordinates & Orthonormal Frame (Zoomed in for intricate 4D Quaternion liquid geometry)
-        this.pos = [0.0, 0.0, 1.2];
+        // Coordinates & Orthonormal Frame (Default: Mandelbulb framing)
+        this.pos = [0.0, 0.0, 2.35];
         this.target = [0.0, 0.0, 0.0];
         this.up = [0.0, 1.0, 0.0];
-        this.orbitRadius = 1.2;
-        this.idealDistance = 1.2;
+        this.orbitRadius = 2.35;
+        this.idealDistance = 2.35;
 
         // Manual Zoom Override State & Heavy Inertial Zoom Physics
         this.isZoomOverridden = false;
         this.onZoomOverrideChange = null;
-        this.targetOrbitRadius = 1.2;
+        this.targetOrbitRadius = 2.35;
         this.zoomDamping = 5.2; // Heavy viscous damping: cinematic weighty glide
         this.zoomSensitivity = 0.00042; // Controlled, weighted zoom step per wheel notch
 
@@ -773,8 +773,6 @@ export class CameraController {
                     return 1.85 + asym * 0.95; // Burning ship with asymmetry expands
                 } else if (id === 'jerusalem') {
                     return 2.35; // Jerusalem cube reaches ~2.35
-                } else if (id === 'quat_mandelbrot') {
-                    return 1.85; // Quat Mandelbrot reaches ~1.85
                 }
 
                 return 1.5;

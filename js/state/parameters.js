@@ -125,17 +125,12 @@ export const COHESIVE_FORMULA_BOUNDS = {
     jerus_cut: { min: 0.6, max: 1.1 },
     jerus_offset: { min: 0.8, max: 1.25 },
     jerus_rot_x: { min: -0.08, max: 0.08 },
-    jerus_rot_y: { min: -0.08, max: 0.08 },
-
-    // 4D Quaternion Mandelbrot: Escape-time cardioid core
-    qm_slice_w: { min: -0.25, max: 0.25 },
-    qm_rot_xw: { min: 0.35, max: 1.25 },
-    qm_rot_yw: { min: -1.15, max: -0.30 }
+    jerus_rot_y: { min: -0.08, max: 0.08 }
 };
 
 export class StateManager {
     constructor() {
-        this.activeFormulaId = FORMULA_IDS.QUAT_JULIA;
+        this.activeFormulaId = FORMULA_IDS.MANDELBULB;
         this.values = {}; // Actual current evaluated values (with inertia)
         this.targetValues = {}; // User target values set by sliders
         this.velocities = {}; // Inertial rate of change

@@ -203,24 +203,25 @@ export const CURATED_COMMUNITY_CREATIONS = [
     },
     {
         id: 'curated-09',
-        title: 'Weathered Timber Seahorse',
-        author: '@quaternion_god',
-        formula: FORMULA_IDS.QUAT_MANDELBROT,
-        material: 'driftwood_bone',
+        title: 'Celestial Gasket Spheres',
+        author: '@sphere_weaver',
+        formula: FORMULA_IDS.APOLLONIAN,
+        material: 'obsidian_gold',
         params: {
-            qm_slice_w: -0.15,
-            qm_rot_xw: -0.65,
-            qm_rot_yw: 0.50,
-            qm_iterations: 14,
-            glow_intensity: 0.1
+            apol_radius: 1.55,
+            apol_scale: 1.45,
+            apol_fold: 0.85,
+            apol_rot: 0.35,
+            apol_iterations: 12,
+            glow_intensity: 0.15
         },
         camera: {
-            pos: [0.0, 0.0, 1.55],
+            pos: [0.0, 0.0, 2.2],
             target: [0.0, 0.0, 0.0],
             preset: 'turntable',
-            orbitRadius: 1.55
+            orbitRadius: 2.2
         },
-        tags: ['4D', 'Mandelbrot', 'Timber']
+        tags: ['Apollonian', 'Gasket', 'Gold']
     }
 ];
 
