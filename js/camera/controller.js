@@ -155,19 +155,23 @@ export class CameraController {
         const outY = dy / curR;
         const outZ = dz / curR;
 
-        // Stuck inside solid or non-numerical value: smoothly push outward along radial vector
-        // Never hard-teleport to old position, which causes severe 60Hz fighting jitter
-        if (isNaN(de) || de <= 0.0002) {
-            const pushDist = Math.max(0.04, R_safe * 1.25);
-            pos[0] += outX * pushDist;
-            pos[1] += outY * pushDist;
-            pos[2] += outZ * pushDist;
+        // Inside solid or non-numerical value: raymarch outward along radial vector until safely outside
+        // Completely prevents the camera from ever staying inside or teleporting into geometry
+        if (isNaN(de) || de <= 0.0005) {
+            let totalPush = 0.0;
+            for (let step = 0; step < 16; step++) {
+                const pushStep = Math.max(0.04, R_safe * 1.25);
+                pos[0] += outX * pushStep;
+                pos[1] += outY * pushStep;
+                pos[2] += outZ * pushStep;
+                totalPush += pushStep;
+                de = this.collisionProvider(pos);
+                if (!isNaN(de) && de >= R_safe) break;
+            }
             if (this.mode === 'orbit') {
-                const newDist = curR + pushDist;
-                if (newDist > this.orbitRadius) {
-                    this.orbitRadius = newDist;
-                    this.targetOrbitRadius = newDist;
-                }
+                const newDist = curR + totalPush;
+                this.orbitRadius = Math.max(this.orbitRadius, newDist);
+                this.targetOrbitRadius = Math.max(this.targetOrbitRadius, newDist);
             }
             return true;
         }
@@ -178,7 +182,7 @@ export class CameraController {
 
         // Push out iteratively along combined surface normal and radial direction
         let corrected = false;
-        for (let iter = 0; iter < 3; iter++) {
+        for (let iter = 0; iter < 4; iter++) {
             if (de >= R_safe) break;
             const norm = this.estimateNormal(pos, Math.max(0.002, R_safe * 0.25));
             const pushX = norm[0] * 0.7 + outX * 0.3;
@@ -186,17 +190,17 @@ export class CameraController {
             const pushZ = norm[2] * 0.7 + outZ * 0.3;
             const pushLen = Math.hypot(pushX, pushY, pushZ) || 1.0;
 
-            const pushDist = (R_safe - de) * 1.12;
+            const pushDist = (R_safe - de) * 1.15;
             pos[0] += (pushX / pushLen) * pushDist;
             pos[1] += (pushY / pushLen) * pushDist;
             pos[2] += (pushZ / pushLen) * pushDist;
             corrected = true;
             de = this.collisionProvider(pos);
-            if (isNaN(de) || de <= 0.0) break;
+            if (isNaN(de) || de <= 0.0005) break;
         }
 
         // When in orbit mode, synchronize orbit radius with the corrected distance
-        // This permanently stops the orbit solver from pulling the camera back into the solid!
+        // Prevents the camera from penetrating inside the shape when rotating or zooming
         if (corrected && this.mode === 'orbit') {
             const newDist = Math.hypot(pos[0] - this.target[0], pos[1] - this.target[1], pos[2] - this.target[2]);
             if (newDist > this.orbitRadius) {
@@ -726,7 +730,17 @@ export class CameraController {
         // If user has overridden the zoom factor, respect manual zoom (do not force orbitRadius)
         if (this.isZoomOverridden) return;
 
-        const diff = canonDist - this.orbitRadius;
+        let targetDist = canonDist;
+        // If canonDist is closer than the safe surface distance along the current viewing ray,
+        // clamp targetDist so auto-zoom NEVER pulls the camera into the solid
+        if (this.collisionEnabled && this.collisionProvider) {
+            const curDE = this.collisionProvider(this.pos);
+            if (!isNaN(curDE) && curDE < this.safeRadius * 1.5 && (targetDist < this.orbitRadius)) {
+                targetDist = this.orbitRadius;
+            }
+        }
+
+        const diff = targetDist - this.orbitRadius;
         const targetOffset = Math.hypot(this.target[0], this.target[1], this.target[2]);
         
         // Deadband threshold: if settled, avoid float churn and spurious movement flags
@@ -888,17 +902,14 @@ export class CameraController {
             }
         }
 
-        // Global collision resolution & last safe snapshot tracking
+        // Global collision resolution & surface penetration prevention (Active across Orbit and Flight)
+        // Camera can get as close as safeRadius to the surface, but NEVER penetrates inside solid geometry
         this.collisionPushed = false;
         if (this.collisionEnabled && this.collisionProvider) {
-            // Collision resolution operates in Flight mode to prevent flying through walls
-            // In Orbit mode, orbit radius clamping maintains clean, jitter-free 360 rotation without fighting
-            if (this.mode === 'flight') {
-                const pushed = this.resolveCollision(this.pos);
-                if (pushed) {
-                    this.collisionPushed = true;
-                    this.hasMoved = true;
-                }
+            const pushed = this.resolveCollision(this.pos);
+            if (pushed) {
+                this.collisionPushed = true;
+                this.hasMoved = true;
             }
             const finalDE = this.collisionProvider(this.pos);
             this.currentDE = isNaN(finalDE) ? 1.0 : finalDE;
