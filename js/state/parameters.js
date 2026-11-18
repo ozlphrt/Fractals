@@ -9,7 +9,10 @@ export const GLOBAL_PARAMS = [
     // Raymarcher Quality
     { id: 'max_steps', name: 'Max Ray Steps', min: 170, max: 1000, step: 10, default: 200, uniform: 'u_max_steps', type: 'int', group: 'render' },
     { id: 'hit_epsilon', name: 'Hit Threshold', min: 0.0005, max: 0.008, step: 0.0005, default: 0.0015, uniform: 'u_hit_epsilon', type: 'float', group: 'render' },
+    // Camera & Proximity Flight
     { id: 'fov', name: 'Field of View', min: 30, max: 100, step: 1, default: 60, uniform: 'u_fov', type: 'float', group: 'camera' },
+    { id: 'collision_enabled', name: 'Collision Avoidance', min: 0, max: 1, step: 1, default: 1, type: 'int', group: 'camera', enumNames: ['Disabled', 'Enabled'] },
+    { id: 'collision_clearance', name: 'Safety Clearance', min: 0.005, max: 0.10, step: 0.005, default: 0.02, type: 'float', group: 'camera' },
     
     // Shading & Cosine Palette (Inigo Quilez natural earth/mineral formula)
     { id: 'trap_mode', name: 'Orbit Trap Source', min: 0, max: 3, step: 1, default: 0, uniform: 'u_trap_mode', type: 'int', group: 'shading', enumNames: ['Origin Dist', 'Coord Planes', 'Spherical/Axis', 'Iteration Count'] },
@@ -165,7 +168,41 @@ export class StateManager {
 
         // Initialize default values for all formulas and globals
         this.initDefaults();
+
+        // Always start with a random formula and randomized cohesive geometry setting
+        this.randomizeStartupState();
+
         this.pushHistory();
+    }
+
+    randomizeStartupState() {
+        const formulaIds = Object.values(FORMULA_IDS);
+        const randomFormulaId = formulaIds[Math.floor(Math.random() * formulaIds.length)];
+        this.activeFormulaId = randomFormulaId;
+
+        const formula = FORMULAS[randomFormulaId];
+        if (formula) {
+            for (const p of formula.params) {
+                // Keep discrete iterations at harmonious defaults
+                if (p.type === 'int' || p.id.endsWith('_iterations') || p.id === 'iterations' || p.id.includes('symmetry')) {
+                    continue;
+                }
+                const bounds = COHESIVE_FORMULA_BOUNDS[p.id];
+                let val;
+                if (typeof bounds === 'function') {
+                    val = bounds();
+                } else if (bounds) {
+                    val = bounds.min + Math.random() * (bounds.max - bounds.min);
+                } else {
+                    val = p.min + Math.random() * (p.max - p.min);
+                }
+                this.values[p.id] = val;
+                this.targetValues[p.id] = val;
+            }
+        }
+
+        this.snapshotA = { ...this.values };
+        this.snapshotB = { ...this.values };
     }
 
     initDefaults() {

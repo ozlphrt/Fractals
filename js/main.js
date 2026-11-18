@@ -21,8 +21,8 @@ class FractalSynthApp {
             this.raymarcher.resetAccumulation();
         });
 
-        // Auto-adjust sun azimuth and elevation to align with initial camera viewpoint (only at beginning)
-        this.alignSunWithCamera();
+        // Initialize sun azimuth and elevation to align with initial camera viewpoint
+        this.updateSunAutoTracking(1.0);
 
         this.raymarcher = new Raymarcher(this.canvas, this.state);
         this.ui = new CockpitUI(this.state, this.modulation, this.audio, this.camera, this.raymarcher);
@@ -56,12 +56,27 @@ class FractalSynthApp {
         this.startLoop();
     }
 
-    // Auto-adjust sun azimuth and elevation to align with initial camera position (only at beginning)
-    // Ensures key illumination directly lights the visible front surface of the object
-    alignSunWithCamera() {
-        const dx = this.camera.pos[0] - this.camera.target[0];
-        const dy = this.camera.pos[1] - this.camera.target[1];
-        const dz = this.camera.pos[2] - this.camera.target[2];
+    // Continuous smooth and gradual auto-adjustment of Sun Light 1 azimuth and elevation
+    // Ensures the object is always beautifully and consistently illuminated from the camera's viewpoint
+    updateSunAutoTracking(dt) {
+        // If user is actively dragging sun sliders in the UI, pause auto-tracking for 4s
+        if (this.ui && this.ui.isUserAdjustingSun && (performance.now() - this.ui.lastSunUserInteractionTime) < 4000) {
+            return;
+        }
+
+        // Compute direction vector from view target towards camera
+        let dx, dy, dz;
+        if (this.camera.mode === 'flight') {
+            const fwd = this.camera.getForwardVector();
+            dx = -fwd[0];
+            dy = -fwd[1];
+            dz = -fwd[2];
+        } else {
+            dx = this.camera.pos[0] - this.camera.target[0];
+            dy = this.camera.pos[1] - this.camera.target[1];
+            dz = this.camera.pos[2] - this.camera.target[2];
+        }
+
         const len = Math.hypot(dx, dy, dz) || 1.0;
         const nx = dx / len;
         const ny = dy / len;
@@ -69,17 +84,48 @@ class FractalSynthApp {
 
         // Angle in horizontal plane towards camera
         const camAzimuth = Math.atan2(nz, nx);
-        // Slightly offset by +22 degrees (+0.38 rad) for sculpted 3/4 photographic key lighting
-        let sunAzimuth = camAzimuth + 0.38;
-        if (sunAzimuth > Math.PI) sunAzimuth -= Math.PI * 2;
-        if (sunAzimuth < -Math.PI) sunAzimuth += Math.PI * 2;
+        
+        // Sculpted 3/4 photographic key lighting offset (+25° / +0.44 rad)
+        let targetSunAzimuth = camAzimuth + 0.44;
+        while (targetSunAzimuth > Math.PI) targetSunAzimuth -= Math.PI * 2;
+        while (targetSunAzimuth < -Math.PI) targetSunAzimuth += Math.PI * 2;
 
-        // Flattering 35° to 50° elevation above camera horizon
+        // Flattering 35° to 55° elevation above camera horizon
         const baseElevation = Math.asin(Math.max(-0.95, Math.min(0.95, ny)));
-        const sunElevation = Math.max(0.45, Math.min(1.25, baseElevation + 0.42));
+        const targetSunElevation = Math.max(0.40, Math.min(1.30, baseElevation + 0.45));
 
-        this.state.set('sun_azimuth', parseFloat(sunAzimuth.toFixed(3)), false);
-        this.state.set('sun_elevation', parseFloat(sunElevation.toFixed(3)), false);
+        // Current sun azimuth and elevation
+        let curAz = this.state.values['sun_azimuth'] ?? 0.76;
+        let curEl = this.state.values['sun_elevation'] ?? 0.90;
+
+        // Shortest arc angular difference for azimuth (handles wraparound seamlessly)
+        let dAz = targetSunAzimuth - curAz;
+        while (dAz > Math.PI) dAz -= Math.PI * 2;
+        while (dAz < -Math.PI) dAz += Math.PI * 2;
+
+        let dEl = targetSunElevation - curEl;
+
+        // Smooth gradual easing (critically damped exponential glide)
+        const lerpFactor = 1.0 - Math.exp(-2.2 * dt);
+        
+        let newAz = curAz + dAz * lerpFactor;
+        while (newAz > Math.PI) newAz -= Math.PI * 2;
+        while (newAz < -Math.PI) newAz += Math.PI * 2;
+
+        let newEl = curEl + dEl * lerpFactor;
+        newEl = Math.max(0.1, Math.min(1.5, newEl));
+
+        this.state.values['sun_azimuth'] = newAz;
+        this.state.values['sun_elevation'] = newEl;
+        this.state.targetValues['sun_azimuth'] = newAz;
+        this.state.targetValues['sun_elevation'] = newEl;
+
+        // Throttled UI sync
+        if (this.ui && (!this._lastSunUiSync || (performance.now() - this._lastSunUiSync) > 150)) {
+            this._lastSunUiSync = performance.now();
+            this.ui.syncSliderUI('sun_azimuth', newAz);
+            this.ui.syncSliderUI('sun_elevation', newEl);
+        }
     }
 
     setupResize() {
@@ -143,21 +189,32 @@ class FractalSynthApp {
                 this.state.values[p.id] = modVal;
             }
 
-            // 5. Mirror lightweight CPU Distance Estimator at camera position for proximity flight
-            let surfaceDE = 1.0;
+            // 5. Connect collision provider & settings to camera
+            const collisionEnabled = (this.state.get('collision_enabled') ?? 1) === 1;
+            const collisionClearance = this.state.get('collision_clearance') ?? 0.02;
+            this.camera.setCollisionSettings(collisionEnabled, collisionClearance);
+            
             if (activeFormula.cpuEvalDE) {
-                try {
-                    surfaceDE = activeFormula.cpuEvalDE(this.camera.pos, this.state.values);
-                } catch (e) {
-                    surfaceDE = 1.0;
-                }
+                this.camera.setCollisionProvider((p) => {
+                    try {
+                        return activeFormula.cpuEvalDE(p, this.state.values);
+                    } catch (e) {
+                        return 1.0;
+                    }
+                });
+            } else {
+                this.camera.setCollisionProvider(null);
             }
 
             // 5b. Auto zoom to include 80% of the fractal inside the viewport at all times
             this.camera.updateAutoZoom(activeFormula, this.state.values, this.state.get('fov') || 60, dt, this.state.formulaMorph);
 
-            // 6. Camera flight / orbit update
-            const camMoved = this.camera.update(dt, surfaceDE);
+            // 6. Camera flight / orbit update with collision resolution
+            const camMoved = this.camera.update(dt, 1.0);
+            const surfaceDE = this.camera.currentDE;
+
+            // 6b. Continuous smooth auto-tracking of key lighting to keep visible surface sculpted & well-lit
+            this.updateSunAutoTracking(dt);
 
             const isMorphing = (this.state.morphAnim !== null) || isFormulaMorphing || isParamMorphing;
             const isDynamic = camMoved || slidersMoving || isMorphing || (hasMod && (this.audio.isPlaying || this.modulation.bindings.size > 0));

@@ -732,23 +732,24 @@ void main() {
         switch (formula.id) {
             case 'mandelbox':
                 return 7.8;
-            case 'burningship': {
-                const asym = typeof values.asym === 'number' ? values.asym : (formula.params.find(p => p.id === 'asym')?.default ?? 0.0);
-                return Math.max(3.2, 1.55 + asym * 1.15) * 1.45 + 0.35;
+            case 'burning_ship': {
+                const asym = typeof values.bs_asym === 'number' ? values.bs_asym : (formula.params.find(p => p.id === 'bs_asym')?.default ?? 0.0);
+                return Math.max(3.2, 1.85 + asym * 0.95) * 1.35 + 0.35;
             }
             case 'mandelbulb':
                 return 4.2;
-            case 'julia3d':
-                return 4.0;
-            case 'menger':
-                return 3.2;
-            case 'apollonian':
+            case 'quat_julia':
+                return 3.8;
+            case 'kifs':
                 return 4.5;
-            case 'octahedral':
-            case 'dodecahedral':
+            case 'apollonian':
+                return 4.8;
+            case 'dodecahedron':
                 return 5.2;
-            case 'kleinian':
-                return 6.0;
+            case 'jerusalem':
+                return 5.4;
+            case 'quat_mandelbrot':
+                return 4.6;
             default:
                 return 6.5;
         }
@@ -835,11 +836,15 @@ void main() {
         set1f('u_glow_color_b', this.state.get('glow_color_b') ?? 1.0);
         set1f('u_fog_density', this.state.get('fog_density') ?? 0.15);
 
-        // Near-clip culling: only active for Mandelbox to prevent camera close-up wall clipping
+        // Near-clip culling: prevents camera close-up wall clipping and interior smears across all formulas
         if (formula.id === 'mandelbox') {
             set1f('u_near_clip', this.state.get('mbox_near_clip') ?? 0.70);
         } else {
-            set1f('u_near_clip', 0.0);
+            // Universal safety near-clip: drives from camera safe clearance to avoid interior wall smears
+            const clearance = this.state.get('collision_clearance') ?? 0.02;
+            const boundR = this.computeSafeBoundingRadius(formula, this.state.values) * 0.35;
+            const safeNear = Math.max(0.015, clearance * boundR);
+            set1f('u_near_clip', safeNear);
         }
 
         // Upload Active Formula Math Uniforms

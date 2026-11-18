@@ -154,9 +154,17 @@ export class CockpitUI {
         const rightInfo = document.createElement('div');
         rightInfo.className = 'slider-right-info';
 
+        const formatValue = (v) => {
+            if (p.enumNames) {
+                const idx = Math.round(v);
+                return p.enumNames[idx] ?? idx;
+            }
+            return (p.type === 'int') ? Math.round(v) : (typeof v === 'number' ? v.toFixed(2) : v);
+        };
+
         const valSpan = document.createElement('span');
         valSpan.className = isEmphasized ? 'val-badge val-badge-emphasized' : 'val-badge';
-        valSpan.textContent = (typeof p.default === 'number' && p.type !== 'int') ? p.default.toFixed(2) : p.default;
+        valSpan.textContent = formatValue(this.state.get(p.id) ?? p.default);
 
         // Modulation Badge Button [~]
         const modBtn = document.createElement('button');
@@ -197,13 +205,21 @@ export class CockpitUI {
 
         slider.addEventListener('input', (e) => {
             const v = (p.type === 'int') ? parseInt(e.target.value, 10) : parseFloat(e.target.value);
+            if (p.id === 'sun_azimuth' || p.id === 'sun_elevation') {
+                this.isUserAdjustingSun = true;
+                this.lastSunUserInteractionTime = performance.now();
+            }
             this.state.set(p.id, v, false);
-            valSpan.textContent = (p.type === 'int') ? v : v.toFixed(2);
+            valSpan.textContent = formatValue(v);
             this.raymarcher.resetAccumulation();
         });
 
         slider.addEventListener('change', (e) => {
             const v = (p.type === 'int') ? parseInt(e.target.value, 10) : parseFloat(e.target.value);
+            if (p.id === 'sun_azimuth' || p.id === 'sun_elevation') {
+                this.isUserAdjustingSun = false;
+                this.lastSunUserInteractionTime = performance.now();
+            }
             this.state.set(p.id, v, true);
         });
 
@@ -475,7 +491,12 @@ export class CockpitUI {
         const entry = this.sliderEls.get(id);
         if (entry) {
             entry.slider.value = val;
-            entry.valSpan.textContent = (entry.param.type === 'int') ? Math.round(val) : val.toFixed(2);
+            if (entry.param.enumNames) {
+                const idx = Math.round(val);
+                entry.valSpan.textContent = entry.param.enumNames[idx] ?? idx;
+            } else {
+                entry.valSpan.textContent = (entry.param.type === 'int') ? Math.round(val) : val.toFixed(2);
+            }
         }
     }
 

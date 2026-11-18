@@ -90,8 +90,92 @@ export class CameraController {
         this.transitionStartPos = [0.0, 0.0, 1.2];
         this.transitionStartTarget = [0.0, 0.0, 0.0];
 
+        // Collision Avoidance & Safety Bubble State
+        this.collisionEnabled = true;
+        this.collisionClearance = 0.02; // Clearance ratio relative to object radius
+        this.safeRadius = 0.045; // Absolute clearance distance in world units
+        this.collisionProvider = null; // (pos) => surfaceDE
+        this.lastSafePos = [0.0, 0.0, 1.2];
+        this.lastSafeTarget = [0.0, 0.0, 0.0];
+        this.collisionPushed = false;
+        this.objRadius = 1.5;
+
         this.hasMoved = true;
         this.setupInputListeners();
+    }
+
+    setCollisionProvider(fn) {
+        this.collisionProvider = fn;
+    }
+
+    setCollisionSettings(enabled, clearance) {
+        this.collisionEnabled = Boolean(enabled);
+        if (typeof clearance === 'number' && clearance > 0) {
+            this.collisionClearance = clearance;
+        }
+    }
+
+    estimateNormal(pos, eps = 0.005) {
+        if (!this.collisionProvider) return [0, 1, 0];
+        const k0 = [1.0, -1.0, -1.0];
+        const k1 = [-1.0, -1.0, 1.0];
+        const k2 = [-1.0, 1.0, -1.0];
+        const k3 = [1.0, 1.0, 1.0];
+
+        const d0 = this.collisionProvider([pos[0] + k0[0] * eps, pos[1] + k0[1] * eps, pos[2] + k0[2] * eps]);
+        const d1 = this.collisionProvider([pos[0] + k1[0] * eps, pos[1] + k1[1] * eps, pos[2] + k1[2] * eps]);
+        const d2 = this.collisionProvider([pos[0] + k2[0] * eps, pos[1] + k2[1] * eps, pos[2] + k2[2] * eps]);
+        const d3 = this.collisionProvider([pos[0] + k3[0] * eps, pos[1] + k3[1] * eps, pos[2] + k3[2] * eps]);
+
+        let nx = k0[0] * d0 + k1[0] * d1 + k2[0] * d2 + k3[0] * d3;
+        let ny = k0[1] * d0 + k1[1] * d1 + k2[1] * d2 + k3[1] * d3;
+        let nz = k0[2] * d0 + k1[2] * d1 + k2[2] * d2 + k3[2] * d3;
+
+        let len = Math.hypot(nx, ny, nz);
+        if (len < 1e-6) {
+            nx = pos[0] - this.target[0];
+            ny = pos[1] - this.target[1];
+            nz = pos[2] - this.target[2];
+            len = Math.hypot(nx, ny, nz) || 1.0;
+        }
+        return [nx / len, ny / len, nz / len];
+    }
+
+    resolveCollision(pos, minClearance = null) {
+        if (!this.collisionEnabled || !this.collisionProvider) return false;
+        const R_safe = minClearance !== null ? minClearance : this.safeRadius;
+        let de = this.collisionProvider(pos);
+
+        // Stuck inside solid or non-numerical value: recover to last safe position
+        if (isNaN(de) || de <= 0.0001) {
+            if (this.lastSafePos) {
+                pos[0] = this.lastSafePos[0];
+                pos[1] = this.lastSafePos[1];
+                pos[2] = this.lastSafePos[2];
+                return true;
+            }
+            return false;
+        }
+
+        if (de >= R_safe) {
+            return false;
+        }
+
+        // Push out iteratively along surface normal
+        let corrected = false;
+        for (let iter = 0; iter < 3; iter++) {
+            if (de >= R_safe) break;
+            const norm = this.estimateNormal(pos, Math.max(0.002, R_safe * 0.25));
+            const pushDist = (R_safe - de) * 1.08;
+            pos[0] += norm[0] * pushDist;
+            pos[1] += norm[1] * pushDist;
+            pos[2] += norm[2] * pushDist;
+            corrected = true;
+            de = this.collisionProvider(pos);
+            if (isNaN(de) || de <= 0.0) break;
+        }
+
+        return corrected;
     }
 
     setMode(newMode) {
@@ -171,7 +255,7 @@ export class CameraController {
     }
 
     applyCameraPreset(dt) {
-        const baseR = this.idealDistance || 1.2;
+        const baseR = Math.max(this.idealDistance || 1.2, (this.objRadius || 1.2) * 1.15);
         const zoomScale = this.isZoomOverridden ? (this.orbitRadius / baseR) : 1.0;
         const R = baseR * zoomScale;
 
@@ -193,7 +277,7 @@ export class CameraController {
         } else if (this.activeCameraPreset === 'action') {
             // Action Cam: Slowed down 4X, serene cinema fly-through
             const t = this.presetTime * 0.18;
-            const rMod = R * (0.92 + 0.18 * Math.sin(2.2 * t));
+            const rMod = Math.max((this.objRadius || 1.2) * 1.05, R * (0.95 + 0.18 * Math.sin(2.2 * t)));
             goalPx = rMod * Math.cos(t);
             goalPy = R * 0.32 * Math.cos(1.6 * t);
             goalPz = rMod * Math.sin(t);
@@ -217,9 +301,9 @@ export class CameraController {
             goalTy = R * 0.08 * Math.cos(t * 2.0);
             goalTz = R * 0.12 * Math.cos(t * 1.5);
         } else if (this.activeCameraPreset === 'follow') {
-            // Follow Cam: Slowed down 3.7X, serene surface contour glide
+            // Follow Cam: Slowed down 3.7X, serene surface contour glide (safe distance)
             const t = this.presetTime * 0.07;
-            const followR = R * 0.65;
+            const followR = Math.max((this.objRadius || 1.2) * 1.08, R * 0.88);
             goalPx = followR * Math.cos(t);
             goalPy = followR * 0.22 * Math.sin(t * 2.0) + followR * 0.10;
             goalPz = followR * Math.sin(t);
@@ -229,7 +313,7 @@ export class CameraController {
         } else if (this.activeCameraPreset === 'dynamic') {
             // Dynamic Cam: Slowed down 5X, hypnotic slow vortex dive
             const t = this.presetTime * 0.08;
-            const spiralR = R * (0.88 + 0.40 * Math.sin(t * 0.55));
+            const spiralR = Math.max((this.objRadius || 1.2) * 1.05, R * (0.95 + 0.35 * Math.sin(t * 0.55)));
             goalPx = spiralR * Math.sin(t);
             goalPy = R * 0.50 * Math.cos(t * 0.55);
             goalPz = spiralR * Math.cos(t);
@@ -237,10 +321,19 @@ export class CameraController {
         } else if (this.activeCameraPreset === 'hero') {
             // Hero Shot: Slowed down 4.5X, monumental low-angle panoramic tilt
             const t = this.presetTime * 0.04;
-            goalPx = R * 0.70 * Math.sin(t);
+            goalPx = Math.max((this.objRadius || 1.2) * 1.05, R * 0.82) * Math.sin(t);
             goalPy = -R * 0.40 + 0.04 * Math.sin(t * 0.8);
             goalPz = R * 0.88 * Math.cos(t);
             goalTx = 0.0; goalTy = R * 0.20; goalTz = 0.0;
+        }
+
+        // Push preset goal position outside geometry if collision is enabled
+        const goalP = [goalPx, goalPy, goalPz];
+        if (this.collisionEnabled) {
+            this.resolveCollision(goalP, this.safeRadius * 1.5);
+            goalPx = goalP[0];
+            goalPy = goalP[1];
+            goalPz = goalP[2];
         }
 
         // Seamless 2-second crossfade from the previous camera state
@@ -541,8 +634,8 @@ export class CameraController {
     }
 
     // Dynamic 3D fractal boundary estimator
-    computeFractalBoundingRadius(formula, values) {
-        if (!formula) return 1.15;
+    computeFractalBoundingRadius(formula, values = {}) {
+        if (!formula) return 1.5;
         const id = formula.id;
 
         if (id === 'quat_julia') {
@@ -551,35 +644,34 @@ export class CameraController {
             const cz = values.qj_cz ?? 0.4;
             const cw = values.qj_cw ?? 0.0;
             const cLen = Math.hypot(cx, cy, cz, cw);
-            return 0.92 + 0.32 * cLen; // typically ~1.15
+            return 1.25 + 0.35 * cLen; // ~1.40
         } else if (id === 'mandelbulb') {
             const jMix = values.mb_julia_mix ?? 0.0;
-            return 1.10 + 0.12 * jMix; // typically ~1.12
+            return 1.45 + 0.15 * jMix; // Mandelbulb expands to ~1.45 - 1.55
         } else if (id === 'mandelbox') {
             const scale = Math.abs(values.mbox_scale ?? 2.2);
             const foldLimit = values.mbox_fold_limit ?? 1.0;
-            // Mandelbox outer architecture extends outward with towers and spires to radius ~4.8 - 5.5
-            // Setting this correctly frames the entire majestic structure with comfortable 80% coverage
             return 3.6 + foldLimit * 1.2 + Math.min(1.5, Math.max(0.0, scale - 1.0) * 0.5); // ~5.2 - 5.5
         } else if (id === 'kifs') {
             const ox = values.kifs_offset_x ?? 1.0;
             const oy = values.kifs_offset_y ?? 1.0;
             const oz = values.kifs_offset_z ?? 1.0;
             const offLen = Math.hypot(ox, oy, oz);
-            return 0.65 + 0.23 * offLen; // precisely ~1.05: 80% inside viewport, 20% outside
+            return 1.25 + 0.35 * offLen; // ~1.85
         } else if (id === 'apollonian') {
-            return (values.apol_radius ?? 1.55) + 0.35;
+            return (values.apol_radius ?? 1.55) + 0.65; // ~2.20
         } else if (id === 'dodecahedron') {
-            return 1.15;
+            return 2.25; // Dodecahedron IFS reaches ~2.25
         } else if (id === 'burning_ship') {
-            return 1.25;
+            const asym = values.bs_asym ?? 0.0;
+            return 1.85 + asym * 0.95; // Burning ship with asymmetry expands
         } else if (id === 'jerusalem') {
-            return 1.30;
+            return 2.35; // Jerusalem cube reaches ~2.35
         } else if (id === 'quat_mandelbrot') {
-            return 1.20;
+            return 1.85; // Quat Mandelbrot reaches ~1.85
         }
 
-        return 1.15;
+        return 1.5;
     }
 
     // Auto zoom controller: smoothly keeps exactly 80% of the fractal inside the viewport (20% extends outside) at all times
@@ -599,6 +691,9 @@ export class CameraController {
             objRadius = this.computeFractalBoundingRadius(formula, values);
         }
         
+        this.objRadius = objRadius;
+        this.safeRadius = Math.max(0.015, Math.min(0.25, this.collisionClearance * objRadius));
+
         // Half-angle of visible frustum along shorter screen dimension
         const halfFovRad = (fov * 0.5) * (Math.PI / 180.0);
         const tanHalfFov = Math.tan(halfFovRad);
@@ -650,11 +745,23 @@ export class CameraController {
 
     // Called every frame
     update(dt, surfaceDE = 1.0) {
-        this.currentDE = surfaceDE;
+        const curDE = this.collisionProvider ? this.collisionProvider(this.pos) : surfaceDE;
+        this.currentDE = isNaN(curDE) ? 1.0 : curDE;
 
         if (this.mode === 'flight') {
-            const safeDE = Math.max(0.0015, Math.min(2.5, surfaceDE));
-            this.currentSpeed = this.baseFlightSpeed * safeDE * this.speedMultiplier;
+            // Deceleration curve when approaching surface safety bubble
+            let speedFactor = 1.0;
+            if (this.collisionEnabled) {
+                const edge0 = this.safeRadius;
+                const edge1 = this.safeRadius * 5.0;
+                const t = Math.max(0.0, Math.min(1.0, (this.currentDE - edge0) / Math.max(1e-4, edge1 - edge0)));
+                speedFactor = t * t * (3.0 - 2.0 * t);
+                speedFactor = Math.max(0.05, speedFactor);
+            } else {
+                speedFactor = Math.max(0.015, Math.min(2.5, this.currentDE));
+            }
+
+            this.currentSpeed = this.baseFlightSpeed * speedFactor * this.speedMultiplier;
 
             if (this.keys['ShiftLeft'] || this.keys['ShiftRight']) {
                 this.currentSpeed *= 2.5;
@@ -664,52 +771,70 @@ export class CameraController {
             const fwd = this.getForwardVector();
             const right = this.getRightVector();
 
-            let moved = false;
+            let moveDir = [0, 0, 0];
+            if (this.keys['KeyW']) { moveDir[0] += fwd[0]; moveDir[1] += fwd[1]; moveDir[2] += fwd[2]; }
+            if (this.keys['KeyS']) { moveDir[0] -= fwd[0]; moveDir[1] -= fwd[1]; moveDir[2] -= fwd[2]; }
+            if (this.keys['KeyA']) { moveDir[0] -= right[0]; moveDir[2] -= right[2]; }
+            if (this.keys['KeyD']) { moveDir[0] += right[0]; moveDir[2] += right[2]; }
+            if (this.keys['Space'] || this.keys['KeyE']) { moveDir[1] += 1.0; }
+            if (this.keys['KeyC'] || this.keys['KeyQ']) { moveDir[1] -= 1.0; }
 
-            if (this.keys['KeyW']) {
-                this.pos[0] += fwd[0] * step;
-                this.pos[1] += fwd[1] * step;
-                this.pos[2] += fwd[2] * step;
-                moved = true;
-            }
-            if (this.keys['KeyS']) {
-                this.pos[0] -= fwd[0] * step;
-                this.pos[1] -= fwd[1] * step;
-                this.pos[2] -= fwd[2] * step;
-                moved = true;
-            }
-            if (this.keys['KeyA']) {
-                this.pos[0] -= right[0] * step;
-                this.pos[2] -= right[2] * step;
-                moved = true;
-            }
-            if (this.keys['KeyD']) {
-                this.pos[0] += right[0] * step;
-                this.pos[2] += right[2] * step;
-                moved = true;
-            }
-            if (this.keys['Space'] || this.keys['KeyE']) {
-                this.pos[1] += step;
-                moved = true;
-            }
-            if (this.keys['KeyC'] || this.keys['KeyQ']) {
-                this.pos[1] -= step;
-                moved = true;
-            }
+            const moveLen = Math.hypot(moveDir[0], moveDir[1], moveDir[2]);
+            if (moveLen > 0.0001) {
+                let dx = (moveDir[0] / moveLen) * step;
+                let dy = (moveDir[1] / moveLen) * step;
+                let dz = (moveDir[2] / moveLen) * step;
 
-            // Sync target
-            this.target[0] = this.pos[0] + fwd[0];
-            this.target[1] = this.pos[1] + fwd[1];
-            this.target[2] = this.pos[2] + fwd[2];
+                // Wall sliding: deflect movement tangential to surface normal
+                if (this.collisionEnabled && this.currentDE < this.safeRadius * 2.5) {
+                    const norm = this.estimateNormal(this.pos, Math.max(0.002, this.safeRadius * 0.25));
+                    const dot = dx * norm[0] + dy * norm[1] + dz * norm[2];
+                    if (dot < 0.0) {
+                        dx -= norm[0] * dot;
+                        dy -= norm[1] * dot;
+                        dz -= norm[2] * dot;
+                    }
+                }
 
-            if (moved) this.hasMoved = true;
+                // Sub-stepping to prevent tunneling through thin geometry
+                const totalStep = Math.hypot(dx, dy, dz);
+                const subStepLimit = Math.max(0.005, 0.45 * Math.max(this.currentDE, this.safeRadius));
+                const numSubSteps = Math.min(6, Math.max(1, Math.ceil(totalStep / subStepLimit)));
+                const subDx = dx / numSubSteps;
+                const subDy = dy / numSubSteps;
+                const subDz = dz / numSubSteps;
+
+                for (let s = 0; s < numSubSteps; s++) {
+                    this.pos[0] += subDx;
+                    this.pos[1] += subDy;
+                    this.pos[2] += subDz;
+                    if (this.collisionEnabled) {
+                        this.resolveCollision(this.pos);
+                    }
+                }
+
+                // Sync target
+                this.target[0] = this.pos[0] + fwd[0];
+                this.target[1] = this.pos[1] + fwd[1];
+                this.target[2] = this.pos[2] + fwd[2];
+
+                this.hasMoved = true;
+            }
         } else if (this.mode === 'orbit') {
             // Smooth heavy viscous zoom glide towards target distance
             if (this.isZoomOverridden) {
+                const minOrbitR = (this.objRadius || 1.2) * 0.5 + this.safeRadius;
+                if (this.collisionEnabled && this.targetOrbitRadius < minOrbitR) {
+                    this.targetOrbitRadius = minOrbitR;
+                }
+
                 const diff = this.targetOrbitRadius - this.orbitRadius;
                 if (Math.abs(diff) > 0.0001) {
                     const factor = 1.0 - Math.exp(-this.zoomDamping * dt);
                     this.orbitRadius += diff * factor;
+                    if (this.collisionEnabled && this.orbitRadius < minOrbitR) {
+                        this.orbitRadius = minOrbitR;
+                    }
 
                     // Reposition camera pos smoothly along current view direction
                     const offset = [
@@ -745,6 +870,26 @@ export class CameraController {
                     this.presetTime += dt;
                     this.applyCameraPreset(dt);
                 }
+            }
+        }
+
+        // Global collision resolution & last safe snapshot tracking
+        this.collisionPushed = false;
+        if (this.collisionEnabled && this.collisionProvider) {
+            const pushed = this.resolveCollision(this.pos);
+            if (pushed) {
+                this.collisionPushed = true;
+                this.hasMoved = true;
+            }
+            const finalDE = this.collisionProvider(this.pos);
+            this.currentDE = isNaN(finalDE) ? 1.0 : finalDE;
+            if (!isNaN(finalDE) && finalDE >= this.safeRadius) {
+                this.lastSafePos[0] = this.pos[0];
+                this.lastSafePos[1] = this.pos[1];
+                this.lastSafePos[2] = this.pos[2];
+                this.lastSafeTarget[0] = this.target[0];
+                this.lastSafeTarget[1] = this.target[1];
+                this.lastSafeTarget[2] = this.target[2];
             }
         }
 
