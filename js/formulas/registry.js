@@ -127,7 +127,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: 'Mandelbox',
         subtitle: 'Brutalist Box & Sphere Inversion Fold',
         defaultCam: {
-            pos: [4.2, 3.2, 4.8],
+            pos: [1.8, 1.4, 2.2],
             target: [0.0, 0.0, 0.0]
         },
         params: [
@@ -163,9 +163,11 @@ float mapFractal(vec3 pos, out vec4 trap) {
             }
         ],
         glsl: `
-// Canonical Robust Mandelbox DE (Smooth, continuous distance estimation with zero branch stutter)
+// Canonical Robust Mandelbox DE (Normalized to unified scale, fits within radius 2.0)
 float mapFractal(vec3 pos, out vec4 trap) {
-    vec3 offset = pos + vec3(u_mbox_offset_x, u_mbox_offset_y, u_mbox_offset_z);
+    const float MBOX_WORLD_SCALE = 5.0;
+    vec3 p = pos * MBOX_WORLD_SCALE;
+    vec3 offset = p + vec3(u_mbox_offset_x, u_mbox_offset_y, u_mbox_offset_z);
     vec3 z = offset;
     float dr = 1.0;
     vec4 orbit = vec4(100.0);
@@ -202,7 +204,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         dr = dr * absScale + 1.0;
         
         float r = length(z);
-        if (r > 600.0) break; // Escape threshold early out
+        if (r > 600.0) break;
         
         orbit.x = min(orbit.x, r);
         orbit.y = min(orbit.y, abs(z.x * z.y));
@@ -212,10 +214,11 @@ float mapFractal(vec3 pos, out vec4 trap) {
     
     trap = orbit;
     float r = length(z);
-    return 0.65 * r / max(1e-4, abs(dr));
+    return (0.65 * r / max(1e-4, abs(dr))) / MBOX_WORLD_SCALE;
 }
 `,
         cpuEvalDE: (p, state) => {
+            const MBOX_WORLD_SCALE = 5.0;
             const scale = state.mbox_scale ?? 2.3;
             const foldLimit = state.mbox_foldLimit ?? state.mbox_fold_limit ?? 1.0;
             const minR = state.mbox_min_radius ?? 0.5;
@@ -231,9 +234,9 @@ float mapFractal(vec3 pos, out vec4 trap) {
             const cy = Math.cos(ry), sy = Math.sin(ry);
             const cz = Math.cos(rz), sz = Math.sin(rz);
 
-            let zx = p[0] + (state.mbox_offset_x ?? 0);
-            let zy = p[1] + (state.mbox_offset_y ?? 0);
-            let zz = p[2] + (state.mbox_offset_z ?? 0);
+            let zx = p[0] * MBOX_WORLD_SCALE + (state.mbox_offset_x ?? 0);
+            let zy = p[1] * MBOX_WORLD_SCALE + (state.mbox_offset_y ?? 0);
+            let zz = p[2] * MBOX_WORLD_SCALE + (state.mbox_offset_z ?? 0);
             const ox = zx, oy = zy, oz = zz;
             let dr = 1.0;
 
@@ -257,13 +260,10 @@ float mapFractal(vec3 pos, out vec4 trap) {
 
                 // Rotations matching GLSL rotX * rotY * rotZ
                 if (Math.abs(rx) > 1e-5 || Math.abs(ry) > 1e-5 || Math.abs(rz) > 1e-5) {
-                    // rotX
                     const y1 = cx * zy - sx * zz;
                     const z1 = sx * zy + cx * zz;
-                    // rotY
                     const x2 = cy * zx + sy * z1;
                     const z2 = -sy * zx + cy * z1;
-                    // rotZ
                     zx = cz * x2 - sz * y1;
                     zy = sz * x2 + cz * y1;
                     zz = z2;
@@ -277,7 +277,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
                 if (r > 500.0) break;
             }
             const r = Math.sqrt(zx * zx + zy * zy + zz * zz);
-            return 0.65 * r / Math.max(1e-4, Math.abs(dr));
+            return (0.65 * r / Math.max(1e-4, Math.abs(dr))) / MBOX_WORLD_SCALE;
         }
     },
 

@@ -31,9 +31,8 @@ export class CockpitUI {
         this.state.onFormulaChange((formula) => {
             this.renderFormulaParams();
             this.updateHeaderInfo();
-            if (this.camera && formula.defaultCam) {
-                this.camera.resetView(formula.defaultCam.pos, formula.defaultCam.target);
-            }
+            // Never hard-reset camera on formula change!
+            // updateAutoZoom already glides the camera distance smoothly without jumps or resetting presets
             this.raymarcher.resetAccumulation();
         });
 
@@ -507,6 +506,18 @@ export class CockpitUI {
         camPresetBtns.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.preset === presetName);
         });
+        const nameDisp = document.getElementById('camera-name-display');
+        if (nameDisp) {
+            const labels = {
+                turntable: 'Turntable',
+                action: 'Action',
+                flyby: 'Flyby',
+                follow: 'Follow',
+                dynamic: 'Dynamic',
+                hero: 'Hero Orbit'
+            };
+            nameDisp.textContent = labels[presetName] || (presetName ? (presetName.charAt(0).toUpperCase() + presetName.slice(1)) : 'Turntable');
+        }
     }
 
     // Modulation Popover
@@ -669,7 +680,27 @@ export class CockpitUI {
         if (fNext) fNext.addEventListener('click', (e) => { e.stopPropagation(); switchFormulaByIndex(1); });
         if (fCycle) fCycle.addEventListener('click', (e) => { e.stopPropagation(); switchFormulaByIndex(1); });
 
-        // 2. Natural Material Stepper & Cycler
+        // 2. Camera Preset Stepper & Cycler (Top Navigation Pill)
+        const CAMERA_PRESETS = ['turntable', 'action', 'flyby', 'follow', 'dynamic', 'hero'];
+        const switchCameraPresetByIndex = (direction) => {
+            const curPreset = this.camera.activeCameraPreset || 'turntable';
+            let curIdx = CAMERA_PRESETS.indexOf(curPreset);
+            if (curIdx < 0) curIdx = 0;
+            const nextIdx = (curIdx + direction + CAMERA_PRESETS.length) % CAMERA_PRESETS.length;
+            const nextPreset = CAMERA_PRESETS[nextIdx];
+            this.camera.setCameraPreset(nextPreset);
+            this.syncActiveCameraPreset(nextPreset);
+            this.raymarcher.resetAccumulation();
+        };
+
+        const cPrev = document.getElementById('camera-prev-btn');
+        const cNext = document.getElementById('camera-next-btn');
+        const cCycle = document.getElementById('camera-cycle-btn');
+        if (cPrev) cPrev.addEventListener('click', (e) => { e.stopPropagation(); switchCameraPresetByIndex(-1); });
+        if (cNext) cNext.addEventListener('click', (e) => { e.stopPropagation(); switchCameraPresetByIndex(1); });
+        if (cCycle) cCycle.addEventListener('click', (e) => { e.stopPropagation(); switchCameraPresetByIndex(1); });
+
+        // 3. Natural Material Stepper & Cycler
         // Strict whitelist: material preset changes ONLY affect surface optics & reflectance, NEVER lighting
         const ALLOWED_MATERIAL_KEYS = [
             'trap_mode', 'color_cycle', 'color_phase',
@@ -822,6 +853,7 @@ export class CockpitUI {
                 btn.classList.add('active');
                 const preset = btn.dataset.preset;
                 this.camera.setCameraPreset(preset);
+                this.syncActiveCameraPreset(preset);
                 this.raymarcher.resetAccumulation();
             });
         });

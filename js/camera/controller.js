@@ -86,7 +86,7 @@ export class CameraController {
         this.activeCameraPreset = 'turntable';
         this.presetTime = 0.0;
         this.presetBlendProgress = 1.0;
-        this.presetBlendDuration = 2.0; // 2.0 seconds seamless cinematic crossfade
+        this.presetBlendDuration = 2.5; // 2.5 seconds seamless spherical cinematic crossfade
         this.transitionStartPos = [0.0, 0.0, 1.2];
         this.transitionStartTarget = [0.0, 0.0, 0.0];
 
@@ -405,18 +405,59 @@ export class CameraController {
                     goalTx = 0.0; goalTy = 0.0; goalTz = 0.0;
                 }
 
-                // Seamless 2-second crossfade from the previous camera state
+                // Seamless spherical slerp crossfade: glides gracefully around the orbital perimeter
+                // Completely prevents cutting through the center/core of the fractal during preset transitions
                 if (this.presetBlendProgress < 1.0) {
                     this.presetBlendProgress = Math.min(1.0, this.presetBlendProgress + dt / this.presetBlendDuration);
                     const rawT = this.presetBlendProgress;
-                    // Quintic smoothstep for zero velocity jump at start and end
+                    // Quintic smoothstep for zero acceleration jump at start and end
                     const blendT = rawT * rawT * rawT * (rawT * (rawT * 6.0 - 15.0) + 10.0);
-                    goalPx = this.transitionStartPos[0] + (goalPx - this.transitionStartPos[0]) * blendT;
-                    goalPy = this.transitionStartPos[1] + (goalPy - this.transitionStartPos[1]) * blendT;
-                    goalPz = this.transitionStartPos[2] + (goalPz - this.transitionStartPos[2]) * blendT;
+                    
+                    const startOff = [
+                        this.transitionStartPos[0] - this.transitionStartTarget[0],
+                        this.transitionStartPos[1] - this.transitionStartTarget[1],
+                        this.transitionStartPos[2] - this.transitionStartTarget[2]
+                    ];
+                    const goalOff = [
+                        goalPx - goalTx,
+                        goalPy - goalTy,
+                        goalPz - goalTz
+                    ];
+                    const startDist = Math.hypot(startOff[0], startOff[1], startOff[2]) || 1.0;
+                    const goalDist = Math.hypot(goalOff[0], goalOff[1], goalOff[2]) || 1.0;
+                    
+                    const uA = [startOff[0] / startDist, startOff[1] / startDist, startOff[2] / startDist];
+                    const uB = [goalOff[0] / goalDist, goalOff[1] / goalDist, goalOff[2] / goalDist];
+                    
+                    let dot = Math.max(-1.0, Math.min(1.0, uA[0] * uB[0] + uA[1] * uB[1] + uA[2] * uB[2]));
+                    let dir;
+                    if (dot > 0.9995) {
+                        dir = [
+                            uA[0] + (uB[0] - uA[0]) * blendT,
+                            uA[1] + (uB[1] - uA[1]) * blendT,
+                            uA[2] + (uB[2] - uA[2]) * blendT
+                        ];
+                    } else {
+                        const theta = Math.acos(dot);
+                        const sinTheta = Math.sin(theta);
+                        const wA = Math.sin((1.0 - blendT) * theta) / sinTheta;
+                        const wB = Math.sin(blendT * theta) / sinTheta;
+                        dir = [
+                            uA[0] * wA + uB[0] * wB,
+                            uA[1] * wA + uB[1] * wB,
+                            uA[2] * wA + uB[2] * wB
+                        ];
+                    }
+                    const dirLen = Math.hypot(dir[0], dir[1], dir[2]) || 1.0;
+                    const blendRadius = startDist + (goalDist - startDist) * blendT;
+                    
                     goalTx = this.transitionStartTarget[0] + (goalTx - this.transitionStartTarget[0]) * blendT;
                     goalTy = this.transitionStartTarget[1] + (goalTy - this.transitionStartTarget[1]) * blendT;
                     goalTz = this.transitionStartTarget[2] + (goalTz - this.transitionStartTarget[2]) * blendT;
+                    
+                    goalPx = goalTx + (dir[0] / dirLen) * blendRadius;
+                    goalPy = goalTy + (dir[1] / dirLen) * blendRadius;
+                    goalPz = goalTz + (dir[2] / dirLen) * blendRadius;
                 }
 
                 // Heavy, silky-smooth fluid camera head damping
@@ -718,9 +759,7 @@ export class CameraController {
                     const jMix = values.mb_julia_mix ?? 0.0;
                     return 1.45 + 0.15 * jMix; // Mandelbulb expands to ~1.45 - 1.55
                 } else if (id === 'mandelbox') {
-                    const scale = Math.abs(values.mbox_scale ?? 2.2);
-                    const foldLimit = values.mbox_fold_limit ?? 1.0;
-                    return 3.6 + foldLimit * 1.2 + Math.min(1.5, Math.max(0.0, scale - 1.0) * 0.5); // ~5.2 - 5.5
+                    return 2.0; // Normalized Mandelbox citadel fits inside 2.0
                 } else if (id === 'kifs') {
                     const ox = values.kifs_offset_x ?? 1.0;
                     const oy = values.kifs_offset_y ?? 1.0;

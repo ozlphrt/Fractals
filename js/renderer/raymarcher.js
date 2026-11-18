@@ -408,40 +408,123 @@ vec3 hashStar(vec3 p) {
     return fract((p.xxy + p.yxx) * p.zyx);
 }
 
-// Crisp, clearly visible celestial starfield with delicate pinpricks
+// Refined, flicker-free celestial starfield (anti-aliased quadratic falloff, strictly bounded max radius)
 vec3 getStarField(vec3 dir) {
     vec3 stars = vec3(0.0);
     
-    // Layer 1: Dense, crisp pinprick celestial stars
+    // Layer 1: Dense, crisp background star pinpricks (anti-aliased, zero flicker)
     {
-        vec3 p = dir * 210.0;
+        vec3 p = dir * 120.0;
         vec3 ip = floor(p);
         vec3 fp = fract(p) - 0.5;
         vec3 rnd = hashStar(ip);
-        vec3 offset = (rnd - 0.5) * 0.72;
+        vec3 offset = (rnd - 0.5) * 0.70;
         float d = length(fp - offset);
-        // Clean needle pinprick falloff
-        float star = pow(max(0.0, 1.0 - d * 4.2), 18.0);
-        float brightness = step(0.92, rnd.x) * (rnd.y * 1.6 + 0.9);
-        vec3 starCol = mix(vec3(0.75, 0.88, 1.0), vec3(1.0, 0.96, 0.88), rnd.z);
-        stars += starCol * (star * brightness);
+        float rMax = 0.08;
+        float q = clamp(1.0 - (d * d) / (rMax * rMax), 0.0, 1.0);
+        float star = q * q;
+        float brightness = step(0.82, rnd.x) * (rnd.y * 1.8 + 0.8);
+        vec3 starCol = mix(vec3(0.75, 0.88, 1.0), vec3(1.0, 0.95, 0.85), rnd.z);
+        stars += starCol * (star * brightness * 1.8);
     }
     
-    // Layer 2: Distinct navigational landmark stars
+    // Layer 2: Medium navigational stars (crisp, well-defined points)
     {
-        vec3 p = dir * 95.0;
+        vec3 p = dir * 60.0;
         vec3 ip = floor(p);
         vec3 fp = fract(p) - 0.5;
-        vec3 rnd = hashStar(ip + 37.1);
+        vec3 rnd = hashStar(ip + 17.3);
         vec3 offset = (rnd - 0.5) * 0.65;
         float d = length(fp - offset);
-        float star = pow(max(0.0, 1.0 - d * 3.4), 22.0);
-        float brightness = step(0.965, rnd.x) * (rnd.y * 2.4 + 1.4);
-        vec3 starCol = mix(vec3(0.80, 0.92, 1.0), vec3(1.0, 0.88, 0.72), rnd.z);
-        stars += starCol * (star * brightness);
+        float rMax = 0.075;
+        float q = clamp(1.0 - (d * d) / (rMax * rMax), 0.0, 1.0);
+        float star = q * q;
+        float brightness = step(0.88, rnd.x) * (rnd.y * 2.2 + 1.0);
+        vec3 starCol = mix(vec3(0.80, 0.92, 1.0), vec3(1.0, 0.88, 0.70), rnd.z);
+        stars += starCol * (star * brightness * 2.0);
+    }
+
+    // Layer 3: Prominent celestial beacons (compact brilliant pinpricks, no oversized halos)
+    {
+        vec3 p = dir * 30.0;
+        vec3 ip = floor(p);
+        vec3 fp = fract(p) - 0.5;
+        vec3 rnd = hashStar(ip + 71.9);
+        vec3 offset = (rnd - 0.5) * 0.60;
+        float d = length(fp - offset);
+        float rMax = 0.070;
+        float q = clamp(1.0 - (d * d) / (rMax * rMax), 0.0, 1.0);
+        float star = q * q;
+        float brightness = step(0.92, rnd.x) * (rnd.y * 2.8 + 1.4);
+        vec3 starCol = mix(vec3(0.70, 0.85, 1.0), vec3(1.0, 0.92, 0.75), rnd.z);
+        stars += starCol * (star * brightness * 2.4);
     }
     
     return stars;
+}
+
+// Luminous celestial comets passing by periodically across the deep sky
+vec3 getComet(vec3 rd, float time) {
+    float period = 18.0;
+    float dur = 4.2;
+    float cycle = floor(time / period);
+    float tLocal = mod(time, period);
+    
+    // Only active during duration of crossing
+    if (tLocal > dur) return vec3(0.0);
+    
+    float progress = tLocal / dur;
+    float fadeIn = smoothstep(0.0, 0.12, progress);
+    float fadeOut = smoothstep(1.0, 0.80, progress);
+    float masterAlpha = fadeIn * fadeOut;
+    if (masterAlpha <= 0.001) return vec3(0.0);
+    
+    // Pseudo-random deterministic trajectory per cycle
+    vec3 r1 = hashStar(vec3(cycle * 3.1 + 1.5, cycle * 7.7 + 1.2, 5.4));
+    vec3 r2 = hashStar(vec3(cycle * 5.3 + 2.1, cycle * 1.9 + 8.6, 9.8));
+    
+    // Celestial start and end points
+    float theta1 = (r1.x * 2.0 - 1.0) * 3.14159;
+    float phi1 = (r1.y * 0.7 - 0.35) * 3.14159;
+    vec3 p1 = normalize(vec3(cos(phi1) * sin(theta1), sin(phi1), cos(phi1) * cos(theta1)));
+    
+    float theta2 = theta1 + (r2.x * 0.8 + 0.5) * (r1.z > 0.5 ? 1.0 : -1.0);
+    float phi2 = clamp(phi1 + (r2.y - 0.5) * 0.8, -1.2, 1.2);
+    vec3 p2 = normalize(vec3(cos(phi2) * sin(theta2), sin(phi2), cos(phi2) * cos(theta2)));
+    
+    vec3 headPos = normalize(mix(p1, p2, progress));
+    vec3 moveDir = normalize(p2 - p1);
+    vec3 tailDir = -moveDir;
+    
+    // Head glowing nucleus & coma
+    float distToHead = length(rd - headPos);
+    float nucleus = smoothstep(0.006, 0.0, distToHead) * 3.5;
+    float coma = exp(-distToHead * 140.0) * 1.8;
+    
+    // Tail calculation
+    vec3 toRd = rd - headPos;
+    float tailDistAlong = dot(toRd, tailDir);
+    float tailGlow = 0.0;
+    
+    float maxTailLen = 0.28;
+    if (tailDistAlong > 0.0 && tailDistAlong < maxTailLen) {
+        vec3 perp = toRd - tailDir * tailDistAlong;
+        float distPerp = length(perp);
+        
+        float tailWidth = 0.003 + tailDistAlong * 0.035;
+        float tailFade = smoothstep(maxTailLen, 0.0, tailDistAlong);
+        
+        float ionTrail = exp(-distPerp / (tailWidth * 0.4)) * tailFade * 1.5;
+        float dustTrail = exp(-distPerp / tailWidth) * tailFade * 0.7;
+        
+        tailGlow = ionTrail + dustTrail;
+    }
+    
+    vec3 nucleusCol = vec3(0.95, 0.98, 1.0);
+    vec3 comaCol = vec3(0.45, 0.80, 1.0);
+    vec3 tailCol = mix(vec3(0.30, 0.65, 1.0), vec3(0.15, 0.40, 0.85), tailDistAlong / maxTailLen);
+    
+    return (nucleus * nucleusCol + coma * comaCol + tailGlow * tailCol) * masterAlpha;
 }
 
 void main() {
@@ -515,11 +598,11 @@ void main() {
     ));
     
     vec3 glowColor = vec3(u_glow_color_r, u_glow_color_g, u_glow_color_b);
-    // Dark celestial midnight navy gradient with celestial stars
+    // Dark celestial midnight navy gradient with celestial stars and comets
     vec3 skyTop = vec3(0.006, 0.014, 0.038);
     vec3 skyBottom = vec3(0.002, 0.004, 0.012);
     vec3 skyBg = mix(skyBottom, skyTop, clamp(rd.y * 0.5 + 0.5, 0.0, 1.0));
-    vec3 col = skyBg + getStarField(rd);
+    vec3 col = skyBg + getStarField(rd) + getComet(rd, u_time);
     
     if (hit) {
         vec3 pos = ro + rd * t;
@@ -733,7 +816,7 @@ void main() {
         if (!formula) return 6.5;
         switch (formula.id) {
             case 'mandelbox':
-                return 7.8;
+                return 2.2;
             case 'burning_ship': {
                 const asym = typeof values.bs_asym === 'number' ? values.bs_asym : (formula.params.find(p => p.id === 'bs_asym')?.default ?? 0.0);
                 return Math.max(3.2, 1.85 + asym * 0.95) * 1.35 + 0.35;

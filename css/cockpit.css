@@ -173,6 +173,10 @@ body.zen-mode .studio-ui {
     box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55), 0 0 18px rgba(56, 189, 248, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.20);
 }
 
+.camera-pill:hover {
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55), 0 0 18px rgba(168, 85, 247, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.20);
+}
+
 .material-pill:hover {
     box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55), 0 0 18px rgba(251, 146, 60, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.20);
 }
@@ -242,6 +246,11 @@ body.zen-mode .studio-ui {
     box-shadow: 0 0 6px rgba(56, 189, 248, 0.85);
 }
 
+.dot-camera {
+    background: #a855f7;
+    box-shadow: 0 0 6px rgba(168, 85, 247, 0.85);
+}
+
 .dot-material {
     background: #fb923c;
     box-shadow: 0 0 6px rgba(251, 146, 60, 0.85);
@@ -271,6 +280,10 @@ body.zen-mode .studio-ui {
 
 .formula-pill:hover .cycle-title {
     color: #38bdf8;
+}
+
+.camera-pill:hover .cycle-title {
+    color: #c084fc;
 }
 
 .material-pill:hover .cycle-title {

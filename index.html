@@ -43,9 +43,26 @@
                 <select id="formula-select" style="display: none;"></select>
             </div>
 
-            <!-- Right Controls Group (Material Pill + Folder Button) -->
+            <!-- Right Controls Group (Camera Preset Pill + Material Pill + Folder Button) -->
             <div class="top-nav-right-group">
-                <!-- 2. Natural Material Cycle Pill -->
+                <!-- 2. Camera Preset Cycle Pill -->
+                <div class="cycle-pill camera-pill" id="camera-cycle-pill">
+                    <button class="cycle-step-btn" id="camera-prev-btn" title="Previous Camera Preset" aria-label="Previous Camera Preset">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    </button>
+                    <div class="cycle-content" id="camera-cycle-btn" title="Click to Cycle Camera Preset">
+                        <div class="cycle-eyebrow">
+                            <span class="cycle-dot dot-camera"></span>
+                            <span class="cycle-tag">CAMERA</span>
+                        </div>
+                        <span class="cycle-title" id="camera-name-display">Turntable</span>
+                    </div>
+                    <button class="cycle-step-btn" id="camera-next-btn" title="Next Camera Preset" aria-label="Next Camera Preset">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </button>
+                </div>
+
+                <!-- 3. Natural Material Cycle Pill -->
                 <div class="cycle-pill material-pill" id="material-cycle-pill">
                     <button class="cycle-step-btn" id="material-prev-btn" title="Previous Material" aria-label="Previous Material">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
