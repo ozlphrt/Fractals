@@ -597,7 +597,7 @@ body.zen-mode .studio-ui {
     position: absolute;
     top: 72px;
     bottom: 20px;
-    width: 380px;
+    width: 410px;
     max-width: calc(100vw - 32px);
     background: var(--drawer-bg);
     backdrop-filter: blur(28px);

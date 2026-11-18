@@ -924,11 +924,9 @@ void main() {
             case 'juliabulb':
                 return 4.0;
             case 'kalibox':
-                return 4.8;
+                return 4.5;
             case 'pseudo_kleinian':
                 return 5.2;
-            case 'box_bulb':
-                return 5.0;
             default:
                 return 6.5;
         }

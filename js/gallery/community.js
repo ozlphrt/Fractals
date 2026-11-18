@@ -253,20 +253,21 @@ export const CURATED_COMMUNITY_CREATIONS = [
         formula: FORMULA_IDS.KALISET,
         material: 'obsidian_gold',
         params: {
-            kb_scale: 1.85,
-            kb_cx: -0.75,
-            kb_cy: -0.55,
-            kb_cz: -0.95,
-            kb_box_mix: 0.35,
-            kb_rot: 0.08,
+            kb_scale: -2.05,
+            kb_fold: 1.0,
+            kb_min_radius: 0.50,
+            kb_rot: 0.12,
+            kb_cx: 0.0,
+            kb_cy: 0.0,
+            kb_cz: 0.0,
             kb_iterations: 11,
             glow_intensity: 0.16
         },
         camera: {
-            pos: [1.6, 1.2, 2.4],
+            pos: [2.2, 1.8, 2.6],
             target: [0.0, 0.0, 0.0],
             preset: 'action',
-            orbitRadius: 2.4
+            orbitRadius: 3.84
         },
         tags: ['Kaliset', 'Crystal', 'Obsidian']
     },
@@ -295,29 +296,6 @@ export const CURATED_COMMUNITY_CREATIONS = [
             orbitRadius: 2.6
         },
         tags: ['Kleinian', 'Gothic', 'Cathedral']
-    },
-    {
-        id: 'curated-13',
-        title: 'Symbiotic Flesh Citadel',
-        author: '@biomech_forge',
-        formula: FORMULA_IDS.BOX_BULB,
-        material: 'terracotta_adobe',
-        params: {
-            bb_mix: 0.45,
-            bb_scale: 2.1,
-            bb_power: 6.0,
-            bb_min_radius: 0.5,
-            bb_fold: 1.0,
-            bb_iterations: 9,
-            glow_intensity: 0.12
-        },
-        camera: {
-            pos: [1.7, 1.3, 2.3],
-            target: [0.0, 0.0, 0.0],
-            preset: 'turntable',
-            orbitRadius: 2.3
-        },
-        tags: ['BoxBulb', 'Hybrid', 'Citadel']
     }
 ];
 

@@ -137,12 +137,13 @@ export const COHESIVE_FORMULA_BOUNDS = {
     jb_phase: { min: -0.6, max: 0.6 },
 
     // Kaliset / Kalibox: Bio-mechanical crystalline nebula
-    kb_scale: { min: 1.55, max: 2.15 },
-    kb_cx: { min: -0.90, max: -0.55 },
-    kb_cy: { min: -0.75, max: -0.40 },
-    kb_cz: { min: -1.15, max: -0.75 },
-    kb_box_mix: { min: 0.0, max: 1.0 },
-    kb_rot: { min: -0.18, max: 0.18 },
+    kb_scale: { min: -2.35, max: -1.75 },
+    kb_fold: { min: 0.85, max: 1.25 },
+    kb_min_radius: { min: 0.38, max: 0.62 },
+    kb_rot: { min: -0.28, max: 0.28 },
+    kb_cx: { min: -0.15, max: 0.15 },
+    kb_cy: { min: -0.15, max: 0.15 },
+    kb_cz: { min: -0.15, max: 0.15 },
 
     // Pseudo-Kleinian: Gothic relic colonnades
     pk_csize_x: { min: 0.82, max: 1.08 },
@@ -152,14 +153,7 @@ export const COHESIVE_FORMULA_BOUNDS = {
     pk_offset_x: { min: -0.08, max: 0.08 },
     pk_offset_y: { min: -0.08, max: 0.08 },
     pk_offset_z: { min: -0.08, max: 0.08 },
-    pk_thickness: { min: 0.012, max: 0.035 },
-
-    // Amazing Box-Bulb: Architectural & organic flesh hybrid
-    bb_mix: { min: 0.25, max: 0.70 },
-    bb_scale: { min: 1.9, max: 2.45 },
-    bb_power: { min: 5.0, max: 8.0 },
-    bb_min_radius: { min: 0.35, max: 0.60 },
-    bb_fold: { min: 0.90, max: 1.20 }
+    pk_thickness: { min: 0.012, max: 0.035 }
 };
 
 export class StateManager {

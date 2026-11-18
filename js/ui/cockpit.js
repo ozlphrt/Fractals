@@ -669,7 +669,6 @@ export class CockpitUI {
             FORMULA_IDS.JERUSALEM,        // Sub-Atomic Cybernetic Cross Cuts
             FORMULA_IDS.PSEUDO_KLEINIAN,  // Infinite Gothic Nave & Relic Colonnade
             FORMULA_IDS.QUAT_JULIA,       // 4D Liquid Hyper-Ribbons
-            FORMULA_IDS.BOX_BULB,         // Symbiotic Architectural & Organic Hybrid
             FORMULA_IDS.KIFS,             // Polyhedral Reflection & Fractal Origami
             FORMULA_IDS.APOLLONIAN,       // Kleinian 3D Sphere Inversion Packing
             FORMULA_IDS.BURNING_SHIP      // Volcanic Absolute Value Spires
@@ -677,6 +676,7 @@ export class CockpitUI {
 
         const switchFormulaByIndex = (direction) => {
             this.deformCount = 0;
+            this.formulaDwellTime = 0.0;
             const currentActive = this.state.formulaMorph ? this.state.formulaMorph.toId : this.state.activeFormulaId;
             const currentIdx = FORMULA_CYCLE_ORDER.indexOf(currentActive);
             const baseIdx = currentIdx >= 0 ? currentIdx : 0;
@@ -923,7 +923,8 @@ export class CockpitUI {
         // Continuous Auto-Deform Toggle State & Timer (ON BY DEFAULT)
         this.isAutoDeforming = true;
         this.autoDeformTimer = null;
-        this.deformCount = 0; // count random shapes generated on the current formula
+        this.deformCount = 0;
+        this.formulaDwellTime = 0.0;
 
         // Deform Randomizer Toggle (ON/OFF - Continuous uninterrupted metamorphosis)
         const deformBtn = document.getElementById('deform-dice-btn');
@@ -951,9 +952,11 @@ export class CockpitUI {
                         }
 
                         this.deformCount++;
+                        this.formulaDwellTime += duration;
 
-                        // After every 2 random shapes, smoothly transition formula as well!
-                        if (this.deformCount >= 2) {
+                        // Keep on current formula for 16-20 seconds before transitioning to the next formula
+                        if (this.formulaDwellTime >= 17.5) {
+                            this.formulaDwellTime = 0.0;
                             this.deformCount = 0;
                             switchFormulaByIndex(1);
                         }

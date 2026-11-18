@@ -12,8 +12,7 @@ export const FORMULA_IDS = {
     JERUSALEM: 'jerusalem',
     JULIABULB: 'juliabulb',
     KALISET: 'kalibox',
-    PSEUDO_KLEINIAN: 'pseudo_kleinian',
-    BOX_BULB: 'box_bulb'
+    PSEUDO_KLEINIAN: 'pseudo_kleinian'
 };
 
 export const FORMULAS = {
@@ -918,114 +917,131 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: 'Kaliset / Kalibox',
         subtitle: 'Inverted Bio-Mechanical Crystal Nebula',
         defaultCam: {
-            pos: [1.6, 1.2, 2.4],
+            pos: [2.2, 1.8, 2.6],
             target: [0.0, 0.0, 0.0]
         },
         params: [
-            { id: 'kb_scale', name: 'Scale Factor', min: 1.2, max: 2.6, step: 0.02, default: 1.85, uniform: 'u_kb_scale', type: 'float' },
-            { id: 'kb_cx', name: 'Shift C.X', min: -1.5, max: 0.5, step: 0.01, default: -0.75, uniform: 'u_kb_cx', type: 'float' },
-            { id: 'kb_cy', name: 'Shift C.Y', min: -1.5, max: 0.5, step: 0.01, default: -0.55, uniform: 'u_kb_cy', type: 'float' },
-            { id: 'kb_cz', name: 'Shift C.Z', min: -1.5, max: 0.5, step: 0.01, default: -0.95, uniform: 'u_kb_cz', type: 'float' },
-            { id: 'kb_box_mix', name: 'Box Fold Mix', min: 0.0, max: 1.0, step: 0.02, default: 0.35, uniform: 'u_kb_box_mix', type: 'float' },
-            { id: 'kb_rot', name: 'Planar Twist', min: -0.5, max: 0.5, step: 0.01, default: 0.08, uniform: 'u_kb_rot', type: 'float' },
-            { id: 'kb_iterations', name: 'Iterations', min: 6, max: 16, step: 1, default: 11, uniform: 'u_kb_iterations', type: 'int' }
+            { id: 'kb_scale', name: 'Scale Factor', min: -2.6, max: -1.4, step: 0.02, default: -2.05, uniform: 'u_kb_scale', type: 'float' },
+            { id: 'kb_fold', name: 'Box Fold Limit', min: 0.7, max: 1.4, step: 0.02, default: 1.0, uniform: 'u_kb_fold', type: 'float' },
+            { id: 'kb_min_radius', name: 'Min Radius', min: 0.25, max: 0.75, step: 0.02, default: 0.50, uniform: 'u_kb_min_radius', type: 'float' },
+            { id: 'kb_rot', name: 'Kali Rotation', min: -0.4, max: 0.4, step: 0.01, default: 0.12, uniform: 'u_kb_rot', type: 'float' },
+            { id: 'kb_cx', name: 'Shift C.X', min: -0.3, max: 0.3, step: 0.01, default: 0.0, uniform: 'u_kb_cx', type: 'float' },
+            { id: 'kb_cy', name: 'Shift C.Y', min: -0.3, max: 0.3, step: 0.01, default: 0.0, uniform: 'u_kb_cy', type: 'float' },
+            { id: 'kb_cz', name: 'Shift C.Z', min: -0.3, max: 0.3, step: 0.01, default: 0.0, uniform: 'u_kb_cz', type: 'float' },
+            { id: 'kb_iterations', name: 'Iterations', min: 6, max: 15, step: 1, default: 11, uniform: 'u_kb_iterations', type: 'int' }
         ],
         presets: [
             {
-                name: 'Bio-Mech Hive',
-                values: { kb_scale: 1.85, kb_cx: -0.75, kb_cy: -0.55, kb_cz: -0.95, kb_box_mix: 0.35, kb_rot: 0.08, kb_iterations: 11 }
+                name: 'Bio-Mech Citadel',
+                values: { kb_scale: -2.05, kb_fold: 1.0, kb_min_radius: 0.50, kb_rot: 0.12, kb_cx: 0.0, kb_cy: 0.0, kb_cz: 0.0, kb_iterations: 11 }
             },
             {
-                name: 'Nebula Crystal',
-                values: { kb_scale: 2.10, kb_cx: -0.82, kb_cy: -0.48, kb_cz: -0.88, kb_box_mix: 0.15, kb_rot: -0.12, kb_iterations: 12 }
+                name: 'Crystalline Star Nebula',
+                values: { kb_scale: -2.25, kb_fold: 1.15, kb_min_radius: 0.42, kb_rot: -0.18, kb_cx: 0.10, kb_cy: -0.05, kb_cz: 0.08, kb_iterations: 12 }
             },
             {
-                name: 'Ancient Circuit Coral',
-                values: { kb_scale: 1.68, kb_cx: -0.68, kb_cy: -0.62, kb_cz: -1.02, kb_box_mix: 0.55, kb_rot: 0.15, kb_iterations: 10 }
+                name: 'Ancient Obsidian Temple',
+                values: { kb_scale: -1.80, kb_fold: 0.90, kb_min_radius: 0.58, kb_rot: 0.0, kb_cx: 0.0, kb_cy: 0.0, kb_cz: 0.0, kb_iterations: 10 }
             },
             {
-                name: 'Obsidian Reliquary',
-                values: { kb_scale: 1.95, kb_cx: -0.70, kb_cy: -0.50, kb_cz: -0.90, kb_box_mix: 0.70, kb_rot: 0.0, kb_iterations: 11 }
+                name: 'Bio-Morph Hyper-Dendrite',
+                values: { kb_scale: -2.15, kb_fold: 1.08, kb_min_radius: 0.46, kb_rot: 0.25, kb_cx: -0.08, kb_cy: 0.12, kb_cz: -0.05, kb_iterations: 11 }
             }
         ],
         glsl: `
 float mapFractal(vec3 pos, out vec4 trap) {
     vec3 p = pos;
-    vec3 c = vec3(u_kb_cx, u_kb_cy, u_kb_cz);
     float dr = 1.0;
     vec4 orbit = vec4(100.0);
     int maxIt = int(u_kb_iterations);
+    float minR2 = u_kb_min_radius * u_kb_min_radius;
+    float fixedR2 = 1.0;
     float cosR = cos(u_kb_rot);
     float sinR = sin(u_kb_rot);
     mat2 rotMat = mat2(cosR, -sinR, sinR, cosR);
+    vec3 offset = vec3(u_kb_cx, u_kb_cy, u_kb_cz);
 
     for (int i = 0; i < 16; i++) {
         if (i >= maxIt) break;
-        if (u_kb_box_mix > 0.001) {
-            vec3 bf = clamp(p, -1.0, 1.0) * 2.0 - p;
-            p = mix(p, bf, u_kb_box_mix);
+
+        // 1. Box Fold
+        p = clamp(p, -u_kb_fold, u_kb_fold) * 2.0 - p;
+
+        // 2. Sphere Fold (Inversion)
+        float r2 = dot(p, p);
+        if (r2 < minR2) {
+            float temp = fixedR2 / minR2;
+            p *= temp;
+            dr *= temp;
+        } else if (r2 < fixedR2) {
+            float temp = fixedR2 / r2;
+            p *= temp;
+            dr *= temp;
         }
 
-        p = abs(p);
-        float d2 = dot(p, p);
-        if (d2 < 1e-4) d2 = 1e-4;
-
-        dr = dr * (u_kb_scale / d2);
-        p = (p / d2) * u_kb_scale + c;
-
+        // 3. Kali rotation on XY plane
         p.xy = rotMat * p.xy;
 
-        orbit.x = min(orbit.x, d2);
+        // 4. Scale and Shift
+        p = p * u_kb_scale + pos + offset;
+        dr = dr * abs(u_kb_scale) + 1.0;
+
+        orbit.x = min(orbit.x, r2);
         orbit.y = min(orbit.y, abs(p.x * p.y));
         orbit.z = min(orbit.z, abs(p.z));
         orbit.w = float(i);
 
-        if (dot(p, p) > 400.0) break;
+        if (dot(p, p) > 256.0) break;
     }
 
     trap = orbit;
-    return 0.65 * (length(p) - 0.15) / max(dr, 1e-5);
+    return (length(p) - abs(u_kb_scale - 1.0)) / abs(dr);
 }
 `,
         cpuEvalDE: (p, state) => {
-            let px = p[0], py = p[1], pz = p[2];
-            const cx = state.kb_cx ?? -0.75;
-            const cy = state.kb_cy ?? -0.55;
-            const cz = state.kb_cz ?? -0.95;
-            const scale = state.kb_scale ?? 1.85;
-            const boxMix = state.kb_box_mix ?? 0.35;
-            const rot = state.kb_rot ?? 0.08;
+            let vx = p[0], vy = p[1], vz = p[2];
+            const px = p[0], py = p[1], pz = p[2];
+            const scale = state.kb_scale ?? -2.05;
+            const fold = state.kb_fold ?? 1.0;
+            const minR = state.kb_min_radius ?? 0.50;
+            const minR2 = minR * minR;
+            const fixedR2 = 1.0;
+            const rot = state.kb_rot ?? 0.12;
             const cosR = Math.cos(rot), sinR = Math.sin(rot);
+            const cx = state.kb_cx ?? 0.0;
+            const cy = state.kb_cy ?? 0.0;
+            const cz = state.kb_cz ?? 0.0;
             const maxIt = Math.min(10, state.kb_iterations ?? 11);
             let dr = 1.0;
 
             for (let i = 0; i < maxIt; i++) {
-                if (boxMix > 0.001) {
-                    const bfx = Math.max(-1.0, Math.min(1.0, px)) * 2.0 - px;
-                    const bfy = Math.max(-1.0, Math.min(1.0, py)) * 2.0 - py;
-                    const bfz = Math.max(-1.0, Math.min(1.0, pz)) * 2.0 - pz;
-                    px = px + (bfx - px) * boxMix;
-                    py = py + (bfy - py) * boxMix;
-                    pz = pz + (bfz - pz) * boxMix;
+                vx = Math.max(-fold, Math.min(fold, vx)) * 2.0 - vx;
+                vy = Math.max(-fold, Math.min(fold, vy)) * 2.0 - vy;
+                vz = Math.max(-fold, Math.min(fold, vz)) * 2.0 - vz;
+
+                const r2 = vx * vx + vy * vy + vz * vz;
+                if (r2 < minR2) {
+                    const temp = fixedR2 / minR2;
+                    vx *= temp; vy *= temp; vz *= temp;
+                    dr *= temp;
+                } else if (r2 < fixedR2) {
+                    const temp = fixedR2 / r2;
+                    vx *= temp; vy *= temp; vz *= temp;
+                    dr *= temp;
                 }
 
-                px = Math.abs(px); py = Math.abs(py); pz = Math.abs(pz);
-                let d2 = px * px + py * py + pz * pz;
-                if (d2 < 1e-4) d2 = 1e-4;
+                const rx = cosR * vx - sinR * vy;
+                const ry = sinR * vx + cosR * vy;
+                vx = rx; vy = ry;
 
-                dr = dr * (scale / d2);
-                px = (px / d2) * scale + cx;
-                py = (py / d2) * scale + cy;
-                pz = (pz / d2) * scale + cz;
+                vx = vx * scale + px + cx;
+                vy = vy * scale + py + cy;
+                vz = vz * scale + pz + cz;
+                dr = dr * Math.abs(scale) + 1.0;
 
-                const rx = cosR * px - sinR * py;
-                const ry = sinR * px + cosR * py;
-                px = rx; py = ry;
-
-                if (px * px + py * py + pz * pz > 400.0) break;
+                if (vx * vx + vy * vy + vz * vz > 256.0) break;
             }
-            const lenP = Math.hypot(px, py, pz);
-            return 0.65 * Math.max(0.0, lenP - 0.15) / Math.max(1e-5, dr);
+            return (Math.hypot(vx, vy, vz) - Math.abs(scale - 1.0)) / Math.abs(dr);
         }
     },
 
@@ -1133,148 +1149,6 @@ float mapFractal(vec3 pos, out vec4 trap) {
             const bz = Math.max(0.0, Math.abs(p[2]) - 1.7);
             const boundingBox = Math.hypot(bx, by, bz) - 0.25;
             return Math.max(rawDE * 0.8, boundingBox);
-        }
-    },
-
-    [FORMULA_IDS.BOX_BULB]: {
-        id: FORMULA_IDS.BOX_BULB,
-        name: 'Amazing Box-Bulb',
-        subtitle: 'Symbiotic Architectural & Organic Power Hybrid',
-        defaultCam: {
-            pos: [1.7, 1.3, 2.3],
-            target: [0.0, 0.0, 0.0]
-        },
-        params: [
-            { id: 'bb_mix', name: 'Box-Bulb Blend', min: 0.0, max: 1.0, step: 0.02, default: 0.45, uniform: 'u_bb_mix', type: 'float' },
-            { id: 'bb_scale', name: 'Box Scale', min: 1.6, max: 2.8, step: 0.02, default: 2.1, uniform: 'u_bb_scale', type: 'float' },
-            { id: 'bb_power', name: 'Bulb Power', min: 3.0, max: 9.0, step: 0.05, default: 6.0, uniform: 'u_bb_power', type: 'float' },
-            { id: 'bb_min_radius', name: 'Min Radius', min: 0.2, max: 0.8, step: 0.02, default: 0.5, uniform: 'u_bb_min_radius', type: 'float' },
-            { id: 'bb_fold', name: 'Fold Limit', min: 0.7, max: 1.4, step: 0.02, default: 1.0, uniform: 'u_bb_fold', type: 'float' },
-            { id: 'bb_iterations', name: 'Iterations', min: 6, max: 14, step: 1, default: 9, uniform: 'u_bb_iterations', type: 'int' }
-        ],
-        presets: [
-            {
-                name: 'Flesh Cathedral',
-                values: { bb_mix: 0.45, bb_scale: 2.1, bb_power: 6.0, bb_min_radius: 0.5, bb_fold: 1.0, bb_iterations: 9 }
-            },
-            {
-                name: 'Bone Monolith',
-                values: { bb_mix: 0.28, bb_scale: 2.35, bb_power: 5.2, bb_min_radius: 0.42, bb_fold: 1.15, bb_iterations: 10 }
-            },
-            {
-                name: 'Organic Reactor',
-                values: { bb_mix: 0.62, bb_scale: 1.95, bb_power: 7.2, bb_min_radius: 0.55, bb_fold: 0.90, bb_iterations: 9 }
-            },
-            {
-                name: 'Coral Fortress',
-                values: { bb_mix: 0.50, bb_scale: 2.20, bb_power: 6.8, bb_min_radius: 0.48, bb_fold: 1.05, bb_iterations: 10 }
-            }
-        ],
-        glsl: `
-float mapFractal(vec3 pos, out vec4 trap) {
-    vec3 p = pos;
-    float dr = 1.0;
-    vec4 orbit = vec4(100.0);
-    int maxIt = int(u_bb_iterations);
-
-    for (int i = 0; i < 16; i++) {
-        if (i >= maxIt) break;
-
-        // 1. Box fold step
-        vec3 pB = clamp(p, -u_bb_fold, u_bb_fold) * 2.0 - p;
-        float r2 = dot(pB, pB);
-        float minR2 = u_bb_min_radius * u_bb_min_radius;
-        float drB = dr;
-        if (r2 < minR2) {
-            float factor = 1.0 / minR2;
-            pB *= factor;
-            drB *= factor;
-        } else if (r2 < 1.0) {
-            float factor = 1.0 / r2;
-            pB *= factor;
-            drB *= factor;
-        }
-        pB = pB * u_bb_scale + pos;
-        drB = drB * abs(u_bb_scale) + 1.0;
-
-        // 2. Bulb step
-        float r = length(p);
-        float theta = acos(clamp(p.z / max(r, 1e-6), -1.0, 1.0)) * u_bb_power;
-        float phi = atan(p.y, p.x) * u_bb_power;
-        float zr = pow(r, u_bb_power);
-        float drBulb = pow(r, u_bb_power - 1.0) * u_bb_power * dr + 1.0;
-        float sinT = sin(theta);
-        vec3 pBlb = zr * vec3(sinT * cos(phi), sinT * sin(phi), cos(theta)) + pos;
-
-        // Smooth blend between architectural box and organic bulb
-        p = mix(pB, pBlb, u_bb_mix);
-        dr = mix(drB, drBulb, u_bb_mix);
-
-        orbit.x = min(orbit.x, dot(p, p));
-        orbit.y = min(orbit.y, abs(p.x * p.y));
-        orbit.z = min(orbit.z, abs(p.z));
-        orbit.w = float(i);
-
-        if (dot(p, p) > 64.0) break;
-    }
-
-    trap = orbit;
-    float lenP = length(p);
-    return 0.75 * (0.5 * log(max(1.0001, lenP)) * lenP / max(dr, 1e-5));
-}
-`,
-        cpuEvalDE: (p, state) => {
-            let px = p[0], py = p[1], pz = p[2];
-            const mixRatio = state.bb_mix ?? 0.45;
-            const scale = state.bb_scale ?? 2.1;
-            const power = state.bb_power ?? 6.0;
-            const minR = state.bb_min_radius ?? 0.5;
-            const fold = state.bb_fold ?? 1.0;
-            const minR2 = minR * minR;
-            const maxIt = Math.min(8, state.bb_iterations ?? 9);
-            let dr = 1.0;
-
-            for (let i = 0; i < maxIt; i++) {
-                // Box
-                let bx = Math.max(-fold, Math.min(fold, px)) * 2.0 - px;
-                let by = Math.max(-fold, Math.min(fold, py)) * 2.0 - py;
-                let bz = Math.max(-fold, Math.min(fold, pz)) * 2.0 - pz;
-                let r2 = bx * bx + by * by + bz * bz;
-                let drB = dr;
-                if (r2 < minR2) {
-                    const factor = 1.0 / minR2;
-                    bx *= factor; by *= factor; bz *= factor; drB *= factor;
-                } else if (r2 < 1.0) {
-                    const factor = 1.0 / r2;
-                    bx *= factor; by *= factor; bz *= factor; drB *= factor;
-                }
-                bx = bx * scale + p[0];
-                by = by * scale + p[1];
-                bz = bz * scale + p[2];
-                drB = drB * Math.abs(scale) + 1.0;
-
-                // Bulb
-                const r = Math.hypot(px, py, pz);
-                const theta = Math.acos(Math.max(-1.0, Math.min(1.0, pz / Math.max(r, 1e-6)))) * power;
-                const phi = Math.atan2(py, px) * power;
-                const zr = Math.pow(r, power);
-                const drBulb = Math.pow(r, power - 1.0) * power * dr + 1.0;
-                const sinT = Math.sin(theta);
-                const blbx = zr * sinT * Math.cos(phi) + p[0];
-                const blby = zr * sinT * Math.sin(phi) + p[1];
-                const blbz = zr * Math.cos(theta) + p[2];
-
-                px = bx + (blbx - bx) * mixRatio;
-                py = by + (blby - by) * mixRatio;
-                pz = bz + (blbz - bz) * mixRatio;
-                dr = drB + (drBulb - drB) * mixRatio;
-
-                if (px * px + py * py + pz * pz > 64.0) break;
-            }
-
-            const lenP = Math.hypot(px, py, pz);
-            if (lenP < 1.0) return 0.0;
-            return 0.75 * (0.5 * Math.log(lenP) * lenP / Math.max(1e-5, dr));
         }
     }
 };
