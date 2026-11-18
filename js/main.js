@@ -132,8 +132,8 @@ class FractalSynthApp {
             const isMorphing = (this.state.morphAnim !== null) || isFormulaMorphing || isParamMorphing;
             const isDynamic = camMoved || slidersMoving || isMorphing || (hasMod && (this.audio.isPlaying || this.modulation.bindings.size > 0));
 
-            // 7. Raymarch render
-            this.raymarcher.render(this.camera, now * 0.001, isDynamic);
+            // 7. Raymarch render (with live FPS for dynamic resolution governor)
+            this.raymarcher.render(this.camera, now * 0.001, isDynamic, this.fps);
 
             // 7. UI update
             this.ui.updateFrame(modulatedValues, audioBands, this.fps, surfaceDE, this.camera.currentSpeed);

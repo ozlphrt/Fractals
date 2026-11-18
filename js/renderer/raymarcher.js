@@ -332,16 +332,17 @@ vec3 cosinePalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
     return a + b * cos(6.28318 * (c * t + d));
 }
 
-// High-fidelity Continuous Soft Shadow
+// High-fidelity Continuous Soft Shadow with early termination
 float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
     float res = 1.0;
     float t = mint;
-    for (int i = 0; i < 28; i++) {
+    for (int i = 0; i < 16; i++) {
         if (t >= maxt) break;
         float h = map(ro + rd * t);
         if (h < 0.0005) return 0.0;
         res = min(res, k * h / t);
-        t += clamp(h * 0.75, 0.004, 0.20);
+        if (res < 0.02) return 0.0; // Early exit when already in deep shadow
+        t += clamp(h * 0.85, 0.008, 0.25);
     }
     return clamp(res, 0.0, 1.0);
 }
@@ -417,14 +418,14 @@ void main() {
     
     // Raymarching
     float t = max(0.01, u_near_clip);
-    float maxDist = 32.0;
+    float maxDist = 14.0;
     vec4 trap = vec4(100.0);
     vec4 finalTrap = vec4(0.0);
     int stepCount = 0;
     float glow = 0.0;
     bool hit = false;
     
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < 500; i++) {
         if (i >= u_max_steps || t > maxDist) break;
         stepCount = i;
         vec3 curPos = ro + rd * t;
@@ -447,8 +448,8 @@ void main() {
             finalTrap = trap;
             break;
         }
-        // Conservative 0.65x ray relaxation: prevents ray overshooting & saw-tooth jagged steps on grazing edges
-        t += max(u_hit_epsilon * 0.35, d * 0.65);
+        // Balanced 0.78x ray relaxation: avoids grazing overshoots while preserving high framerate
+        t += max(u_hit_epsilon * 0.60, d * 0.78);
     }
     
     vec3 sunDir = normalize(vec3(
@@ -696,9 +697,9 @@ void main() {
         gl.uniform1f(uniformMap.get('u_fov'), this.state.get('fov'));
         gl.uniform2f(uniformMap.get('u_subpixel_jitter'), 0.0, 0.0);
 
-        // Adaptive max ray steps: guaranteed sufficient step budget for smooth conservative 0.65x stepping
-        const userSteps = this.state.get('max_steps') ?? 220;
-        const activeSteps = isMoving ? Math.max(180, Math.min(userSteps, Math.round(userSteps * 0.85))) : Math.max(220, userSteps);
+        // Adaptive max ray steps: guaranteed sufficient step budget while maintaining 60 FPS
+        const userSteps = this.state.get('max_steps') ?? 140;
+        const activeSteps = isMoving ? Math.min(105, Math.round(userSteps * 0.72)) : Math.min(150, userSteps);
         set1i('u_max_steps', activeSteps);
         const rawEps = this.state.get('hit_epsilon');
         const hitEps = (typeof rawEps === 'number' && rawEps <= 0.006) ? rawEps : 0.0012;
@@ -759,16 +760,31 @@ void main() {
         gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
 
-    render(camera, time, isMovingOrModulating = false) {
+    render(camera, time, isMovingOrModulating = false, currentFps = 60) {
         const gl = this.gl;
 
-        // Always render at native full 1:1 resolution for clean, un-pixelated graphics
-        this.activeScale = 1.0;
-        const renderW = Math.max(64, this.canvas.width);
-        const renderH = Math.max(64, this.canvas.height);
+        // Dynamic Adaptive Resolution Scaling to guarantee 50-60 FPS
+        const morph = this.state.formulaMorph;
+        const isDoublePass = Boolean(morph && FORMULAS[morph.fromId] && FORMULAS[morph.toId]);
+        
+        let target = 1.0;
+        if (isDoublePass) {
+            // During formula cross-morphing, two full passes execute per frame
+            target = 0.68;
+        } else if (isMovingOrModulating) {
+            target = (currentFps > 0 && currentFps < 42) ? 0.65 : 0.78;
+        } else if (currentFps > 0 && currentFps < 40) {
+            target = 0.72;
+        } else {
+            target = 1.0;
+        }
+
+        // Smoothly glide resolution scale
+        this.activeScale += (target - this.activeScale) * 0.18;
+        const renderW = Math.max(64, Math.round(this.canvas.width * this.activeScale));
+        const renderH = Math.max(64, Math.round(this.canvas.height * this.activeScale));
         this.updateFBOs(renderW, renderH);
 
-        const morph = this.state.formulaMorph;
         let blendAmount = 0.0;
 
         if (morph && FORMULAS[morph.fromId] && FORMULAS[morph.toId]) {

@@ -743,7 +743,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
     vec4 orbit = vec4(100.0);
     float m = dot(w, w);
     
-    for (int i = 0; i < 24; i++) {
+    for (int i = 0; i < 20; i++) {
         if (i >= maxIt) break;
         
         // Canonical Burning Ship absolute fold
@@ -751,12 +751,13 @@ float mapFractal(vec3 pos, out vec4 trap) {
         w.y = -w.y;
         
         float r = sqrt(m);
-        dz = power * pow(r, power - 1.0) * dz + 1.0;
+        dz = power * pow(max(1e-4, r), clamp(power - 1.0, 0.0, 14.0)) * dz + 1.0;
+        dz = min(1e8, dz);
         
         float theta = acos(clamp(w.z / max(1e-5, r), -1.0, 1.0)) * power;
         float phi = atan(w.y, w.x) * power;
         
-        float zr = pow(r, power);
+        float zr = pow(max(1e-4, r), power);
         w = c + zr * vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
         
         orbit.x = min(orbit.x, r);
@@ -768,8 +769,8 @@ float mapFractal(vec3 pos, out vec4 trap) {
     }
     
     trap = orbit;
-    if (m < 1.0) return 0.0;
-    return 0.25 * log(m) * sqrt(m) / max(1e-4, dz);
+    float r = sqrt(max(1e-5, m));
+    return 0.5 * log(max(1.0, r)) * r / max(1e-4, dz);
 }
 `,
         cpuEvalDE: (p, state) => {
