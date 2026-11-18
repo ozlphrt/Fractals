@@ -710,9 +710,9 @@ float mapFractal(vec3 pos, out vec4 trap) {
             target: [0.0, 0.0, 0.0]
         },
         params: [
-            { id: 'bs_power', name: 'Power', min: 2.0, max: 7.0, step: 0.05, default: 3.0, uniform: 'u_bs_power', type: 'float' },
-            { id: 'bs_iterations', name: 'Iterations', min: 4, max: 20, step: 1, default: 12, uniform: 'u_bs_iterations', type: 'int' },
-            { id: 'bs_asym', name: 'Asymmetry Shift', min: -0.4, max: 0.4, step: 0.01, default: 0.0, uniform: 'u_bs_asym', type: 'float' }
+            { id: 'bs_power', name: 'Power', min: 3.0, max: 15.0, step: 0.1, default: 3.0, uniform: 'u_bs_power', type: 'float' },
+            { id: 'bs_iterations', name: 'Iterations', min: 4, max: 24, step: 1, default: 12, uniform: 'u_bs_iterations', type: 'int' },
+            { id: 'bs_asym', name: 'Asymmetry Shift', min: 0.0, max: 5.0, step: 0.02, default: 0.0, uniform: 'u_bs_asym', type: 'float' }
         ],
         presets: [
             {
@@ -720,16 +720,16 @@ float mapFractal(vec3 pos, out vec4 trap) {
                 values: { bs_power: 3.0, bs_iterations: 13, bs_asym: 0.0 }
             },
             {
-                name: 'Obsidian Dragon Spire (Power 2)',
-                values: { bs_power: 2.0, bs_iterations: 12, bs_asym: 0.05 }
+                name: 'Obsidian Citadel (Power 6)',
+                values: { bs_power: 6.0, bs_iterations: 12, bs_asym: 0.25 }
             },
             {
-                name: 'Volcanic Buffalo Fortress (Power 4)',
-                values: { bs_power: 4.0, bs_iterations: 14, bs_asym: -0.08 }
+                name: 'Volcanic Buffalo Spire (Power 9)',
+                values: { bs_power: 9.0, bs_iterations: 14, bs_asym: 0.8 }
             },
             {
-                name: 'Gothic Needle Fleet (Power 5)',
-                values: { bs_power: 5.0, bs_iterations: 15, bs_asym: 0.0 }
+                name: 'Gothic Needle Fleet (Power 14)',
+                values: { bs_power: 14.0, bs_iterations: 15, bs_asym: 1.5 }
             }
         ],
         glsl: `

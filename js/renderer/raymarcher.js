@@ -366,36 +366,36 @@ vec3 hashStar(vec3 p) {
     return fract((p.xxy + p.yxx) * p.zyx);
 }
 
-// Ultra-fine, subtle celestial starfield: tiny pinpricks, delicate and non-intrusive
+// Crisp, clearly visible celestial starfield with delicate pinpricks
 vec3 getStarField(vec3 dir) {
     vec3 stars = vec3(0.0);
     
-    // Layer 1: Tiny, delicate distant pinprick stars
+    // Layer 1: Dense, crisp pinprick celestial stars
     {
-        vec3 p = dir * 420.0;
+        vec3 p = dir * 210.0;
         vec3 ip = floor(p);
         vec3 fp = fract(p) - 0.5;
         vec3 rnd = hashStar(ip);
-        vec3 offset = (rnd - 0.5) * 0.70;
+        vec3 offset = (rnd - 0.5) * 0.72;
         float d = length(fp - offset);
-        // Extremely sharp falloff -> pure tiny subpixel pinprick
-        float star = pow(max(0.0, 1.0 - d * 6.5), 36.0);
-        float brightness = step(0.965, rnd.x) * (rnd.y * 0.35 + 0.15);
-        vec3 starCol = mix(vec3(0.70, 0.85, 1.0), vec3(1.0, 0.95, 0.85), rnd.z);
+        // Clean needle pinprick falloff
+        float star = pow(max(0.0, 1.0 - d * 4.2), 18.0);
+        float brightness = step(0.92, rnd.x) * (rnd.y * 1.6 + 0.9);
+        vec3 starCol = mix(vec3(0.75, 0.88, 1.0), vec3(1.0, 0.96, 0.88), rnd.z);
         stars += starCol * (star * brightness);
     }
     
-    // Layer 2: Occasional slightly brighter tiny star (still sharp pinprick, no large halo)
+    // Layer 2: Distinct navigational landmark stars
     {
-        vec3 p = dir * 240.0;
+        vec3 p = dir * 95.0;
         vec3 ip = floor(p);
         vec3 fp = fract(p) - 0.5;
-        vec3 rnd = hashStar(ip + 51.3);
-        vec3 offset = (rnd - 0.5) * 0.70;
+        vec3 rnd = hashStar(ip + 37.1);
+        vec3 offset = (rnd - 0.5) * 0.65;
         float d = length(fp - offset);
-        float star = pow(max(0.0, 1.0 - d * 5.0), 32.0);
-        float brightness = step(0.985, rnd.x) * (rnd.y * 0.45 + 0.25);
-        vec3 starCol = mix(vec3(0.80, 0.90, 1.0), vec3(1.0, 0.88, 0.75), rnd.z);
+        float star = pow(max(0.0, 1.0 - d * 3.4), 22.0);
+        float brightness = step(0.965, rnd.x) * (rnd.y * 2.4 + 1.4);
+        vec3 starCol = mix(vec3(0.80, 0.92, 1.0), vec3(1.0, 0.88, 0.72), rnd.z);
         stars += starCol * (star * brightness);
     }
     
@@ -733,7 +733,7 @@ void main() {
         set1f('u_rim_color_r', this.state.get('rim_color_r') ?? 0.45);
         set1f('u_rim_color_g', this.state.get('rim_color_g') ?? 0.65);
         set1f('u_rim_color_b', this.state.get('rim_color_b') ?? 0.90);
-        set1f('u_glow_intensity', this.state.get('glow_intensity') ?? 0.1);
+        set1f('u_glow_intensity', this.state.get('glow_intensity') ?? 0.05);
         set1f('u_glow_color_r', this.state.get('glow_color_r') ?? 0.06);
         set1f('u_glow_color_g', this.state.get('glow_color_g') ?? 0.8);
         set1f('u_glow_color_b', this.state.get('glow_color_b') ?? 1.0);

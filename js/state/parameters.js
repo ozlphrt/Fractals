@@ -54,7 +54,7 @@ export const GLOBAL_PARAMS = [
     { id: 'fog_density', name: 'Atmospheric Fog', min: 0.0, max: 0.8, step: 0.02, default: 0.15, uniform: 'u_fog_density', type: 'float', group: 'light_env' },
 
     // Light 4: Volumetric Core Glow
-    { id: 'glow_intensity', name: 'Glow Intensity', min: 0.0, max: 0.5, step: 0.01, default: 0.1, uniform: 'u_glow_intensity', type: 'float', group: 'light_glow' },
+    { id: 'glow_intensity', name: 'Glow Intensity', min: 0.0, max: 0.5, step: 0.01, default: 0.05, uniform: 'u_glow_intensity', type: 'float', group: 'light_glow' },
     { id: 'glow_color_r', name: 'Glow Red', min: 0.0, max: 1.0, step: 0.02, default: 0.06, uniform: 'u_glow_color_r', type: 'float', group: 'light_glow' },
     { id: 'glow_color_g', name: 'Glow Green', min: 0.0, max: 1.0, step: 0.02, default: 0.8, uniform: 'u_glow_color_g', type: 'float', group: 'light_glow' },
     { id: 'glow_color_b', name: 'Glow Blue', min: 0.0, max: 1.0, step: 0.02, default: 1.0, uniform: 'u_glow_color_b', type: 'float', group: 'light_glow' },
@@ -119,8 +119,8 @@ export const COHESIVE_FORMULA_BOUNDS = {
     dodec_rot_y: { min: -0.1, max: 0.1 },
 
     // 3D Burning Ship: Menacing volcanic towers
-    bs_power: { min: 2.0, max: 4.5 },
-    bs_asym: { min: -0.15, max: 0.15 },
+    bs_power: { min: 3.0, max: 15.0 },
+    bs_asym: { min: 0.0, max: 5.0 },
 
     // Jerusalem Cube: Borg cybernetic spaceports
     jerus_scale: { min: 2.8, max: 3.5 },
@@ -233,13 +233,8 @@ export class StateManager {
         }
     }
 
-    // Smoothly morph a dictionary of parameter values over durationSec with quintic ease-in-out
+    // Smoothly morph a dictionary of parameter values over durationSec
     morphToValues(targetDict, durationSec = 1.3, onProgress = null, onComplete = null) {
-        if (this.morphAnim) {
-            cancelAnimationFrame(this.morphAnim);
-            this.morphAnim = null;
-        }
-
         const startValues = {};
         const endValues = {};
 
@@ -249,55 +244,76 @@ export class StateManager {
             this.targetValues[id] = targetVal;
         }
 
-        const startTime = performance.now();
-        const durationMs = Math.max(100, durationSec * 1000);
-
-        // Quintic smooth ease-in-out curve for gradual, organic transition
-        const easeInOutQuintic = (t) => t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
-
-        const step = (now) => {
-            const elapsed = now - startTime;
-            const linearT = Math.min(1.0, Math.max(0.0, elapsed / durationMs));
-            const easedT = easeInOutQuintic(linearT);
-
-            const allParams = [...(this.getActiveFormula()?.params || []), ...GLOBAL_PARAMS];
-
-            for (const [id, targetVal] of Object.entries(endValues)) {
-                const startVal = startValues[id];
-                if (startVal !== undefined) {
-                    const p = allParams.find(param => param.id === id);
-                    let val;
-                    if (p && p.type === 'int') {
-                        val = Math.round(startVal + (targetVal - startVal) * easedT);
-                    } else {
-                        val = startVal + (targetVal - startVal) * easedT;
-                    }
-                    this.values[id] = val;
-                    this.notify(id, val);
-                }
-            }
-
-            if (onProgress) onProgress(linearT);
-
-            if (linearT < 1.0) {
-                this.morphAnim = requestAnimationFrame(step);
-            } else {
-                for (const [id, targetVal] of Object.entries(endValues)) {
-                    this.values[id] = targetVal;
-                    this.notify(id, targetVal);
-                }
-                this.morphAnim = null;
-                this.pushHistory();
-                if (onComplete) onComplete();
-            }
+        this.activeParamMorph = {
+            startValues,
+            endValues,
+            duration: Math.max(0.05, durationSec),
+            elapsed: 0.0,
+            onProgress,
+            onComplete,
+            ease: 'quintic'
         };
+    }
 
-        this.morphAnim = requestAnimationFrame(step);
+    // Step parameter morph synchronously within the main frame loop (eliminates dual-rAF stutter)
+    updateParamMorph(dt) {
+        if (!this.activeParamMorph) return false;
+
+        const morph = this.activeParamMorph;
+        morph.elapsed += dt;
+        const linearT = Math.min(1.0, Math.max(0.0, morph.elapsed / morph.duration));
+        
+        // Easing: quintic or cosine
+        const easedT = (morph.ease === 'cosine')
+            ? (0.5 - 0.5 * Math.cos(Math.PI * linearT))
+            : (linearT * linearT * linearT * (linearT * (linearT * 6.0 - 15.0) + 10.0));
+
+        const allParams = [...(this.getActiveFormula()?.params || []), ...GLOBAL_PARAMS];
+
+        for (const [id, targetVal] of Object.entries(morph.endValues)) {
+            const startVal = morph.startValues[id];
+            if (startVal !== undefined) {
+                const p = allParams.find(param => param.id === id);
+                let val;
+                if (p && p.type === 'int') {
+                    val = Math.round(startVal + (targetVal - startVal) * easedT);
+                } else {
+                    val = startVal + (targetVal - startVal) * easedT;
+                }
+                this.values[id] = val;
+                this.targetValues[id] = val;
+                this.notify(id, val);
+            }
+        }
+
+        if (morph.onProgress) morph.onProgress(linearT);
+
+        if (linearT >= 1.0) {
+            for (const [id, targetVal] of Object.entries(morph.endValues)) {
+                this.values[id] = targetVal;
+                this.targetValues[id] = targetVal;
+                this.notify(id, targetVal);
+            }
+            const onComplete = morph.onComplete;
+            this.activeParamMorph = null;
+            this.pushHistory();
+            if (onComplete) onComplete();
+        }
+
+        return true;
+    }
+
+    get morphAnim() {
+        return this.activeParamMorph;
+    }
+
+    set morphAnim(val) {
+        if (!val) this.activeParamMorph = null;
     }
 
     // Step physical inertia towards targetValues each frame
     updateInertia(dt) {
-        if (this.morphAnim) return false; // Handled by morph animation loop
+        if (this.activeParamMorph) return false; // Handled synchronously by updateParamMorph
 
         let anyMoving = false;
         // Heavy moment of inertia: slow acceleration + viscous damping
@@ -485,46 +501,16 @@ export class StateManager {
             morphStartValues[p.id] = this.values[p.id] ?? p.default;
         }
 
-        const startTime = performance.now();
-        const durationMs = durationSec * 1000;
-
-        // Smooth cosine ease-in-out for immediately visible organic flow
-        const easeInOut = (x) => 0.5 - 0.5 * Math.cos(Math.PI * x);
-
-        const step = (now) => {
-            const elapsed = now - startTime;
-            const linearT = Math.min(1.0, Math.max(0.0, elapsed / durationMs));
-            const easedT = easeInOut(linearT);
-
-            // Interpolate strictly formula geometry parameters
-            for (const [id, targetVal] of Object.entries(morphTargetValues)) {
-                const startVal = morphStartValues[id];
-                if (startVal !== undefined) {
-                    const p = formula.params.find(param => param.id === id);
-                    let interpolated;
-                    if (p && p.type === 'int') {
-                        interpolated = Math.round(startVal + (targetVal - startVal) * easedT);
-                    } else {
-                        interpolated = startVal + (targetVal - startVal) * easedT;
-                    }
-                    this.values[id] = interpolated;
-                    this.targetValues[id] = interpolated;
-                    this.notify(id, interpolated);
-                }
-            }
-
-            if (onProgress) onProgress(linearT);
-
-            if (linearT < 1.0) {
-                this.morphAnim = requestAnimationFrame(step);
-            } else {
-                this.morphAnim = null;
-                this.pushHistory();
-                if (onComplete) onComplete();
-            }
+        // Stepped synchronously in main.js frame loop via updateParamMorph
+        this.activeParamMorph = {
+            startValues: morphStartValues,
+            endValues: morphTargetValues,
+            duration: Math.max(0.1, durationSec),
+            elapsed: 0.0,
+            onProgress,
+            onComplete,
+            ease: 'cosine'
         };
-
-        this.morphAnim = requestAnimationFrame(step);
     }
 
     // Instant mutation

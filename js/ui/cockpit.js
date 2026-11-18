@@ -63,6 +63,9 @@ export class CockpitUI {
         this.elLightGlowContainer = document.getElementById('light-glow-container');
         this.elCamParamsContainer = document.getElementById('cam-params-container');
         this.elModPopover = document.getElementById('mod-popover');
+        this.elHudFps = document.getElementById('hud-fps');
+        this.elFpsDot = document.querySelector('.fps-dot');
+        this.lastReportedFps = -1;
         
         // Populate Formula Select with concise titles for top bar
         if (this.elFormulaSelect) {
@@ -133,22 +136,26 @@ export class CockpitUI {
         });
     }
 
-    createSliderRow(p) {
+    createSliderRow(p, isEmphasized = false) {
         const row = document.createElement('div');
-        row.className = 'slider-row';
+        row.className = isEmphasized ? 'slider-row slider-emphasized' : 'slider-row';
         row.dataset.paramId = p.id;
 
         const info = document.createElement('div');
         info.className = 'slider-info';
 
         const label = document.createElement('label');
-        label.textContent = p.name;
+        if (isEmphasized) {
+            label.innerHTML = `<span class="emphasized-dot">★</span> ${p.name}`;
+        } else {
+            label.textContent = p.name;
+        }
 
         const rightInfo = document.createElement('div');
         rightInfo.className = 'slider-right-info';
 
         const valSpan = document.createElement('span');
-        valSpan.className = 'val-badge';
+        valSpan.className = isEmphasized ? 'val-badge val-badge-emphasized' : 'val-badge';
         valSpan.textContent = (typeof p.default === 'number' && p.type !== 'int') ? p.default.toFixed(2) : p.default;
 
         // Modulation Badge Button [~]
@@ -203,8 +210,193 @@ export class CockpitUI {
         row.appendChild(info);
         row.appendChild(trackWrap);
 
-        this.sliderEls.set(p.id, { slider, valSpan, modBtn, ghostPip, param: p });
+        // Editable Min and Max limits row
+        const boundsRow = document.createElement('div');
+        boundsRow.className = 'slider-bounds-row';
+
+        const minWrap = document.createElement('div');
+        minWrap.className = 'bound-field';
+        const minLabel = document.createElement('span');
+        minLabel.className = 'bound-tag';
+        minLabel.textContent = 'min';
+        const minInput = document.createElement('input');
+        minInput.type = 'number';
+        minInput.className = 'bound-input';
+        minInput.step = p.step || 'any';
+        minInput.value = (p.type === 'int') ? p.min : parseFloat(p.min.toFixed(3));
+        minInput.title = `Edit Min Bound for ${p.name}`;
+        minWrap.appendChild(minLabel);
+        minWrap.appendChild(minInput);
+
+        const maxWrap = document.createElement('div');
+        maxWrap.className = 'bound-field';
+        const maxLabel = document.createElement('span');
+        maxLabel.className = 'bound-tag';
+        maxLabel.textContent = 'max';
+        const maxInput = document.createElement('input');
+        maxInput.type = 'number';
+        maxInput.className = 'bound-input';
+        maxInput.step = p.step || 'any';
+        maxInput.value = (p.type === 'int') ? p.max : parseFloat(p.max.toFixed(3));
+        maxInput.title = `Edit Max Bound for ${p.name}`;
+        maxWrap.appendChild(maxLabel);
+        maxWrap.appendChild(maxInput);
+
+        boundsRow.appendChild(minWrap);
+        boundsRow.appendChild(maxWrap);
+
+        const applyBounds = () => {
+            let nMin = parseFloat(minInput.value);
+            let nMax = parseFloat(maxInput.value);
+            if (isNaN(nMin)) nMin = p.min;
+            if (isNaN(nMax)) nMax = p.max;
+            if (nMin >= nMax) nMax = nMin + (p.type === 'int' ? 1 : 0.1);
+
+            p.min = (p.type === 'int') ? Math.round(nMin) : nMin;
+            p.max = (p.type === 'int') ? Math.round(nMax) : nMax;
+            slider.min = p.min;
+            slider.max = p.max;
+
+            let curVal = this.state.get(p.id);
+            if (curVal < p.min) {
+                this.state.set(p.id, p.min, true);
+                slider.value = p.min;
+                valSpan.textContent = (p.type === 'int') ? p.min : p.min.toFixed(2);
+                this.raymarcher.resetAccumulation();
+            } else if (curVal > p.max) {
+                this.state.set(p.id, p.max, true);
+                slider.value = p.max;
+                valSpan.textContent = (p.type === 'int') ? p.max : p.max.toFixed(2);
+                this.raymarcher.resetAccumulation();
+            }
+        };
+
+        minInput.addEventListener('change', applyBounds);
+        maxInput.addEventListener('change', applyBounds);
+        minInput.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { applyBounds(); minInput.blur(); } });
+        maxInput.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { applyBounds(); maxInput.blur(); } });
+
+        row.appendChild(boundsRow);
+
+        this.sliderEls.set(p.id, { slider, valSpan, modBtn, ghostPip, param: p, minInput, maxInput });
         return row;
+    }
+
+    createRgbColorCluster(title, rId, gId, bId) {
+        const paramR = GLOBAL_PARAMS.find(p => p.id === rId);
+        const paramG = GLOBAL_PARAMS.find(p => p.id === gId);
+        const paramB = GLOBAL_PARAMS.find(p => p.id === bId);
+        if (!paramR || !paramG || !paramB) return null;
+
+        const container = document.createElement('div');
+        container.className = 'rgb-color-cluster';
+
+        // Header row with Swatch & Hex preview
+        const header = document.createElement('div');
+        header.className = 'rgb-cluster-header';
+
+        const titleLabel = document.createElement('span');
+        titleLabel.className = 'rgb-cluster-title';
+        titleLabel.textContent = title;
+
+        const previewWrap = document.createElement('div');
+        previewWrap.className = 'rgb-preview-wrap';
+
+        const swatch = document.createElement('div');
+        swatch.className = 'rgb-cluster-swatch';
+
+        const hexLabel = document.createElement('span');
+        hexLabel.className = 'rgb-hex-label';
+
+        previewWrap.appendChild(swatch);
+        previewWrap.appendChild(hexLabel);
+        header.appendChild(titleLabel);
+        header.appendChild(previewWrap);
+        container.appendChild(header);
+
+        const updateSwatch = () => {
+            const r = Math.min(1.0, Math.max(0.0, this.state.get(rId) ?? paramR.default));
+            const g = Math.min(1.0, Math.max(0.0, this.state.get(gId) ?? paramG.default));
+            const b = Math.min(1.0, Math.max(0.0, this.state.get(bId) ?? paramB.default));
+            const ir = Math.round(r * 255);
+            const ig = Math.round(g * 255);
+            const ib = Math.round(b * 255);
+            swatch.style.background = `rgb(${ir}, ${ig}, ${ib})`;
+            swatch.style.boxShadow = `0 0 10px rgba(${ir}, ${ig}, ${ib}, 0.55)`;
+            const toHex = (n) => n.toString(16).padStart(2, '0');
+            hexLabel.textContent = `#${toHex(ir)}${toHex(ig)}${toHex(ib)}`.toUpperCase();
+        };
+
+        const channels = [
+            { param: paramR, tag: 'R', colorClass: 'channel-r', cssVar: '#ef4444' },
+            { param: paramG, tag: 'G', colorClass: 'channel-g', cssVar: '#10b981' },
+            { param: paramB, tag: 'B', colorClass: 'channel-b', cssVar: '#3b82f6' }
+        ];
+
+        const channelsGrid = document.createElement('div');
+        channelsGrid.className = 'rgb-channels-grid';
+
+        channels.forEach(({ param, tag, colorClass, cssVar }) => {
+            const chRow = document.createElement('div');
+            chRow.className = `rgb-channel-row ${colorClass}`;
+
+            const badge = document.createElement('span');
+            badge.className = `rgb-badge ${colorClass}`;
+            badge.textContent = tag;
+
+            const trackWrap = document.createElement('div');
+            trackWrap.className = 'track-wrap rgb-track-wrap';
+
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.min = param.min;
+            slider.max = param.max;
+            slider.step = param.step;
+            slider.value = this.state.get(param.id) ?? param.default;
+            slider.style.setProperty('--accent-color', cssVar);
+
+            const ghostPip = document.createElement('div');
+            ghostPip.className = 'ghost-pip';
+            ghostPip.style.display = this.mod.getBinding(param.id) ? 'block' : 'none';
+
+            trackWrap.appendChild(slider);
+            trackWrap.appendChild(ghostPip);
+
+            const valSpan = document.createElement('span');
+            valSpan.className = 'val-badge rgb-val-badge';
+            valSpan.textContent = parseFloat(slider.value).toFixed(2);
+
+            slider.addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                this.state.set(param.id, v, false);
+                valSpan.textContent = v.toFixed(2);
+                updateSwatch();
+                this.raymarcher.resetAccumulation();
+            });
+
+            slider.addEventListener('change', (e) => {
+                const v = parseFloat(e.target.value);
+                this.state.set(param.id, v, true);
+                updateSwatch();
+            });
+
+            this.state.subscribe(param.id, (v) => {
+                slider.value = v;
+                valSpan.textContent = Number(v).toFixed(2);
+                updateSwatch();
+            });
+
+            chRow.appendChild(badge);
+            chRow.appendChild(trackWrap);
+            chRow.appendChild(valSpan);
+            channelsGrid.appendChild(chRow);
+
+            this.sliderEls.set(param.id, { slider, valSpan, modBtn: null, ghostPip, param });
+        });
+
+        container.appendChild(channelsGrid);
+        updateSwatch();
+        return container;
     }
 
     renderFormulaParams() {
@@ -223,21 +415,59 @@ export class CockpitUI {
         if (this.elLightGlowContainer) this.elLightGlowContainer.innerHTML = '';
         if (this.elCamParamsContainer) this.elCamParamsContainer.innerHTML = '';
 
+        // 1. Shading & Camera general params
         for (const p of GLOBAL_PARAMS) {
-            const row = this.createSliderRow(p);
             if (p.group === 'shading' || p.group === 'render') {
-                this.elShadingParamsContainer.appendChild(row);
-            } else if (p.group === 'light_sun' && this.elLightSunContainer) {
-                this.elLightSunContainer.appendChild(row);
-            } else if (p.group === 'light_rim' && this.elLightRimContainer) {
-                this.elLightRimContainer.appendChild(row);
-            } else if (p.group === 'light_env' && this.elLightEnvContainer) {
-                this.elLightEnvContainer.appendChild(row);
-            } else if (p.group === 'light_glow' && this.elLightGlowContainer) {
-                this.elLightGlowContainer.appendChild(row);
+                this.elShadingParamsContainer.appendChild(this.createSliderRow(p));
             } else if (p.group === 'camera' && this.elCamParamsContainer) {
-                this.elCamParamsContainer.appendChild(row);
+                this.elCamParamsContainer.appendChild(this.createSliderRow(p));
             }
+        }
+
+        // 2. Structured Light 1: Key Directional Sun
+        if (this.elLightSunContainer) {
+            const pSunInt = GLOBAL_PARAMS.find(p => p.id === 'sun_intensity');
+            if (pSunInt) this.elLightSunContainer.appendChild(this.createSliderRow(pSunInt, true));
+            
+            const pSunAz = GLOBAL_PARAMS.find(p => p.id === 'sun_azimuth');
+            if (pSunAz) this.elLightSunContainer.appendChild(this.createSliderRow(pSunAz));
+            const pSunEl = GLOBAL_PARAMS.find(p => p.id === 'sun_elevation');
+            if (pSunEl) this.elLightSunContainer.appendChild(this.createSliderRow(pSunEl));
+
+            const sunCluster = this.createRgbColorCluster('Sun Color Spectrum', 'sun_color_r', 'sun_color_g', 'sun_color_b');
+            if (sunCluster) this.elLightSunContainer.appendChild(sunCluster);
+
+            const pShadow = GLOBAL_PARAMS.find(p => p.id === 'shadow_softness');
+            if (pShadow) this.elLightSunContainer.appendChild(this.createSliderRow(pShadow));
+        }
+
+        // 3. Structured Light 2: Rim / Backlight
+        if (this.elLightRimContainer) {
+            const pRimInt = GLOBAL_PARAMS.find(p => p.id === 'backlight_intensity');
+            if (pRimInt) this.elLightRimContainer.appendChild(this.createSliderRow(pRimInt, true));
+
+            const pRimEl = GLOBAL_PARAMS.find(p => p.id === 'backlight_elevation');
+            if (pRimEl) this.elLightRimContainer.appendChild(this.createSliderRow(pRimEl));
+
+            const rimCluster = this.createRgbColorCluster('Rim Color Tint', 'rim_color_r', 'rim_color_g', 'rim_color_b');
+            if (rimCluster) this.elLightRimContainer.appendChild(rimCluster);
+        }
+
+        // 4. Structured Light 3: Environment & Ambient Occlusion
+        if (this.elLightEnvContainer) {
+            const pAo = GLOBAL_PARAMS.find(p => p.id === 'ao_strength');
+            if (pAo) this.elLightEnvContainer.appendChild(this.createSliderRow(pAo));
+            const pFog = GLOBAL_PARAMS.find(p => p.id === 'fog_density');
+            if (pFog) this.elLightEnvContainer.appendChild(this.createSliderRow(pFog));
+        }
+
+        // 5. Structured Light 4: Volumetric Core Glow
+        if (this.elLightGlowContainer) {
+            const pGlowInt = GLOBAL_PARAMS.find(p => p.id === 'glow_intensity');
+            if (pGlowInt) this.elLightGlowContainer.appendChild(this.createSliderRow(pGlowInt, true));
+
+            const glowCluster = this.createRgbColorCluster('Glow Color Tint', 'glow_color_r', 'glow_color_g', 'glow_color_b');
+            if (glowCluster) this.elLightGlowContainer.appendChild(glowCluster);
         }
     }
 
@@ -519,18 +749,18 @@ export class CockpitUI {
         // Light 4 (Core Glow) ON/OFF Toggle Pill
         const btnToggleGlow = document.getElementById('btn-toggle-light-glow');
         if (btnToggleGlow) {
-            let savedGlowIntensity = this.state.get('glow_intensity') || 0.1;
+            let savedGlowIntensity = this.state.get('glow_intensity') || 0.05;
             btnToggleGlow.addEventListener('click', () => {
                 const current = this.state.get('glow_intensity');
-                if (current > 0.01) {
+                if (current > 0.005) {
                     savedGlowIntensity = current;
                     this.state.setWithInertia('glow_intensity', 0.0);
                 } else {
-                    this.state.setWithInertia('glow_intensity', savedGlowIntensity || 0.1);
+                    this.state.setWithInertia('glow_intensity', savedGlowIntensity || 0.05);
                 }
             });
             this.state.subscribe('glow_intensity', (val) => {
-                const isOn = val > 0.01;
+                const isOn = val > 0.005;
                 btnToggleGlow.classList.toggle('active', isOn);
                 btnToggleGlow.textContent = isOn ? 'ON' : 'OFF';
             });
@@ -777,6 +1007,42 @@ export class CockpitUI {
                 link.click();
             });
         }
+
+        // Capture Active Formula Parameter Values Button
+        const btnCapture = document.getElementById('btn-capture-formula-values');
+        if (btnCapture) {
+            btnCapture.addEventListener('click', () => {
+                const formula = this.state.getActiveFormula();
+                if (!formula) return;
+                const vals = {};
+                for (const p of formula.params) {
+                    const raw = this.state.get(p.id) ?? p.default;
+                    vals[p.id] = (p.type === 'int') ? Math.round(raw) : parseFloat(raw.toFixed(4));
+                }
+                const formatted = JSON.stringify(vals, null, 2);
+                navigator.clipboard.writeText(formatted).then(() => {
+                    this.showToast(`✨ Captured ${formula.name} values to clipboard!`);
+                }).catch(() => {
+                    prompt(`Captured ${formula.name} values:`, formatted);
+                });
+            });
+        }
+    }
+
+    showToast(message) {
+        let toast = document.getElementById('studio-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'studio-toast';
+            toast.className = 'studio-toast';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = message;
+        toast.classList.add('visible');
+        clearTimeout(this._toastTimeout);
+        this._toastTimeout = setTimeout(() => {
+            toast.classList.remove('visible');
+        }, 3200);
     }
 
     updateFrame(modulatedValues, audioBands, fps, de, flightSpeed) {
@@ -802,22 +1068,23 @@ export class CockpitUI {
             setMeter('eq-bar-treble', audioBands.treble);
         }
 
-        // Bottom-left FPS HUD
-        const hudFps = document.getElementById('hud-fps');
-        if (hudFps) {
+        // Bottom-left FPS HUD (throttled to avoid layout thrashing)
+        if (this.elHudFps) {
             const roundedFps = Math.round(fps);
-            hudFps.textContent = roundedFps;
-            const dot = document.querySelector('.fps-dot');
-            if (dot) {
-                if (roundedFps >= 50) {
-                    dot.style.background = '#10b981';
-                    dot.style.boxShadow = '0 0 8px #10b981';
-                } else if (roundedFps >= 30) {
-                    dot.style.background = '#f59e0b';
-                    dot.style.boxShadow = '0 0 8px #f59e0b';
-                } else {
-                    dot.style.background = '#ef4444';
-                    dot.style.boxShadow = '0 0 8px #ef4444';
+            if (roundedFps !== this.lastReportedFps) {
+                this.lastReportedFps = roundedFps;
+                this.elHudFps.textContent = roundedFps;
+                if (this.elFpsDot) {
+                    if (roundedFps >= 50) {
+                        this.elFpsDot.style.background = '#10b981';
+                        this.elFpsDot.style.boxShadow = '0 0 8px #10b981';
+                    } else if (roundedFps >= 30) {
+                        this.elFpsDot.style.background = '#f59e0b';
+                        this.elFpsDot.style.boxShadow = '0 0 8px #f59e0b';
+                    } else {
+                        this.elFpsDot.style.background = '#ef4444';
+                        this.elFpsDot.style.boxShadow = '0 0 8px #ef4444';
+                    }
                 }
             }
         }

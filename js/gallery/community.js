@@ -288,7 +288,7 @@ export class GalleryManager {
                 formulaParams[p.id] = currentVals[p.id];
             }
         }
-        formulaParams['glow_intensity'] = currentVals['glow_intensity'] ?? 0.1;
+        formulaParams['glow_intensity'] = currentVals['glow_intensity'] ?? 0.05;
 
         const currentMaterial = this.app.materials?.currentPresetId || 'iridescent_pearl';
         const cameraState = this.app.camera?.getState ? this.app.camera.getState() : null;
@@ -384,9 +384,9 @@ export class GalleryManager {
             this.app.setFormula(scene.formula, true);
         }
 
-        // 2. Apply parameters smoothly (preserving 0.1 glow baseline)
+        // 2. Apply parameters smoothly (preserving 0.05 glow baseline)
         if (scene.params) {
-            const paramsToApply = { glow_intensity: 0.1, ...scene.params };
+            const paramsToApply = { glow_intensity: 0.05, ...scene.params };
             if (this.app.params?.morphToValues) {
                 this.app.params.morphToValues(paramsToApply, 1.2);
             } else if (this.app.params?.setMany) {

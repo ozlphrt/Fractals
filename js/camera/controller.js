@@ -608,16 +608,27 @@ export class CameraController {
         const idealDistance = (0.80 * objRadius) / tanHalfFov;
         this.idealDistance = idealDistance;
 
+        // If a cinematic preset path is actively driving camera position, let applyCameraPreset own pos/target
+        if (this.activeCameraPreset !== 'turntable' && this.presetBlendProgress >= 1.0) {
+            return;
+        }
+
         // If user has overridden the zoom factor, respect manual zoom (do not force orbitRadius)
         if (this.isZoomOverridden) return;
 
+        const diff = idealDistance - this.orbitRadius;
+        const targetOffset = Math.hypot(this.target[0], this.target[1], this.target[2]);
+        
+        // Deadband threshold: if settled, avoid float churn and spurious movement flags
+        if (Math.abs(diff) < 0.0002 && targetOffset < 0.0002) return;
+
         // Smooth critically damped exponential ease
-        const lerpSpeed = Math.min(1.0, 5.5 * dt);
-        this.orbitRadius += (idealDistance - this.orbitRadius) * lerpSpeed;
+        const lerpSpeed = Math.min(1.0, 4.5 * dt);
+        this.orbitRadius += diff * lerpSpeed;
         this.targetOrbitRadius = this.orbitRadius;
 
         // Smoothly recenter target if it was panned
-        if (Math.hypot(this.target[0], this.target[1], this.target[2]) > 0.001) {
+        if (targetOffset > 0.0002) {
             this.target[0] += (0.0 - this.target[0]) * lerpSpeed;
             this.target[1] += (0.0 - this.target[1]) * lerpSpeed;
             this.target[2] += (0.0 - this.target[2]) * lerpSpeed;

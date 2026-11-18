@@ -94,6 +94,9 @@ class FractalSynthApp {
             // 2b. Step 3D metamorphic formula morphing
             const isFormulaMorphing = this.state.updateFormulaMorph(dt);
 
+            // 2c. Step synchronized parameter morphing (eliminates dual-rAF frame rate race condition)
+            const isParamMorphing = this.state.updateParamMorph(dt);
+
             // 3. Step physical slider inertia (heavy moment of inertia for sliders)
             const slidersMoving = this.state.updateInertia(dt);
 
@@ -126,7 +129,7 @@ class FractalSynthApp {
             // 6. Camera flight / orbit update
             const camMoved = this.camera.update(dt, surfaceDE);
 
-            const isMorphing = (this.state.morphAnim !== null) || isFormulaMorphing;
+            const isMorphing = (this.state.morphAnim !== null) || isFormulaMorphing || isParamMorphing;
             const isDynamic = camMoved || slidersMoving || isMorphing || (hasMod && (this.audio.isPlaying || this.modulation.bindings.size > 0));
 
             // 7. Raymarch render
