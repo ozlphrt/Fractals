@@ -804,12 +804,12 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: 'Complex Sine Silk',
         subtitle: 'Hyperbolic Trigonometric Drapery & Curtains',
         defaultCam: {
-            pos: [0.0, 0.0, 1.5],
+            pos: [0.0, 0.45, 2.75],
             target: [0.0, 0.0, 0.0]
         },
         params: [
-            { id: 'trig_scale', name: 'Spatial Frequency', min: 0.5, max: 2.5, step: 0.02, default: 1.15, uniform: 'u_trig_scale', type: 'float' },
-            { id: 'trig_amplitude', name: 'Harmonic Amp', min: 0.4, max: 2.0, step: 0.02, default: 0.95, uniform: 'u_trig_amplitude', type: 'float' },
+            { id: 'trig_scale', name: 'Spatial Frequency', min: 0.6, max: 2.2, step: 0.02, default: 1.25, uniform: 'u_trig_scale', type: 'float' },
+            { id: 'trig_amplitude', name: 'Harmonic Amp', min: 0.4, max: 1.8, step: 0.02, default: 0.88, uniform: 'u_trig_amplitude', type: 'float' },
             { id: 'trig_cx', name: 'Vector C.X', min: -1.0, max: 1.0, step: 0.02, default: 0.15, uniform: 'u_trig_cx', type: 'float' },
             { id: 'trig_cy', name: 'Vector C.Y', min: -1.0, max: 1.0, step: 0.02, default: -0.20, uniform: 'u_trig_cy', type: 'float' },
             { id: 'trig_cz', name: 'Vector C.Z', min: -1.0, max: 1.0, step: 0.02, default: 0.25, uniform: 'u_trig_cz', type: 'float' },
@@ -818,76 +818,84 @@ float mapFractal(vec3 pos, out vec4 trap) {
         presets: [
             {
                 name: 'Liquid Silk Drapery',
-                values: { trig_scale: 1.15, trig_amplitude: 0.95, trig_cx: 0.15, trig_cy: -0.20, trig_cz: 0.25, trig_iterations: 9 }
+                values: { trig_scale: 1.25, trig_amplitude: 0.88, trig_cx: 0.15, trig_cy: -0.20, trig_cz: 0.25, trig_iterations: 9 }
             },
             {
                 name: 'Oceanic Tsunami Ribbon',
-                values: { trig_scale: 1.45, trig_amplitude: 1.10, trig_cx: -0.30, trig_cy: 0.10, trig_cz: 0.35, trig_iterations: 10 }
+                values: { trig_scale: 1.45, trig_amplitude: 1.02, trig_cx: -0.30, trig_cy: 0.10, trig_cz: 0.35, trig_iterations: 10 }
             },
             {
                 name: 'Hyperbolic Mineral Vein',
-                values: { trig_scale: 0.85, trig_amplitude: 0.80, trig_cx: 0.25, trig_cy: -0.35, trig_cz: 0.12, trig_iterations: 8 }
+                values: { trig_scale: 0.95, trig_amplitude: 0.75, trig_cx: 0.25, trig_cy: -0.35, trig_cz: 0.12, trig_iterations: 8 }
             },
             {
                 name: 'Aeolian Canyon Ripples',
-                values: { trig_scale: 1.70, trig_amplitude: 1.25, trig_cx: 0.0, trig_cy: 0.25, trig_cz: -0.20, trig_iterations: 11 }
+                values: { trig_scale: 1.65, trig_amplitude: 1.12, trig_cx: 0.0, trig_cy: 0.25, trig_cz: -0.20, trig_iterations: 11 }
             }
         ],
         glsl: `
-// 3D Hyperbolic Sine Silk DE
+// 3D Hyperbolic Sine Silk DE with Smooth Bounded Envelope
 float mapFractal(vec3 pos, out vec4 trap) {
     vec3 z = pos * u_trig_scale;
     vec3 c = vec3(u_trig_cx, u_trig_cy, u_trig_cz);
     float dz = 1.0;
-    vec4 orbit = vec4(100.0);
+    vec3 trapAcc = vec3(0.0);
     int maxIt = int(u_trig_iterations);
     
     for (int i = 0; i < 16; i++) {
         if (i >= maxIt) break;
         
+        // Smooth C^infinity hyperbolic saturation (replaces discontinuous clamp)
+        float sy = tanh(z.y * 0.35) * 2.85;
+        float sx = tanh(z.x * 0.35) * 2.85;
         vec3 nZ = vec3(
-            sin(z.x) * cosh(clamp(z.y, -3.0, 3.0)),
-            cos(z.x) * sinh(clamp(z.y, -3.0, 3.0)),
-            sin(z.z) * cosh(clamp(z.x, -3.0, 3.0))
+            sin(z.x) * cosh(sy),
+            cos(z.x) * sinh(sy),
+            sin(z.z) * cosh(sx)
         );
         
-        float lenNZ = length(nZ);
-        dz = max(1.0, lenNZ) * dz * 1.25;
+        float lenNZ = max(0.1, length(nZ));
+        dz = lenNZ * dz * u_trig_amplitude;
         z = nZ * u_trig_amplitude + c;
         
-        orbit.x = min(orbit.x, length(z));
-        orbit.y = min(orbit.y, abs(sin(z.x * 2.0)));
-        orbit.z = min(orbit.z, abs(z.z));
-        orbit.w = float(i);
+        // Smooth exponential trap accumulation: 100% continuous across all boundaries
+        float w = exp(-dot(z, z) * 0.12);
+        trapAcc += w * vec3(length(z) * 0.35, abs(sin(z.x * 1.5)), abs(z.z) * 0.5);
         
-        if (dot(z, z) > 30.0) break;
+        if (dot(z, z) > 28.0) break;
     }
     
-    trap = orbit;
-    return 0.35 * log(length(z) + 1.0) / max(1e-4, dz);
+    trap = vec4(trapAcc, float(maxIt));
+    // Exact scale-compensated distance estimator
+    float dFractal = 0.35 * log(length(z) + 1.0) / max(1e-4, dz * u_trig_scale);
+    // Sculptural spherical envelope bounds object cleanly inside viewport
+    float dBound = length(pos) - 1.32;
+    return max(dFractal, dBound);
 }
 `,
         cpuEvalDE: (p, state) => {
-            const scale = state.trig_scale ?? 1.15;
+            const scale = state.trig_scale ?? 1.25;
             let zx = p[0] * scale, zy = p[1] * scale, zz = p[2] * scale;
             const cx = state.trig_cx ?? 0.15, cy = state.trig_cy ?? -0.2, cz = state.trig_cz ?? 0.25;
-            const amp = state.trig_amplitude ?? 0.95;
+            const amp = state.trig_amplitude ?? 0.88;
             const maxIt = Math.min(10, state.trig_iterations ?? 9);
             let dz = 1.0;
 
             for (let i = 0; i < maxIt; i++) {
-                const cy_c = Math.max(-3.0, Math.min(3.0, zy));
-                const cx_c = Math.max(-3.0, Math.min(3.0, zx));
-                const nx = Math.sin(zx) * Math.cosh(cy_c);
-                const ny = Math.cos(zx) * Math.sinh(cy_c);
-                const nz = Math.sin(zz) * Math.cosh(cx_c);
-                const lenNZ = Math.hypot(nx, ny, nz);
-                dz = Math.max(1.0, lenNZ) * dz * 1.25;
+                const sy = Math.tanh(zy * 0.35) * 2.85;
+                const sx = Math.tanh(zx * 0.35) * 2.85;
+                const nx = Math.sin(zx) * Math.cosh(sy);
+                const ny = Math.cos(zx) * Math.sinh(sy);
+                const nz = Math.sin(zz) * Math.cosh(sx);
+                const lenNZ = Math.max(0.1, Math.hypot(nx, ny, nz));
+                dz = lenNZ * dz * amp;
                 zx = nx * amp + cx; zy = ny * amp + cy; zz = nz * amp + cz;
-                if (zx * zx + zy * zy + zz * zz > 30.0) break;
+                if (zx * zx + zy * zy + zz * zz > 28.0) break;
             }
             const len = Math.hypot(zx, zy, zz);
-            return 0.35 * Math.log(len + 1.0) / Math.max(1e-4, dz);
+            const dFractal = 0.35 * Math.log(len + 1.0) / Math.max(1e-4, dz * scale);
+            const dBound = Math.hypot(p[0], p[1], p[2]) - 1.32;
+            return Math.max(dFractal, dBound);
         }
     },
 

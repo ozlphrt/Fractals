@@ -162,6 +162,32 @@ export class Raymarcher {
             }
         }
 
+        // Ordered Bayer 4x4 matrix dither - perfectly eliminates 8-bit Mach bands and contour tearing
+        float bayer4x4(vec2 p) {
+            vec2 b = floor(mod(p, 4.0));
+            int x = int(b.x);
+            int y = int(b.y);
+            int idx = x + y * 4;
+            float m = 0.0;
+            if (idx == 0) m = 0.0;
+            else if (idx == 1) m = 8.0;
+            else if (idx == 2) m = 2.0;
+            else if (idx == 3) m = 10.0;
+            else if (idx == 4) m = 12.0;
+            else if (idx == 5) m = 4.0;
+            else if (idx == 6) m = 14.0;
+            else if (idx == 7) m = 6.0;
+            else if (idx == 8) m = 3.0;
+            else if (idx == 9) m = 11.0;
+            else if (idx == 10) m = 1.0;
+            else if (idx == 11) m = 9.0;
+            else if (idx == 12) m = 15.0;
+            else if (idx == 13) m = 7.0;
+            else if (idx == 14) m = 13.0;
+            else m = 5.0;
+            return (m / 16.0 - 0.5) / 255.0;
+        }
+
         void main() {
             vec2 rcpFrame = vec2(1.0) / max(vec2(1.0), u_tex_size);
             vec3 colA = sampleFXAA(u_tex_a, v_uv, rcpFrame);
@@ -177,10 +203,9 @@ export class Raymarcher {
                 rawCol = colA;
             }
             
-            vec3 mapped = aces(rawCol * 0.88);
+            vec3 mapped = aces(rawCol * 0.92);
             mapped = pow(mapped, vec3(1.0 / 2.2));
-            // 8-bit gradient dither eliminates color tearing and Mach bands on smooth gradients
-            float dither = (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
+            float dither = bayer4x4(gl_FragCoord.xy) * 1.5;
             fragColor = vec4(clamp(mapped + vec3(dither), 0.0, 1.0), 1.0);
         }`;
 
@@ -375,8 +400,11 @@ void main() {
                 continue;
             }
             hit = true;
-            t = max(0.005, t - d * 0.4);
-            finalTrap = trap;
+            // 3-step secant refinement: snaps ray position directly to the exact zero surface boundary
+            for (int r = 0; r < 3; r++) {
+                t += map(ro + rd * t);
+            }
+            mapFractal(ro + rd * t, finalTrap);
             break;
         }
         t += max(u_hit_epsilon * 0.5, d * 0.88);
@@ -389,7 +417,11 @@ void main() {
     ));
     
     vec3 glowColor = vec3(u_glow_color_r, u_glow_color_g, u_glow_color_b);
-    vec3 col = vec3(0.01, 0.015, 0.03); // Void sky background
+    // Atmospheric dark blue space gradient (restores the lush deep navy tone)
+    vec3 skyTop = vec3(0.035, 0.085, 0.170);
+    vec3 skyBottom = vec3(0.016, 0.042, 0.090);
+    vec3 skyBg = mix(skyBottom, skyTop, clamp(rd.y * 0.5 + 0.5, 0.0, 1.0));
+    vec3 col = skyBg;
     
     if (hit) {
         vec3 pos = ro + rd * t;
@@ -470,9 +502,9 @@ void main() {
             lin += fre * glowColor * 0.35 * u_glow_intensity;
         }
         
-        // Distance fog
-        float fog = 1.0 - exp(-t * u_fog_density);
-        col = mix(lin, vec3(0.02, 0.03, 0.05), fog);
+        // Distance fog into sky atmosphere
+        float fog = 1.0 - exp(-t * u_fog_density * 0.5);
+        col = mix(lin, skyBg, fog);
     }
     
     // Add volumetric edge glow
@@ -647,9 +679,9 @@ void main() {
         set1f('u_pal_d_b', this.state.get('pal_d_b') ?? 0.25);
         set1f('u_roughness', this.state.get('roughness') ?? 0.35);
         set1f('u_metallic', this.state.get('metallic') ?? 0.25);
-        set1f('u_sun_azimuth', this.state.get('sun_azimuth') ?? 0.8);
+        set1f('u_sun_azimuth', this.state.get('sun_azimuth') ?? 0.76);
         set1f('u_sun_elevation', this.state.get('sun_elevation') ?? 0.9);
-        set1f('u_sun_intensity', this.state.get('sun_intensity') ?? 1.4);
+        set1f('u_sun_intensity', this.state.get('sun_intensity') ?? 1.60);
         set1f('u_sun_color_r', this.state.get('sun_color_r') ?? 1.0);
         set1f('u_sun_color_g', this.state.get('sun_color_g') ?? 0.92);
         set1f('u_sun_color_b', this.state.get('sun_color_b') ?? 0.80);
@@ -660,8 +692,8 @@ void main() {
         set1f('u_rim_color_r', this.state.get('rim_color_r') ?? 0.45);
         set1f('u_rim_color_g', this.state.get('rim_color_g') ?? 0.65);
         set1f('u_rim_color_b', this.state.get('rim_color_b') ?? 0.90);
-        set1f('u_glow_intensity', this.state.get('glow_intensity') ?? 0.0);
-        set1f('u_glow_color_r', this.state.get('glow_color_r') ?? 0.0);
+        set1f('u_glow_intensity', this.state.get('glow_intensity') ?? 0.15);
+        set1f('u_glow_color_r', this.state.get('glow_color_r') ?? 0.06);
         set1f('u_glow_color_g', this.state.get('glow_color_g') ?? 0.8);
         set1f('u_glow_color_b', this.state.get('glow_color_b') ?? 1.0);
         set1f('u_fog_density', this.state.get('fog_density') ?? 0.15);

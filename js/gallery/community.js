@@ -164,10 +164,10 @@ export const CURATED_COMMUNITY_CREATIONS = [
             trig_iterations: 10
         },
         camera: {
-            pos: [0.0, 0.1, 1.5],
+            pos: [0.0, 0.45, 2.75],
             target: [0.0, 0.0, 0.0],
             preset: 'follow',
-            orbitRadius: 1.5
+            orbitRadius: 2.78
         },
         tags: ['Trigonometric', 'Silk', 'Sandstone']
     },
