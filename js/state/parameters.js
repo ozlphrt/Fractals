@@ -104,10 +104,10 @@ export const COHESIVE_FORMULA_BOUNDS = {
     qj_cw: { min: -0.15, max: 0.15 },
     qj_slice_w: { min: -0.25, max: 0.25 },
 
-    // Apollonian Gasket: Cohesive sphere packing
-    apol_scale: { min: 1.5, max: 2.3 },
-    apol_radius: { min: 0.65, max: 1.1 },
-    apol_dist: { min: 0.45, max: 0.95 },
+    // Apollonian Gasket: Sculptural bounded geode packing
+    apol_scale: { min: 1.0, max: 1.45 },
+    apol_core: { min: 0.12, max: 0.38 },
+    apol_radius: { min: 1.35, max: 1.85 },
     apol_rot_x: { min: -0.1, max: 0.1 },
     apol_rot_y: { min: -0.1, max: 0.1 },
 

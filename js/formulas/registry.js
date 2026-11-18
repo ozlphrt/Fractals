@@ -510,47 +510,46 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: 'Apollonian Gasket',
         subtitle: 'Kleinian 3D Sphere Inversion Packing',
         defaultCam: {
-            pos: [0.0, 0.0, 1.6],
+            pos: [2.2, 1.6, 2.5],
             target: [0.0, 0.0, 0.0]
         },
         params: [
-            { id: 'apol_scale', name: 'Scale Factor', min: 1.2, max: 2.8, step: 0.02, default: 1.82, uniform: 'u_apol_scale', type: 'float' },
-            { id: 'apol_radius', name: 'Sphere Radius', min: 0.4, max: 1.6, step: 0.02, default: 0.84, uniform: 'u_apol_radius', type: 'float' },
-            { id: 'apol_dist', name: 'Cell Offset', min: 0.2, max: 1.8, step: 0.02, default: 0.68, uniform: 'u_apol_dist', type: 'float' },
-            { id: 'apol_rot_x', name: 'Fold Rot X', min: -0.5, max: 0.5, step: 0.01, default: 0.0, uniform: 'u_apol_rot_x', type: 'float' },
-            { id: 'apol_rot_y', name: 'Fold Rot Y', min: -0.5, max: 0.5, step: 0.01, default: 0.0, uniform: 'u_apol_rot_y', type: 'float' },
-            { id: 'apol_iterations', name: 'Iterations', min: 4, max: 14, step: 1, default: 9, uniform: 'u_apol_iterations', type: 'int' }
+            { id: 'apol_scale', name: 'Inversion Scale', min: 0.8, max: 1.8, step: 0.02, default: 1.18, uniform: 'u_apol_scale', type: 'float' },
+            { id: 'apol_core', name: 'Core Voids', min: 0.05, max: 0.6, step: 0.01, default: 0.22, uniform: 'u_apol_core', type: 'float' },
+            { id: 'apol_radius', name: 'Sculptural Bound', min: 1.0, max: 2.5, step: 0.02, default: 1.55, uniform: 'u_apol_radius', type: 'float' },
+            { id: 'apol_rot_x', name: 'Fold Rot X', min: -0.3, max: 0.3, step: 0.01, default: 0.04, uniform: 'u_apol_rot_x', type: 'float' },
+            { id: 'apol_rot_y', name: 'Fold Rot Y', min: -0.3, max: 0.3, step: 0.01, default: 0.08, uniform: 'u_apol_rot_y', type: 'float' },
+            { id: 'apol_iterations', name: 'Iterations', min: 4, max: 12, step: 1, default: 8, uniform: 'u_apol_iterations', type: 'int' }
         ],
         presets: [
             {
-                name: 'Celestial Geodesic Foam',
-                values: { apol_scale: 1.82, apol_radius: 0.84, apol_dist: 0.68, apol_rot_x: 0.0, apol_rot_y: 0.0, apol_iterations: 9 }
+                name: 'Celestial Geodesic Geode',
+                values: { apol_scale: 1.18, apol_core: 0.22, apol_radius: 1.55, apol_rot_x: 0.04, apol_rot_y: 0.08, apol_iterations: 8 }
             },
             {
-                name: 'Pearl Lattice Cathedral',
-                values: { apol_scale: 2.15, apol_radius: 0.96, apol_dist: 0.85, apol_rot_x: 0.08, apol_rot_y: -0.05, apol_iterations: 10 }
+                name: 'Hollow Pearl Lattice',
+                values: { apol_scale: 1.35, apol_core: 0.32, apol_radius: 1.65, apol_rot_x: -0.06, apol_rot_y: 0.12, apol_iterations: 9 }
             },
             {
-                name: 'Bubble Chamber Matrix',
-                values: { apol_scale: 1.55, apol_radius: 0.72, apol_dist: 0.45, apol_rot_x: -0.06, apol_rot_y: 0.12, apol_iterations: 8 }
+                name: 'Nested Bubble Relic',
+                values: { apol_scale: 1.05, apol_core: 0.15, apol_radius: 1.45, apol_rot_x: 0.0, apol_rot_y: 0.15, apol_iterations: 8 }
             },
             {
-                name: 'Cosmic Bead Necklace',
-                values: { apol_scale: 2.45, apol_radius: 1.15, apol_dist: 1.05, apol_rot_x: 0.14, apol_rot_y: 0.08, apol_iterations: 11 }
+                name: 'Crystalline Foam Pavilion',
+                values: { apol_scale: 1.45, apol_core: 0.40, apol_radius: 1.75, apol_rot_x: 0.10, apol_rot_y: -0.08, apol_iterations: 9 }
             }
         ],
         glsl: `
-// 3D Apollonian Sphere Inversion Packing DE
+// Sculptural Bounded Apollonian Sphere Packing DE
 float mapFractal(vec3 pos, out vec4 trap) {
     vec3 p = pos;
-    float scale = u_apol_scale;
     vec4 orbit = vec4(100.0);
-    float dr = 1.0;
+    float scale = 1.0;
     int maxIt = int(u_apol_iterations);
-    float r2_limit = u_apol_radius * u_apol_radius;
+    float invScale = u_apol_scale * u_apol_scale;
     mat3 rot = rotX(u_apol_rot_x) * rotY(u_apol_rot_y);
     
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 14; i++) {
         if (i >= maxIt) break;
         p = rot * p;
         p = -1.0 + 2.0 * fract(0.5 * p + 0.5);
@@ -561,25 +560,24 @@ float mapFractal(vec3 pos, out vec4 trap) {
         orbit.z = min(orbit.z, abs(p.z));
         orbit.w = float(i);
         
-        float k = max(r2_limit / max(1e-4, r2), 1.0);
+        float k = invScale / max(1e-3, r2);
         p *= k;
-        dr *= k;
-        
-        p = p * scale - vec3(u_apol_dist);
-        dr = dr * scale;
+        scale *= k;
     }
     
     trap = orbit;
-    return 0.5 * (length(p) - 0.25) / max(1e-4, dr);
+    float dFractal = 0.35 * (length(p) - u_apol_core) / max(1e-4, scale);
+    float dBound = length(pos) - u_apol_radius;
+    return max(dFractal, dBound);
 }
 `,
         cpuEvalDE: (p, state) => {
             let zx = p[0], zy = p[1], zz = p[2];
-            const scale = state.apol_scale ?? 1.82;
-            const r2_limit = (state.apol_radius ?? 0.84) ** 2;
-            const dist = state.apol_dist ?? 0.68;
-            const maxIt = Math.min(10, state.apol_iterations ?? 9);
-            let dr = 1.0;
+            const invScale = (state.apol_scale ?? 1.18) ** 2;
+            const core = state.apol_core ?? 0.22;
+            const radius = state.apol_radius ?? 1.55;
+            const maxIt = Math.min(8, state.apol_iterations ?? 8);
+            let scale = 1.0;
 
             for (let i = 0; i < maxIt; i++) {
                 zx = -1.0 + 2.0 * (((0.5 * zx + 0.5) % 1.0 + 1.0) % 1.0);
@@ -587,17 +585,13 @@ float mapFractal(vec3 pos, out vec4 trap) {
                 zz = -1.0 + 2.0 * (((0.5 * zz + 0.5) % 1.0 + 1.0) % 1.0);
 
                 const r2 = zx * zx + zy * zy + zz * zz;
-                const k = Math.max(r2_limit / Math.max(1e-4, r2), 1.0);
+                const k = invScale / Math.max(1e-3, r2);
                 zx *= k; zy *= k; zz *= k;
-                dr *= k;
-
-                zx = zx * scale - dist;
-                zy = zy * scale - dist;
-                zz = zz * scale - dist;
-                dr = dr * scale;
+                scale *= k;
             }
-            const len = Math.sqrt(zx * zx + zy * zy + zz * zz);
-            return 0.5 * (len - 0.25) / Math.max(1e-4, dr);
+            const dFractal = 0.35 * (Math.hypot(zx, zy, zz) - core) / Math.max(1e-4, scale);
+            const dBound = Math.hypot(p[0], p[1], p[2]) - radius;
+            return Math.max(dFractal, dBound);
         }
     },
 

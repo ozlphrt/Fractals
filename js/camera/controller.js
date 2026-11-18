@@ -77,14 +77,18 @@ export class CameraController {
         this.currentDE = 1.0; // Distance to fractal surface
         this.currentSpeed = 0.5;
 
-        // Auto-Rotation Turntable (Gentle, majestic multi-axis drift in all directions)
+        // Auto-Rotation Turntable (Gentle, majestic, slow multi-axis drift in all directions)
         this.autoRotate = true;
-        this.autoRotateSpeed = 0.035; // Horizontal drift
-        this.autoRotatePitchSpeed = 0.016; // Vertical pitch drift
+        this.autoRotateSpeed = 0.012; // Slowed down 3X for serene, majestic drift
+        this.autoRotatePitchSpeed = 0.005; // Slowed down 3.2X
 
         // Cinematic Camera Presets ('turntable' | 'action' | 'flyby' | 'follow' | 'dynamic' | 'hero')
         this.activeCameraPreset = 'turntable';
         this.presetTime = 0.0;
+        this.presetBlendProgress = 1.0;
+        this.presetBlendDuration = 2.0; // 2.0 seconds seamless cinematic crossfade
+        this.transitionStartPos = [0.0, 0.0, 1.2];
+        this.transitionStartTarget = [0.0, 0.0, 0.0];
 
         this.hasMoved = true;
         this.setupInputListeners();
@@ -155,8 +159,11 @@ export class CameraController {
     }
 
     setCameraPreset(presetName) {
+        if (this.activeCameraPreset === presetName) return;
+        this.transitionStartPos = [...this.pos];
+        this.transitionStartTarget = [...this.target];
+        this.presetBlendProgress = 0.0;
         this.activeCameraPreset = presetName;
-        this.presetTime = 0.0;
         if (this.mode !== 'orbit') {
             this.setMode('orbit');
         }
@@ -168,69 +175,100 @@ export class CameraController {
         const zoomScale = this.isZoomOverridden ? (this.orbitRadius / baseR) : 1.0;
         const R = baseR * zoomScale;
 
-        let tx = 0.0, ty = 0.0, tz = 0.0;
-        let px = this.pos[0], py = this.pos[1], pz = this.pos[2];
+        let goalTx = 0.0, goalTy = 0.0, goalTz = 0.0;
+        let goalPx = this.pos[0], goalPy = this.pos[1], goalPz = this.pos[2];
 
-        if (this.activeCameraPreset === 'action') {
-            // Action Cam: High-energy chase with dynamic banking and handheld micro-shake
-            const t = this.presetTime * 0.75;
-            const rMod = R * (0.88 + 0.24 * Math.sin(2.2 * t));
-            px = rMod * Math.cos(t);
-            py = R * 0.38 * Math.cos(1.6 * t);
-            pz = rMod * Math.sin(t);
+        if (this.activeCameraPreset === 'turntable') {
+            // Smoothly return to canonical orbit turntable
+            const offset = [
+                this.pos[0] - this.target[0],
+                this.pos[1] - this.target[1],
+                this.pos[2] - this.target[2]
+            ];
+            const curDist = Math.hypot(offset[0], offset[1], offset[2]) || 1.0;
+            goalPx = this.target[0] + (offset[0] / curDist) * R;
+            goalPy = this.target[1] + (offset[1] / curDist) * R;
+            goalPz = this.target[2] + (offset[2] / curDist) * R;
+            goalTx = 0.0; goalTy = 0.0; goalTz = 0.0;
+        } else if (this.activeCameraPreset === 'action') {
+            // Action Cam: Slowed down 4X, serene cinema fly-through
+            const t = this.presetTime * 0.18;
+            const rMod = R * (0.92 + 0.18 * Math.sin(2.2 * t));
+            goalPx = rMod * Math.cos(t);
+            goalPy = R * 0.32 * Math.cos(1.6 * t);
+            goalPz = rMod * Math.sin(t);
             
-            // Handheld micro-shake noise
-            const shakeX = 0.007 * Math.sin(t * 16.0) + 0.003 * Math.cos(t * 29.0);
-            const shakeY = 0.006 * Math.cos(t * 19.0) + 0.003 * Math.sin(t * 31.0);
-            const shakeZ = 0.005 * Math.sin(t * 23.0);
-            px += shakeX; py += shakeY; pz += shakeZ;
+            // Subtle, gentle organic breathing
+            const shakeX = 0.002 * Math.sin(t * 8.0);
+            const shakeY = 0.002 * Math.cos(t * 9.0);
+            const shakeZ = 0.0015 * Math.sin(t * 11.0);
+            goalPx += shakeX; goalPy += shakeY; goalPz += shakeZ;
 
-            tx = R * 0.08 * Math.sin(t * 1.3);
-            ty = R * 0.06 * Math.cos(t * 1.7);
-            tz = R * 0.08 * Math.cos(t * 1.3);
+            goalTx = R * 0.06 * Math.sin(t * 1.3);
+            goalTy = R * 0.04 * Math.cos(t * 1.7);
+            goalTz = R * 0.06 * Math.cos(t * 1.3);
         } else if (this.activeCameraPreset === 'flyby') {
-            // Fly-By Cam: Sweeping Lissajous figure-8 slalom curving close past spires
-            const t = this.presetTime * 0.36;
-            px = R * 1.35 * Math.sin(t);
-            py = R * 0.52 * Math.sin(2.0 * t);
-            pz = R * 1.22 * Math.cos(t);
-            tx = R * 0.16 * Math.sin(t * 1.5);
-            ty = R * 0.10 * Math.cos(t * 2.0);
-            tz = R * 0.14 * Math.cos(t * 1.5);
+            // Fly-By Cam: Slowed down 4X, sweeping majestic slalom
+            const t = this.presetTime * 0.09;
+            goalPx = R * 1.35 * Math.sin(t);
+            goalPy = R * 0.48 * Math.sin(2.0 * t);
+            goalPz = R * 1.25 * Math.cos(t);
+            goalTx = R * 0.14 * Math.sin(t * 1.5);
+            goalTy = R * 0.08 * Math.cos(t * 2.0);
+            goalTz = R * 0.12 * Math.cos(t * 1.5);
         } else if (this.activeCameraPreset === 'follow') {
-            // Follow Cam: Low-altitude orbital sweep hugging contour ridges
-            const t = this.presetTime * 0.26;
-            const followR = R * 0.62;
-            px = followR * Math.cos(t);
-            py = followR * 0.28 * Math.sin(t * 2.0) + followR * 0.12;
-            pz = followR * Math.sin(t);
-            tx = followR * 0.42 * Math.cos(t + 0.6);
-            ty = followR * 0.20 * Math.sin((t + 0.6) * 2.0);
-            tz = followR * 0.42 * Math.sin(t + 0.6);
+            // Follow Cam: Slowed down 3.7X, serene surface contour glide
+            const t = this.presetTime * 0.07;
+            const followR = R * 0.65;
+            goalPx = followR * Math.cos(t);
+            goalPy = followR * 0.22 * Math.sin(t * 2.0) + followR * 0.10;
+            goalPz = followR * Math.sin(t);
+            goalTx = followR * 0.38 * Math.cos(t + 0.6);
+            goalTy = followR * 0.16 * Math.sin((t + 0.6) * 2.0);
+            goalTz = followR * 0.38 * Math.sin(t + 0.6);
         } else if (this.activeCameraPreset === 'dynamic') {
-            // Dynamic Cam: Vortex corkscrew spiral dive plunging in and out of core
-            const t = this.presetTime * 0.40;
-            const spiralR = R * (0.88 + 0.44 * Math.sin(t * 0.55));
-            px = spiralR * Math.sin(t);
-            py = R * 0.55 * Math.cos(t * 0.55);
-            pz = spiralR * Math.cos(t);
-            tx = 0.0; ty = 0.0; tz = 0.0;
+            // Dynamic Cam: Slowed down 5X, hypnotic slow vortex dive
+            const t = this.presetTime * 0.08;
+            const spiralR = R * (0.88 + 0.40 * Math.sin(t * 0.55));
+            goalPx = spiralR * Math.sin(t);
+            goalPy = R * 0.50 * Math.cos(t * 0.55);
+            goalPz = spiralR * Math.cos(t);
+            goalTx = 0.0; goalTy = 0.0; goalTz = 0.0;
         } else if (this.activeCameraPreset === 'hero') {
-            // Hero Shot: Imposing low-angle perspective looking upward at the towers
-            const t = this.presetTime * 0.16;
-            px = R * 0.70 * Math.sin(t);
-            py = -R * 0.42 + 0.06 * Math.sin(t * 0.8);
-            pz = R * 0.88 * Math.cos(t);
-            tx = 0.0; ty = R * 0.22; tz = 0.0;
+            // Hero Shot: Slowed down 4.5X, monumental low-angle panoramic tilt
+            const t = this.presetTime * 0.04;
+            goalPx = R * 0.70 * Math.sin(t);
+            goalPy = -R * 0.40 + 0.04 * Math.sin(t * 0.8);
+            goalPz = R * 0.88 * Math.cos(t);
+            goalTx = 0.0; goalTy = R * 0.20; goalTz = 0.0;
         }
 
-        const lerpSpeed = Math.min(1.0, (this.activeCameraPreset === 'action' ? 6.5 : 4.2) * dt);
-        this.pos[0] += (px - this.pos[0]) * lerpSpeed;
-        this.pos[1] += (py - this.pos[1]) * lerpSpeed;
-        this.pos[2] += (pz - this.pos[2]) * lerpSpeed;
-        this.target[0] += (tx - this.target[0]) * lerpSpeed;
-        this.target[1] += (ty - this.target[1]) * lerpSpeed;
-        this.target[2] += (tz - this.target[2]) * lerpSpeed;
+        // Seamless 2-second crossfade from the previous camera state
+        if (this.presetBlendProgress < 1.0) {
+            this.presetBlendProgress = Math.min(1.0, this.presetBlendProgress + dt / this.presetBlendDuration);
+            const rawT = this.presetBlendProgress;
+            // Quintic smoothstep for zero velocity jump at start and end
+            const blendT = rawT * rawT * rawT * (rawT * (rawT * 6.0 - 15.0) + 10.0);
+            goalPx = this.transitionStartPos[0] + (goalPx - this.transitionStartPos[0]) * blendT;
+            goalPy = this.transitionStartPos[1] + (goalPy - this.transitionStartPos[1]) * blendT;
+            goalPz = this.transitionStartPos[2] + (goalPz - this.transitionStartPos[2]) * blendT;
+            goalTx = this.transitionStartTarget[0] + (goalTx - this.transitionStartTarget[0]) * blendT;
+            goalTy = this.transitionStartTarget[1] + (goalTy - this.transitionStartTarget[1]) * blendT;
+            goalTz = this.transitionStartTarget[2] + (goalTz - this.transitionStartTarget[2]) * blendT;
+        }
+
+        // Heavy, silky-smooth fluid camera head damping
+        const lerpSpeed = Math.min(1.0, 2.2 * dt);
+        this.pos[0] += (goalPx - this.pos[0]) * lerpSpeed;
+        this.pos[1] += (goalPy - this.pos[1]) * lerpSpeed;
+        this.pos[2] += (goalPz - this.pos[2]) * lerpSpeed;
+        this.target[0] += (goalTx - this.target[0]) * lerpSpeed;
+        this.target[1] += (goalTy - this.target[1]) * lerpSpeed;
+        this.target[2] += (goalTz - this.target[2]) * lerpSpeed;
+
+        this.orbitRadius = Math.hypot(this.pos[0] - this.target[0], this.pos[1] - this.target[1], this.pos[2] - this.target[2]);
+        this.hasMoved = true;
+    }
 
         this.orbitRadius = Math.hypot(this.pos[0] - this.target[0], this.pos[1] - this.target[1], this.pos[2] - this.target[2]);
         this.hasMoved = true;
@@ -534,7 +572,7 @@ export class CameraController {
             const offLen = Math.hypot(ox, oy, oz);
             return 0.65 + 0.23 * offLen; // precisely ~1.05: 80% inside viewport, 20% outside
         } else if (id === 'apollonian') {
-            return 1.20;
+            return (values.apol_radius ?? 1.55) + 0.35;
         } else if (id === 'dodecahedron') {
             return 1.15;
         } else if (id === 'burning_ship') {
@@ -693,9 +731,9 @@ export class CameraController {
                 this.angularVelYaw *= this.inertiaFriction;
                 this.angularVelPitch *= this.inertiaFriction;
             } else if (!this.isDraggingOrbit) {
-                if (this.activeCameraPreset === 'turntable') {
+                if (this.activeCameraPreset === 'turntable' && this.presetBlendProgress >= 1.0) {
                     if (this.autoRotate) {
-                        // Continuous multi-axis auto-rotation in all directions
+                        // Continuous multi-axis auto-rotation in all directions (slow, majestic)
                         this.rotateOrbit(this.autoRotateSpeed * dt, this.autoRotatePitchSpeed * dt * 0.4);
                     }
                 } else {
