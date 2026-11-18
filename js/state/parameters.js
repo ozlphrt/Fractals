@@ -102,7 +102,44 @@ export const COHESIVE_FORMULA_BOUNDS = {
     qj_cy: { min: 0.3, max: 0.65 },
     qj_cz: { min: 0.2, max: 0.55 },
     qj_cw: { min: -0.15, max: 0.15 },
-    qj_slice_w: { min: -0.25, max: 0.25 }
+    qj_slice_w: { min: -0.25, max: 0.25 },
+
+    // Apollonian Gasket: Cohesive sphere packing
+    apol_scale: { min: 1.5, max: 2.3 },
+    apol_radius: { min: 0.65, max: 1.1 },
+    apol_dist: { min: 0.45, max: 0.95 },
+    apol_rot_x: { min: -0.1, max: 0.1 },
+    apol_rot_y: { min: -0.1, max: 0.1 },
+
+    // Dodecahedron IFS: Sacred golden ratio polyhedra
+    dodec_scale: { min: 1.85, max: 2.45 },
+    dodec_offset: { min: 0.7, max: 1.3 },
+    dodec_phi: { min: 1.52, max: 1.72 },
+    dodec_rot_x: { min: -0.1, max: 0.1 },
+    dodec_rot_y: { min: -0.1, max: 0.1 },
+
+    // 3D Burning Ship: Menacing volcanic towers
+    bs_power: { min: 2.0, max: 4.5 },
+    bs_asym: { min: -0.15, max: 0.15 },
+
+    // Complex Sine Silk: Flowing hyperbolic waves
+    trig_scale: { min: 0.8, max: 1.6 },
+    trig_amplitude: { min: 0.7, max: 1.25 },
+    trig_cx: { min: -0.35, max: 0.35 },
+    trig_cy: { min: -0.35, max: 0.35 },
+    trig_cz: { min: -0.35, max: 0.35 },
+
+    // Jerusalem Cube: Borg cybernetic spaceports
+    jerus_scale: { min: 2.8, max: 3.5 },
+    jerus_cut: { min: 0.6, max: 1.1 },
+    jerus_offset: { min: 0.8, max: 1.25 },
+    jerus_rot_x: { min: -0.08, max: 0.08 },
+    jerus_rot_y: { min: -0.08, max: 0.08 },
+
+    // 4D Quaternion Mandelbrot: Escape-time cardioid core
+    qm_slice_w: { min: -0.25, max: 0.25 },
+    qm_rot_xw: { min: -0.8, max: 0.8 },
+    qm_rot_yw: { min: -0.8, max: 0.8 }
 };
 
 export class StateManager {

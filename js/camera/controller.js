@@ -533,6 +533,18 @@ export class CameraController {
             const oz = values.kifs_offset_z ?? 1.0;
             const offLen = Math.hypot(ox, oy, oz);
             return 0.65 + 0.23 * offLen; // precisely ~1.05: 80% inside viewport, 20% outside
+        } else if (id === 'apollonian') {
+            return 1.20;
+        } else if (id === 'dodecahedron') {
+            return 1.15;
+        } else if (id === 'burning_ship') {
+            return 1.25;
+        } else if (id === 'trig_sine') {
+            return 1.18;
+        } else if (id === 'jerusalem') {
+            return 1.30;
+        } else if (id === 'quat_mandelbrot') {
+            return 1.20;
         }
 
         return 1.15;
