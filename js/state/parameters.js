@@ -54,7 +54,7 @@ export const GLOBAL_PARAMS = [
     { id: 'fog_density', name: 'Atmospheric Fog', min: 0.0, max: 0.8, step: 0.02, default: 0.15, uniform: 'u_fog_density', type: 'float', group: 'light_env' },
 
     // Light 4: Volumetric Core Glow
-    { id: 'glow_intensity', name: 'Glow Intensity', min: 0.0, max: 2.5, step: 0.05, default: 0.15, uniform: 'u_glow_intensity', type: 'float', group: 'light_glow' },
+    { id: 'glow_intensity', name: 'Glow Intensity', min: 0.0, max: 0.5, step: 0.01, default: 0.1, uniform: 'u_glow_intensity', type: 'float', group: 'light_glow' },
     { id: 'glow_color_r', name: 'Glow Red', min: 0.0, max: 1.0, step: 0.02, default: 0.06, uniform: 'u_glow_color_r', type: 'float', group: 'light_glow' },
     { id: 'glow_color_g', name: 'Glow Green', min: 0.0, max: 1.0, step: 0.02, default: 0.8, uniform: 'u_glow_color_g', type: 'float', group: 'light_glow' },
     { id: 'glow_color_b', name: 'Glow Blue', min: 0.0, max: 1.0, step: 0.02, default: 1.0, uniform: 'u_glow_color_b', type: 'float', group: 'light_glow' },

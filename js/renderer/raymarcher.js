@@ -733,7 +733,7 @@ void main() {
         set1f('u_rim_color_r', this.state.get('rim_color_r') ?? 0.45);
         set1f('u_rim_color_g', this.state.get('rim_color_g') ?? 0.65);
         set1f('u_rim_color_b', this.state.get('rim_color_b') ?? 0.90);
-        set1f('u_glow_intensity', this.state.get('glow_intensity') ?? 0.15);
+        set1f('u_glow_intensity', this.state.get('glow_intensity') ?? 0.1);
         set1f('u_glow_color_r', this.state.get('glow_color_r') ?? 0.06);
         set1f('u_glow_color_g', this.state.get('glow_color_g') ?? 0.8);
         set1f('u_glow_color_b', this.state.get('glow_color_b') ?? 1.0);

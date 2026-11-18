@@ -26,7 +26,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
             kifs_post_rot_x: 0.08,
             kifs_post_rot_y: -0.06,
             kifs_post_rot_z: 0.1,
-            glow_intensity: 0.15
+            glow_intensity: 0.1
         },
         camera: {
             pos: [1.8, 1.4, 2.2],
@@ -51,7 +51,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
             qj_rot_xw: 0.35,
             qj_rot_yw: -0.25,
             qj_iterations: 12,
-            glow_intensity: 0.15
+            glow_intensity: 0.1
         },
         camera: {
             pos: [0.0, 0.1, 1.55],
@@ -71,7 +71,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
             bs_power: 3.0,
             bs_iterations: 13,
             bs_asym: 0.0,
-            glow_intensity: 0.15
+            glow_intensity: 0.1
         },
         camera: {
             pos: [0.0, 0.28, 1.65],
@@ -94,7 +94,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
             dodec_rot_x: 0.05,
             dodec_rot_y: 0.08,
             dodec_iterations: 10,
-            glow_intensity: 0.15
+            glow_intensity: 0.1
         },
         camera: {
             pos: [1.2, 0.8, 1.6],
@@ -122,7 +122,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
             mbox_offset_x: 0.0,
             mbox_offset_y: 0.0,
             mbox_offset_z: 0.0,
-            glow_intensity: 0.15
+            glow_intensity: 0.1
         },
         camera: {
             pos: [3.8, 2.6, 4.2],
@@ -145,7 +145,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
             apol_rot_x: 0.04,
             apol_rot_y: 0.08,
             apol_iterations: 8,
-            glow_intensity: 0.15
+            glow_intensity: 0.1
         },
         camera: {
             pos: [2.1, 1.5, 2.4],
@@ -168,7 +168,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
             jerus_rot_x: 0.04,
             jerus_rot_y: 0.06,
             jerus_iterations: 9,
-            glow_intensity: 0.15
+            glow_intensity: 0.1
         },
         camera: {
             pos: [0.0, 0.0, 1.6],
@@ -191,7 +191,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
             mb_julia_cx: 0.0,
             mb_julia_cy: 0.0,
             mb_julia_cz: 0.0,
-            glow_intensity: 0.15
+            glow_intensity: 0.1
         },
         camera: {
             pos: [1.6, 1.2, 2.0],
@@ -212,7 +212,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
             qm_rot_xw: -0.65,
             qm_rot_yw: 0.50,
             qm_iterations: 14,
-            glow_intensity: 0.15
+            glow_intensity: 0.1
         },
         camera: {
             pos: [0.0, 0.0, 1.55],
@@ -288,7 +288,7 @@ export class GalleryManager {
                 formulaParams[p.id] = currentVals[p.id];
             }
         }
-        formulaParams['glow_intensity'] = currentVals['glow_intensity'] ?? 0.15;
+        formulaParams['glow_intensity'] = currentVals['glow_intensity'] ?? 0.1;
 
         const currentMaterial = this.app.materials?.currentPresetId || 'iridescent_pearl';
         const cameraState = this.app.camera?.getState ? this.app.camera.getState() : null;
@@ -384,9 +384,9 @@ export class GalleryManager {
             this.app.setFormula(scene.formula, true);
         }
 
-        // 2. Apply parameters smoothly (preserving 0.15 glow baseline)
+        // 2. Apply parameters smoothly (preserving 0.1 glow baseline)
         if (scene.params) {
-            const paramsToApply = { glow_intensity: 0.15, ...scene.params };
+            const paramsToApply = { glow_intensity: 0.1, ...scene.params };
             if (this.app.params?.morphToValues) {
                 this.app.params.morphToValues(paramsToApply, 1.2);
             } else if (this.app.params?.setMany) {

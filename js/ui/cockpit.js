@@ -519,14 +519,14 @@ export class CockpitUI {
         // Light 4 (Core Glow) ON/OFF Toggle Pill
         const btnToggleGlow = document.getElementById('btn-toggle-light-glow');
         if (btnToggleGlow) {
-            let savedGlowIntensity = this.state.get('glow_intensity') || 0.05;
+            let savedGlowIntensity = this.state.get('glow_intensity') || 0.1;
             btnToggleGlow.addEventListener('click', () => {
                 const current = this.state.get('glow_intensity');
                 if (current > 0.01) {
                     savedGlowIntensity = current;
                     this.state.setWithInertia('glow_intensity', 0.0);
                 } else {
-                    this.state.setWithInertia('glow_intensity', savedGlowIntensity || 0.05);
+                    this.state.setWithInertia('glow_intensity', savedGlowIntensity || 0.1);
                 }
             });
             this.state.subscribe('glow_intensity', (val) => {
