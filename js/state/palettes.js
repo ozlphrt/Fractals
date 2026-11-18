@@ -1,7 +1,7 @@
 // js/state/palettes.js
 // 100% natural, geological, mineral, and organic materials
 // Earthy, grounded, realistic textures (rocks, sands, soils, woods, clays, slates)
-// Balanced, non-blown-out linear reflectance and studio lighting
+// Pure surface optics: contains ONLY palette & material reflectance (no lighting parameters)
 
 export const PALETTE_PRESETS = [
     {
@@ -17,17 +17,7 @@ export const PALETTE_PRESETS = [
             pal_c_r: 1.00, pal_c_g: 1.00, pal_c_b: 1.00,
             pal_d_r: 0.05, pal_d_g: 0.10, pal_d_b: 0.15,
             metallic: 0.02,
-            roughness: 0.85,
-            ao_strength: 1.35,
-            sun_intensity: 1.05,
-            sun_azimuth: 0.91,
-            sun_elevation: 0.90,
-            sun_color_r: 0.96, sun_color_g: 0.90, sun_color_b: 0.80,
-            shadow_softness: 12.00,
-            backlight_intensity: 0.65,
-            backlight_elevation: -0.30,
-            rim_color_r: 0.20, rim_color_g: 0.24, rim_color_b: 0.38,
-            glow_intensity: 0.0
+            roughness: 0.85
         }
     },
     {
@@ -43,13 +33,7 @@ export const PALETTE_PRESETS = [
             pal_c_r: 1.00, pal_c_g: 1.00, pal_c_b: 1.00,
             pal_d_r: 0.00, pal_d_g: 0.10, pal_d_b: 0.20,
             metallic: 0.03,
-            roughness: 0.78,
-            ao_strength: 1.20,
-            sun_intensity: 1.05,
-            sun_color_r: 1.0, sun_color_g: 0.94, sun_color_b: 0.82,
-            backlight_intensity: 0.55,
-            rim_color_r: 0.40, rim_color_g: 0.50, rim_color_b: 0.65,
-            glow_intensity: 0.0
+            roughness: 0.78
         }
     },
     {
@@ -65,13 +49,7 @@ export const PALETTE_PRESETS = [
             pal_c_r: 1.00, pal_c_g: 1.00, pal_c_b: 1.00,
             pal_d_r: 0.00, pal_d_g: 0.08, pal_d_b: 0.15,
             metallic: 0.02,
-            roughness: 0.82,
-            ao_strength: 1.30,
-            sun_intensity: 0.95,
-            sun_color_r: 1.0, sun_color_g: 0.96, sun_color_b: 0.90,
-            backlight_intensity: 0.50,
-            rim_color_r: 0.50, rim_color_g: 0.55, rim_color_b: 0.62,
-            glow_intensity: 0.0
+            roughness: 0.82
         }
     },
     {
@@ -87,13 +65,7 @@ export const PALETTE_PRESETS = [
             pal_c_r: 1.00, pal_c_g: 1.00, pal_c_b: 1.00,
             pal_d_r: 0.00, pal_d_g: 0.05, pal_d_b: 0.10,
             metallic: 0.08,
-            roughness: 0.65,
-            ao_strength: 1.40,
-            sun_intensity: 1.10,
-            sun_color_r: 0.92, sun_color_g: 0.94, sun_color_b: 0.96,
-            backlight_intensity: 0.70,
-            rim_color_r: 0.35, rim_color_g: 0.40, rim_color_b: 0.50,
-            glow_intensity: 0.0
+            roughness: 0.65
         }
     },
     {
@@ -109,13 +81,7 @@ export const PALETTE_PRESETS = [
             pal_c_r: 1.00, pal_c_g: 1.20, pal_c_b: 1.00,
             pal_d_r: 0.10, pal_d_g: 0.25, pal_d_b: 0.40,
             metallic: 0.04,
-            roughness: 0.75,
-            ao_strength: 1.25,
-            sun_intensity: 1.00,
-            sun_color_r: 0.96, sun_color_g: 0.98, sun_color_b: 0.88,
-            backlight_intensity: 0.60,
-            rim_color_r: 0.35, rim_color_g: 0.48, rim_color_b: 0.38,
-            glow_intensity: 0.0
+            roughness: 0.75
         }
     },
     {
@@ -131,13 +97,7 @@ export const PALETTE_PRESETS = [
             pal_c_r: 1.00, pal_c_g: 1.00, pal_c_b: 1.00,
             pal_d_r: 0.00, pal_d_g: 0.08, pal_d_b: 0.16,
             metallic: 0.02,
-            roughness: 0.72,
-            ao_strength: 1.25,
-            sun_intensity: 1.05,
-            sun_color_r: 1.0, sun_color_g: 0.92, sun_color_b: 0.82,
-            backlight_intensity: 0.55,
-            rim_color_r: 0.60, rim_color_g: 0.50, rim_color_b: 0.42,
-            glow_intensity: 0.0
+            roughness: 0.72
         }
     },
     {
@@ -153,13 +113,7 @@ export const PALETTE_PRESETS = [
             pal_c_r: 1.20, pal_c_g: 1.20, pal_c_b: 1.00,
             pal_d_r: 0.00, pal_d_g: 0.05, pal_d_b: 0.10,
             metallic: 0.12,
-            roughness: 0.52,
-            ao_strength: 1.30,
-            sun_intensity: 1.00,
-            sun_color_r: 0.98, sun_color_g: 0.98, sun_color_b: 1.0,
-            backlight_intensity: 0.60,
-            rim_color_r: 0.45, rim_color_g: 0.52, rim_color_b: 0.62,
-            glow_intensity: 0.0
+            roughness: 0.52
         }
     },
     {
@@ -175,13 +129,7 @@ export const PALETTE_PRESETS = [
             pal_c_r: 1.00, pal_c_g: 1.00, pal_c_b: 1.00,
             pal_d_r: 0.05, pal_d_g: 0.10, pal_d_b: 0.15,
             metallic: 0.03,
-            roughness: 0.76,
-            ao_strength: 1.25,
-            sun_intensity: 0.95,
-            sun_color_r: 1.0, sun_color_g: 0.95, sun_color_b: 0.88,
-            backlight_intensity: 0.50,
-            rim_color_r: 0.48, rim_color_g: 0.55, rim_color_b: 0.65,
-            glow_intensity: 0.0
+            roughness: 0.76
         }
     },
     {
@@ -197,13 +145,7 @@ export const PALETTE_PRESETS = [
             pal_c_r: 1.00, pal_c_g: 1.00, pal_c_b: 1.20,
             pal_d_r: 0.20, pal_d_g: 0.25, pal_d_b: 0.35,
             metallic: 0.10,
-            roughness: 0.58,
-            ao_strength: 1.35,
-            sun_intensity: 1.05,
-            sun_color_r: 0.90, sun_color_g: 0.94, sun_color_b: 0.98,
-            backlight_intensity: 0.65,
-            rim_color_r: 0.40, rim_color_g: 0.48, rim_color_b: 0.58,
-            glow_intensity: 0.0
+            roughness: 0.58
         }
     },
     {
@@ -219,13 +161,7 @@ export const PALETTE_PRESETS = [
             pal_c_r: 1.00, pal_c_g: 1.00, pal_c_b: 1.20,
             pal_d_r: 0.10, pal_d_g: 0.15, pal_d_b: 0.25,
             metallic: 0.06,
-            roughness: 0.50,
-            ao_strength: 1.25,
-            sun_intensity: 1.00,
-            sun_color_r: 0.98, sun_color_g: 0.98, sun_color_b: 1.0,
-            backlight_intensity: 0.60,
-            rim_color_r: 0.48, rim_color_g: 0.58, rim_color_b: 0.70,
-            glow_intensity: 0.0
+            roughness: 0.50
         }
     }
 ];

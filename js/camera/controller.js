@@ -573,8 +573,6 @@ export class CameraController {
             return 1.15;
         } else if (id === 'burning_ship') {
             return 1.25;
-        } else if (id === 'trig_sine') {
-            return 1.85;
         } else if (id === 'jerusalem') {
             return 1.30;
         } else if (id === 'quat_mandelbrot') {

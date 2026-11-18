@@ -336,12 +336,12 @@ vec3 cosinePalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
 float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
     float res = 1.0;
     float t = mint;
-    for (int i = 0; i < 22; i++) {
+    for (int i = 0; i < 28; i++) {
         if (t >= maxt) break;
         float h = map(ro + rd * t);
+        if (h < 0.0005) return 0.0;
         res = min(res, k * h / t);
-        if (res < 0.01) break;
-        t += clamp(h, 0.015, 0.25);
+        t += clamp(h * 0.75, 0.004, 0.20);
     }
     return clamp(res, 0.0, 1.0);
 }
@@ -357,6 +357,48 @@ float calcAO(vec3 p, vec3 n) {
         sca *= 0.75;
     }
     return clamp(1.0 - u_ao_strength * occ, 0.0, 1.0);
+}
+
+// High-performance procedural celestial starfield
+vec3 hashStar(vec3 p) {
+    p = fract(p * vec3(443.897, 441.423, 437.195));
+    p += dot(p, p.yxz + 19.19);
+    return fract((p.xxy + p.yxx) * p.zyx);
+}
+
+vec3 getStarField(vec3 dir) {
+    vec3 stars = vec3(0.0);
+    
+    // Distant crisp pinprick stars
+    {
+        vec3 p = dir * 160.0;
+        vec3 ip = floor(p);
+        vec3 fp = fract(p) - 0.5;
+        vec3 rnd = hashStar(ip);
+        vec3 offset = (rnd - 0.5) * 0.72;
+        float d = length(fp - offset);
+        float star = pow(max(0.0, 1.0 - d * 3.4), 16.0);
+        float brightness = step(0.925, rnd.x) * (rnd.y * 1.6 + 0.4);
+        vec3 starCol = mix(vec3(0.70, 0.85, 1.0), vec3(1.0, 0.92, 0.80), rnd.z);
+        stars += starCol * (star * brightness);
+    }
+    
+    // Brighter prominent focal stars with soft optical glow
+    {
+        vec3 p = dir * 65.0;
+        vec3 ip = floor(p);
+        vec3 fp = fract(p) - 0.5;
+        vec3 rnd = hashStar(ip + 33.7);
+        vec3 offset = (rnd - 0.5) * 0.70;
+        float d = length(fp - offset);
+        float core = pow(max(0.0, 1.0 - d * 2.8), 24.0);
+        float halo = pow(max(0.0, 1.0 - d * 1.6), 5.0) * 0.22;
+        float brightness = step(0.965, rnd.x) * (rnd.y * 3.0 + 1.2);
+        vec3 starCol = mix(vec3(0.75, 0.90, 1.0), vec3(1.0, 0.84, 0.65), rnd.z);
+        stars += starCol * ((core + halo) * brightness);
+    }
+    
+    return stars;
 }
 
 void main() {
@@ -393,21 +435,19 @@ void main() {
             glow += g * g;
         }
         
-        if (d < u_hit_epsilon * (1.0 + t * 0.08)) {
+        float hitThresh = u_hit_epsilon * (1.0 + t * 0.04);
+        if (d < hitThresh) {
             // Near-clip culling: completely do not draw pieces too close to camera
             if (t < u_near_clip) {
                 t += max(0.05, abs(d) + 0.02);
                 continue;
             }
             hit = true;
-            // 3-step secant refinement: snaps ray position directly to the exact zero surface boundary
-            for (int r = 0; r < 3; r++) {
-                t += map(ro + rd * t);
-            }
-            mapFractal(ro + rd * t, finalTrap);
+            finalTrap = trap;
             break;
         }
-        t += max(u_hit_epsilon * 0.5, d * 0.88);
+        // Conservative 0.65x ray relaxation: prevents ray overshooting & saw-tooth jagged steps on grazing edges
+        t += max(u_hit_epsilon * 0.35, d * 0.65);
     }
     
     vec3 sunDir = normalize(vec3(
@@ -417,15 +457,15 @@ void main() {
     ));
     
     vec3 glowColor = vec3(u_glow_color_r, u_glow_color_g, u_glow_color_b);
-    // Atmospheric dark blue space gradient (restores the lush deep navy tone)
-    vec3 skyTop = vec3(0.035, 0.085, 0.170);
-    vec3 skyBottom = vec3(0.016, 0.042, 0.090);
+    // Dark celestial midnight navy gradient with celestial stars
+    vec3 skyTop = vec3(0.006, 0.014, 0.038);
+    vec3 skyBottom = vec3(0.002, 0.004, 0.012);
     vec3 skyBg = mix(skyBottom, skyTop, clamp(rd.y * 0.5 + 0.5, 0.0, 1.0));
-    vec3 col = skyBg;
+    vec3 col = skyBg + getStarField(rd);
     
     if (hit) {
         vec3 pos = ro + rd * t;
-        vec3 nor = calcNormal(pos, max(0.0012, u_hit_epsilon * 0.9));
+        vec3 nor = calcNormal(pos, max(0.0006, u_hit_epsilon * 0.5));
         float ao = calcAO(pos, nor);
         
         // Orbit trap selection for coloring
@@ -655,12 +695,12 @@ void main() {
         gl.uniform1f(uniformMap.get('u_fov'), this.state.get('fov'));
         gl.uniform2f(uniformMap.get('u_subpixel_jitter'), 0.0, 0.0);
 
-        // Adaptive max ray steps: min 170 steps guaranteed
-        const userSteps = this.state.get('max_steps') ?? 200;
-        const activeSteps = isMoving ? Math.max(170, Math.min(userSteps, Math.round(userSteps * 0.85))) : userSteps;
+        // Adaptive max ray steps: guaranteed sufficient step budget for smooth conservative 0.65x stepping
+        const userSteps = this.state.get('max_steps') ?? 220;
+        const activeSteps = isMoving ? Math.max(180, Math.min(userSteps, Math.round(userSteps * 0.85))) : Math.max(220, userSteps);
         set1i('u_max_steps', activeSteps);
         const rawEps = this.state.get('hit_epsilon');
-        const hitEps = (typeof rawEps === 'number' && rawEps <= 0.006) ? rawEps : 0.0015;
+        const hitEps = (typeof rawEps === 'number' && rawEps <= 0.006) ? rawEps : 0.0012;
         set1f('u_hit_epsilon', hitEps);
         set1i('u_trap_mode', this.state.get('trap_mode'));
         set1f('u_color_cycle', this.state.get('color_cycle'));

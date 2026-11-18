@@ -25,7 +25,8 @@ export const CURATED_COMMUNITY_CREATIONS = [
             kifs_pre_rot_z: 0.0,
             kifs_post_rot_x: 0.08,
             kifs_post_rot_y: -0.06,
-            kifs_post_rot_z: 0.1
+            kifs_post_rot_z: 0.1,
+            glow_intensity: 0.15
         },
         camera: {
             pos: [1.8, 1.4, 2.2],
@@ -49,7 +50,8 @@ export const CURATED_COMMUNITY_CREATIONS = [
             qj_slice_w: 0.15,
             qj_rot_xw: 0.35,
             qj_rot_yw: -0.25,
-            qj_iterations: 12
+            qj_iterations: 12,
+            glow_intensity: 0.15
         },
         camera: {
             pos: [0.0, 0.1, 1.55],
@@ -68,7 +70,8 @@ export const CURATED_COMMUNITY_CREATIONS = [
         params: {
             bs_power: 3.0,
             bs_iterations: 13,
-            bs_asym: 0.0
+            bs_asym: 0.0,
+            glow_intensity: 0.15
         },
         camera: {
             pos: [0.0, 0.28, 1.65],
@@ -90,7 +93,8 @@ export const CURATED_COMMUNITY_CREATIONS = [
             dodec_phi: 1.618,
             dodec_rot_x: 0.05,
             dodec_rot_y: 0.08,
-            dodec_iterations: 10
+            dodec_iterations: 10,
+            glow_intensity: 0.15
         },
         camera: {
             pos: [1.2, 0.8, 1.6],
@@ -117,7 +121,8 @@ export const CURATED_COMMUNITY_CREATIONS = [
             mbox_rot_z: 0.0,
             mbox_offset_x: 0.0,
             mbox_offset_y: 0.0,
-            mbox_offset_z: 0.0
+            mbox_offset_z: 0.0,
+            glow_intensity: 0.15
         },
         camera: {
             pos: [3.8, 2.6, 4.2],
@@ -139,7 +144,8 @@ export const CURATED_COMMUNITY_CREATIONS = [
             apol_radius: 1.55,
             apol_rot_x: 0.04,
             apol_rot_y: 0.08,
-            apol_iterations: 8
+            apol_iterations: 8,
+            glow_intensity: 0.15
         },
         camera: {
             pos: [2.1, 1.5, 2.4],
@@ -151,28 +157,6 @@ export const CURATED_COMMUNITY_CREATIONS = [
     },
     {
         id: 'curated-07',
-        title: 'Desert Sandstone Tsunami',
-        author: '@drapery_flow',
-        formula: FORMULA_IDS.TRIG_SINE,
-        material: 'desert_sandstone',
-        params: {
-            trig_scale: 1.45,
-            trig_amplitude: 1.10,
-            trig_cx: -0.30,
-            trig_cy: 0.10,
-            trig_cz: 0.35,
-            trig_iterations: 10
-        },
-        camera: {
-            pos: [0.0, 0.45, 2.75],
-            target: [0.0, 0.0, 0.0],
-            preset: 'follow',
-            orbitRadius: 2.78
-        },
-        tags: ['Trigonometric', 'Silk', 'Sandstone']
-    },
-    {
-        id: 'curated-08',
         title: 'Nordic Slate Microprocessor',
         author: '@borg_operative',
         formula: FORMULA_IDS.JERUSALEM,
@@ -183,7 +167,8 @@ export const CURATED_COMMUNITY_CREATIONS = [
             jerus_offset: 0.9,
             jerus_rot_x: 0.04,
             jerus_rot_y: 0.06,
-            jerus_iterations: 9
+            jerus_iterations: 9,
+            glow_intensity: 0.15
         },
         camera: {
             pos: [0.0, 0.0, 1.6],
@@ -194,7 +179,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
         tags: ['Megastructure', 'Slate', 'Cross-Cut']
     },
     {
-        id: 'curated-09',
+        id: 'curated-08',
         title: 'Forest Moss Botanical Core',
         author: '@mandel_flora',
         formula: FORMULA_IDS.MANDELBULB,
@@ -205,7 +190,8 @@ export const CURATED_COMMUNITY_CREATIONS = [
             mb_julia_mix: 0.0,
             mb_julia_cx: 0.0,
             mb_julia_cy: 0.0,
-            mb_julia_cz: 0.0
+            mb_julia_cz: 0.0,
+            glow_intensity: 0.15
         },
         camera: {
             pos: [1.6, 1.2, 2.0],
@@ -216,7 +202,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
         tags: ['Mandelbulb', 'Organic', 'Moss']
     },
     {
-        id: 'curated-10',
+        id: 'curated-09',
         title: 'Weathered Timber Seahorse',
         author: '@quaternion_god',
         formula: FORMULA_IDS.QUAT_MANDELBROT,
@@ -225,7 +211,8 @@ export const CURATED_COMMUNITY_CREATIONS = [
             qm_slice_w: -0.15,
             qm_rot_xw: -0.65,
             qm_rot_yw: 0.50,
-            qm_iterations: 14
+            qm_iterations: 14,
+            glow_intensity: 0.15
         },
         camera: {
             pos: [0.0, 0.0, 1.55],
@@ -238,20 +225,6 @@ export const CURATED_COMMUNITY_CREATIONS = [
 ];
 
 const LOCAL_STORAGE_KEY = 'fractals_community_saved_v1';
-
-// Vibrant geometric vector thumbnails for curated showcase creations
-const CURATED_THUMBNAILS = {
-    'curated-01': `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%231e293b"/><stop offset="100%" stop-color="%230f172a"/></linearGradient><linearGradient id="c1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%2338bdf8"/><stop offset="100%" stop-color="%230284c7"/></linearGradient></defs><rect width="100" height="100" rx="10" fill="url(%23g1)"/><polygon points="50,15 78,55 50,85 22,55" fill="none" stroke="url(%23c1)" stroke-width="2.5"/><polygon points="50,28 68,55 50,75 32,55" fill="%2338bdf8" fill-opacity="0.15" stroke="%2338bdf8" stroke-width="1.2"/><circle cx="50" cy="55" r="8" fill="%2338bdf8" fill-opacity="0.4"/></svg>`,
-    'curated-02': `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23261208"/><stop offset="100%" stop-color="%230c0502"/></linearGradient><linearGradient id="c2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23f97316"/><stop offset="100%" stop-color="%23b91c1c"/></linearGradient></defs><rect width="100" height="100" rx="10" fill="url(%23g2)"/><path d="M50 20 C65 20 78 35 72 52 C66 69 45 62 48 48 C51 36 60 42 58 48" fill="none" stroke="url(%23c2)" stroke-width="3" stroke-linecap="round"/><circle cx="50" cy="50" r="28" fill="none" stroke="%23f97316" stroke-width="1" stroke-dasharray="3,3" opacity="0.6"/></svg>`,
-    'curated-03': `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%231f130b"/><stop offset="100%" stop-color="%230d0704"/></linearGradient><linearGradient id="c3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23ea580c"/><stop offset="100%" stop-color="%23c2410c"/></linearGradient></defs><rect width="100" height="100" rx="10" fill="url(%23g3)"/><path d="M50 16 L65 42 L82 74 L50 62 L18 74 L35 42 Z" fill="%23c2410c" fill-opacity="0.25" stroke="url(%23c3)" stroke-width="2"/><line x1="50" y1="16" x2="50" y2="82" stroke="%23ea580c" stroke-width="1.8"/></svg>`,
-    'curated-04': `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%231a1a24"/><stop offset="100%" stop-color="%230b0b12"/></linearGradient><linearGradient id="c4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23facc15"/><stop offset="100%" stop-color="%23eab308"/></linearGradient></defs><rect width="100" height="100" rx="10" fill="url(%23g4)"/><polygon points="50,18 78,38 68,72 32,72 22,38" fill="%23eab308" fill-opacity="0.18" stroke="url(%23c4)" stroke-width="2"/><polygon points="50,30 68,44 61,64 39,64 32,44" fill="none" stroke="%23fde047" stroke-width="1.2"/></svg>`,
-    'curated-05': `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g5" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23171717"/><stop offset="100%" stop-color="%230a0a0a"/></linearGradient><linearGradient id="c5" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23a8a29e"/><stop offset="100%" stop-color="%2378716c"/></linearGradient></defs><rect width="100" height="100" rx="10" fill="url(%23g5)"/><rect x="25" y="25" width="50" height="50" rx="4" fill="%2378716c" fill-opacity="0.2" stroke="url(%23c5)" stroke-width="2"/><rect x="36" y="36" width="28" height="28" fill="%230a0a0a" stroke="%23d6d3d1" stroke-width="1.2"/><rect x="44" y="44" width="12" height="12" fill="%23a8a29e" opacity="0.6"/></svg>`,
-    'curated-06': `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g6" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%2306281e"/><stop offset="100%" stop-color="%2302140e"/></linearGradient><linearGradient id="c6" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%2310b981"/><stop offset="100%" stop-color="%23059669"/></linearGradient></defs><rect width="100" height="100" rx="10" fill="url(%23g6)"/><circle cx="50" cy="50" r="34" fill="none" stroke="url(%23c6)" stroke-width="2"/><circle cx="50" cy="32" r="14" fill="%2310b981" fill-opacity="0.25" stroke="%2310b981" stroke-width="1.4"/><circle cx="36" cy="62" r="14" fill="%2310b981" fill-opacity="0.25" stroke="%2310b981" stroke-width="1.4"/><circle cx="64" cy="62" r="14" fill="%2310b981" fill-opacity="0.25" stroke="%2310b981" stroke-width="1.4"/><circle cx="50" cy="52" r="6" fill="%2334d399"/></svg>`,
-    'curated-07': `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g7" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%231e1b4b"/><stop offset="100%" stop-color="%230f0e26"/></linearGradient><linearGradient id="c7" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23c084fc"/><stop offset="100%" stop-color="%23818cf8"/></linearGradient></defs><rect width="100" height="100" rx="10" fill="url(%23g7)"/><path d="M18 35 Q34 15 50 35 T82 35" fill="none" stroke="url(%23c7)" stroke-width="2.5"/><path d="M18 50 Q34 30 50 50 T82 50" fill="none" stroke="%23818cf8" stroke-width="2"/><path d="M18 65 Q34 45 50 65 T82 65" fill="none" stroke="%2338bdf8" stroke-width="1.5" opacity="0.8"/></svg>`,
-    'curated-08': `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g8" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23241b12"/><stop offset="100%" stop-color="%23120c07"/></linearGradient><linearGradient id="c8" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23f59e0b"/><stop offset="100%" stop-color="%23b45309"/></linearGradient></defs><rect width="100" height="100" rx="10" fill="url(%23g8)"/><path d="M38 18 H62 V38 H82 V62 H62 V82 H38 V62 H18 V38 H38 Z" fill="%23b45309" fill-opacity="0.25" stroke="url(%23c8)" stroke-width="2"/><rect x="42" y="42" width="16" height="16" fill="%23f59e0b" fill-opacity="0.5"/></svg>`,
-    'curated-09': `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g9" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%230f2415"/><stop offset="100%" stop-color="%2306120a"/></linearGradient><linearGradient id="c9" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%2322c55e"/><stop offset="100%" stop-color="%2315803d"/></linearGradient></defs><rect width="100" height="100" rx="10" fill="url(%23g9)"/><circle cx="50" cy="50" r="30" fill="%2315803d" fill-opacity="0.25" stroke="url(%23c9)" stroke-width="2"/><circle cx="50" cy="30" r="10" fill="%2322c55e" opacity="0.6"/><circle cx="68" cy="44" r="10" fill="%2322c55e" opacity="0.6"/><circle cx="62" cy="65" r="10" fill="%2322c55e" opacity="0.6"/><circle cx="38" cy="65" r="10" fill="%2322c55e" opacity="0.6"/><circle cx="32" cy="44" r="10" fill="%2322c55e" opacity="0.6"/><circle cx="50" cy="50" r="10" fill="%2386efac"/></svg>`,
-    'curated-10': `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g10" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%231c1917"/><stop offset="100%" stop-color="%230c0a09"/></linearGradient><linearGradient id="c10" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23a8a29e"/><stop offset="100%" stop-color="%2378716c"/></linearGradient></defs><rect width="100" height="100" rx="10" fill="url(%23g10)"/><path d="M50 20 C66 20 78 34 74 50 C70 66 52 74 46 64 C42 56 48 48 54 48 C60 48 62 54 58 56" fill="none" stroke="url(%23c10)" stroke-width="2.5" stroke-linecap="round"/><circle cx="36" cy="38" r="6" fill="%23d6d3d1" fill-opacity="0.4" stroke="%23a8a29e" stroke-width="1.2"/></svg>`
-};
 
 export class GalleryManager {
     constructor(app) {
@@ -315,6 +288,7 @@ export class GalleryManager {
                 formulaParams[p.id] = currentVals[p.id];
             }
         }
+        formulaParams['glow_intensity'] = currentVals['glow_intensity'] ?? 0.15;
 
         const currentMaterial = this.app.materials?.currentPresetId || 'iridescent_pearl';
         const cameraState = this.app.camera?.getState ? this.app.camera.getState() : null;
@@ -368,27 +342,13 @@ export class GalleryManager {
         });
     }
 
-    // Saves current scene to localStorage with authentic canvas thumbnail snapshot
+    // Saves current scene to localStorage
     saveCurrentScene() {
         const name = prompt('Name your fractal creation:', 'Cosmic Sculpture ' + (this.getSavedScenes().length + 1));
         if (!name || !name.trim()) return;
 
         const scene = this.getCurrentSceneData(name.trim());
         scene.id = 'saved-' + Date.now();
-
-        // Capture real WebGL canvas snapshot for authentic high-resolution thumbnail
-        try {
-            if (this.app.canvas) {
-                const thumbCanvas = document.createElement('canvas');
-                thumbCanvas.width = 120;
-                thumbCanvas.height = 120;
-                const ctx = thumbCanvas.getContext('2d');
-                ctx.drawImage(this.app.canvas, 0, 0, 120, 120);
-                scene.thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.85);
-            }
-        } catch (e) {
-            console.warn('Could not capture canvas thumbnail snapshot:', e);
-        }
         
         const list = this.getSavedScenes();
         list.unshift(scene);
@@ -424,12 +384,13 @@ export class GalleryManager {
             this.app.setFormula(scene.formula, true);
         }
 
-        // 2. Apply parameters smoothly
+        // 2. Apply parameters smoothly (preserving 0.15 glow baseline)
         if (scene.params) {
+            const paramsToApply = { glow_intensity: 0.15, ...scene.params };
             if (this.app.params?.morphToValues) {
-                this.app.params.morphToValues(scene.params, 1.2);
+                this.app.params.morphToValues(paramsToApply, 1.2);
             } else if (this.app.params?.setMany) {
-                this.app.params.setMany(scene.params, true);
+                this.app.params.setMany(paramsToApply, true);
             }
         }
 
@@ -533,39 +494,31 @@ export class GalleryManager {
             for (const item of displayList) {
                 const formulaName = this.app.formulaRegistry?.getFormula(item.formula)?.name || item.formula;
                 const matName = (item.material || '').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-                const thumbSrc = item.thumbnail || CURATED_THUMBNAILS[item.id] || CURATED_THUMBNAILS['curated-01'];
 
                 html += `
-                    <div class="gallery-card compact" data-id="${item.id}">
-                        <div class="gallery-card-thumb-wrap">
-                            <img class="gallery-card-thumb" src="${thumbSrc}" alt="${item.title}" loading="lazy" />
+                    <div class="gallery-card" data-id="${item.id}">
+                        <div class="gallery-card-header">
+                            <span class="gallery-formula-badge">${formulaName}</span>
+                            <span class="gallery-author">${item.author || 'Anonymous'}</span>
                         </div>
-                        <div class="gallery-card-info">
-                            <div class="gallery-card-topline">
-                                <span class="gallery-formula-badge">${formulaName}</span>
-                                <span class="gallery-author">${item.author || 'Anonymous'}</span>
-                            </div>
-                            <div class="gallery-card-title" title="${item.title}">${item.title}</div>
-                            <div class="gallery-card-bottomline">
-                                <span class="gallery-material-tag">🎨 ${matName}</span>
-                                ${item.camera?.preset ? `<span class="gallery-camera-tag">🎥 ${item.camera.preset}</span>` : ''}
-                            </div>
+                        <div class="gallery-card-title">${item.title}</div>
+                        <div class="gallery-card-meta">
+                            <span class="gallery-material-tag">🎨 ${matName}</span>
+                            ${item.camera?.preset ? `<span class="gallery-camera-tag">🎥 ${item.camera.preset}</span>` : ''}
                         </div>
                         <div class="gallery-card-actions">
-                            <button class="btn-card-load-mini btn-load" data-id="${item.id}" title="Load creation">
-                                <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+                            <button class="btn-card-load btn-load" data-id="${item.id}" title="Load creation">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                                 <span>Load</span>
                             </button>
-                            <div class="gallery-mini-icon-row">
-                                <button class="btn-card-icon-mini btn-share" data-id="${item.id}" title="Copy Share Link">
-                                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                            <button class="btn-card-share btn-share" data-id="${item.id}" title="Copy Share Link">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                            </button>
+                            ${this.activeTab === 'saved' ? `
+                                <button class="btn-card-delete btn-delete" data-id="${item.id}" title="Delete Creation">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                 </button>
-                                ${this.activeTab === 'saved' ? `
-                                    <button class="btn-card-icon-mini btn-delete" data-id="${item.id}" title="Delete Creation">
-                                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                    </button>
-                                ` : ''}
-                            </div>
+                            ` : ''}
                         </div>
                     </div>
                 `;

@@ -383,6 +383,7 @@ export class CockpitUI {
         // Formula Switcher
         if (this.elFormulaSelect) {
             this.elFormulaSelect.addEventListener('change', (e) => {
+                this.deformCount = 0;
                 this.state.startFormulaMorph(e.target.value, 1.6);
             });
         }
@@ -390,6 +391,7 @@ export class CockpitUI {
         // 1. Fractal Formula Stepper & Cycler
         const formulaIds = Object.keys(FORMULAS);
         const switchFormulaByIndex = (direction) => {
+            this.deformCount = 0;
             const currentActive = this.state.formulaMorph ? this.state.formulaMorph.toId : this.state.activeFormulaId;
             const currentIdx = formulaIds.indexOf(currentActive);
             let nextIdx = (currentIdx + direction + formulaIds.length) % formulaIds.length;
@@ -398,6 +400,7 @@ export class CockpitUI {
             if (this.elFormulaSelect) this.elFormulaSelect.value = nextId;
             this.raymarcher.resetAccumulation();
         };
+        this.switchFormulaByIndex = switchFormulaByIndex;
 
         const fPrev = document.getElementById('formula-prev-btn');
         const fNext = document.getElementById('formula-next-btn');
@@ -407,12 +410,32 @@ export class CockpitUI {
         if (fCycle) fCycle.addEventListener('click', (e) => { e.stopPropagation(); switchFormulaByIndex(1); });
 
         // 2. Natural Material Stepper & Cycler
+        // Strict whitelist: material preset changes ONLY affect surface optics & reflectance, NEVER lighting
+        const ALLOWED_MATERIAL_KEYS = [
+            'trap_mode', 'color_cycle', 'color_phase',
+            'pal_a_r', 'pal_a_g', 'pal_a_b',
+            'pal_b_r', 'pal_b_g', 'pal_b_b',
+            'pal_c_r', 'pal_c_g', 'pal_c_b',
+            'pal_d_r', 'pal_d_g', 'pal_d_b',
+            'metallic', 'roughness'
+        ];
+        const applyPureMaterialValues = (preset) => {
+            if (!preset || !preset.values) return;
+            const cleanValues = {};
+            for (const k of ALLOWED_MATERIAL_KEYS) {
+                if (preset.values[k] !== undefined) {
+                    cleanValues[k] = preset.values[k];
+                }
+            }
+            this.state.setMany(cleanValues, true);
+        };
+
         this.activeMaterialIndex = 0;
         const switchMaterialByIndex = (direction) => {
             this.activeMaterialIndex = (this.activeMaterialIndex + direction + PALETTE_PRESETS.length) % PALETTE_PRESETS.length;
             const preset = PALETTE_PRESETS[this.activeMaterialIndex];
             if (preset) {
-                this.state.setMany(preset.values, true);
+                applyPureMaterialValues(preset);
                 if (this.elPaletteSelect) this.elPaletteSelect.value = preset.id;
                 const elMat = document.getElementById('material-name-display');
                 if (elMat) elMat.textContent = preset.name;
@@ -432,7 +455,7 @@ export class CockpitUI {
             this.elPaletteSelect.addEventListener('change', (e) => {
                 const preset = PALETTE_PRESETS.find(p => p.id === e.target.value);
                 if (preset) {
-                    this.state.setMany(preset.values, true);
+                    applyPureMaterialValues(preset);
                     const elMat = document.getElementById('material-name-display');
                     if (elMat) elMat.textContent = preset.name;
                     this.raymarcher.resetAccumulation();
@@ -445,7 +468,7 @@ export class CockpitUI {
             if (idx >= 0) {
                 this.activeMaterialIndex = idx;
                 const preset = PALETTE_PRESETS[idx];
-                this.state.setMany(preset.values, true);
+                applyPureMaterialValues(preset);
                 if (this.elPaletteSelect) this.elPaletteSelect.value = preset.id;
                 const elMat = document.getElementById('material-name-display');
                 if (elMat) elMat.textContent = preset.name;
@@ -593,6 +616,7 @@ export class CockpitUI {
         // Continuous Auto-Deform Toggle State & Timer (ON BY DEFAULT)
         this.isAutoDeforming = true;
         this.autoDeformTimer = null;
+        this.deformCount = 0; // count random shapes generated on the current formula
 
         // Deform Randomizer Toggle (ON/OFF with 5s rest interval)
         const deformBtn = document.getElementById('deform-dice-btn');
@@ -603,7 +627,7 @@ export class CockpitUI {
                 deformBtn.classList.add('active');
                 deformBtn.title = 'Deforming... (Click to Stop)';
 
-                // Smooth 10-second organic liquid morph (at least 3 variations per formula)
+                // Smooth 10-second organic liquid morph
                 this.state.smoothDeformRandom(10.0, 
                     (progress) => {
                         this.raymarcher.resetAccumulation();
@@ -614,6 +638,14 @@ export class CockpitUI {
                             deformBtn.classList.remove('active');
                             deformBtn.title = 'Auto-Deform: OFF (Click to Start)';
                             return;
+                        }
+
+                        this.deformCount++;
+
+                        // After every three random shapes, change the formula as well!
+                        if (this.deformCount >= 3) {
+                            this.deformCount = 0;
+                            switchFormulaByIndex(1);
                         }
 
                         // Wait 5 seconds before triggering the next organic shape
@@ -632,6 +664,7 @@ export class CockpitUI {
                 this.isAutoDeforming = !this.isAutoDeforming;
 
                 if (this.isAutoDeforming) {
+                    this.deformCount = 0;
                     deformBtn.classList.add('active');
                     deformBtn.title = 'Deforming... (Click to Stop)';
                     runAutoDeformCycle();
@@ -769,9 +802,25 @@ export class CockpitUI {
             setMeter('eq-bar-treble', audioBands.treble);
         }
 
-        // Top bar stats
+        // Bottom-left FPS HUD
         const hudFps = document.getElementById('hud-fps');
-        if (hudFps) hudFps.textContent = Math.round(fps);
+        if (hudFps) {
+            const roundedFps = Math.round(fps);
+            hudFps.textContent = roundedFps;
+            const dot = document.querySelector('.fps-dot');
+            if (dot) {
+                if (roundedFps >= 50) {
+                    dot.style.background = '#10b981';
+                    dot.style.boxShadow = '0 0 8px #10b981';
+                } else if (roundedFps >= 30) {
+                    dot.style.background = '#f59e0b';
+                    dot.style.boxShadow = '0 0 8px #f59e0b';
+                } else {
+                    dot.style.background = '#ef4444';
+                    dot.style.boxShadow = '0 0 8px #ef4444';
+                }
+            }
+        }
         const hudScale = document.getElementById('hud-scale');
         if (hudScale) hudScale.textContent = `${this.raymarcher.activeScale.toFixed(2)}x`;
     }

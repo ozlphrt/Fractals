@@ -122,13 +122,6 @@ export const COHESIVE_FORMULA_BOUNDS = {
     bs_power: { min: 2.0, max: 4.5 },
     bs_asym: { min: -0.15, max: 0.15 },
 
-    // Complex Sine Silk: Flowing hyperbolic waves
-    trig_scale: { min: 0.8, max: 1.6 },
-    trig_amplitude: { min: 0.7, max: 1.25 },
-    trig_cx: { min: -0.35, max: 0.35 },
-    trig_cy: { min: -0.35, max: 0.35 },
-    trig_cz: { min: -0.35, max: 0.35 },
-
     // Jerusalem Cube: Borg cybernetic spaceports
     jerus_scale: { min: 2.8, max: 3.5 },
     jerus_cut: { min: 0.6, max: 1.1 },
