@@ -354,7 +354,7 @@ void main() {
     float glow = 0.0;
     bool hit = false;
     
-    for (int i = 0; i < 200; i++) {
+    for (int i = 0; i < 1000; i++) {
         if (i >= u_max_steps || t > maxDist) break;
         stepCount = i;
         vec3 curPos = ro + rd * t;
