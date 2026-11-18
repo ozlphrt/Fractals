@@ -911,17 +911,20 @@ export class CockpitUI {
         this.autoDeformTimer = null;
         this.deformCount = 0; // count random shapes generated on the current formula
 
-        // Deform Randomizer Toggle (ON/OFF with 5s rest interval)
+        // Deform Randomizer Toggle (ON/OFF - Continuous uninterrupted metamorphosis)
         const deformBtn = document.getElementById('deform-dice-btn');
         if (deformBtn) {
-            const runAutoDeformCycle = () => {
+            const runAutoDeformCycle = (isStartup = false) => {
                 if (!this.isAutoDeforming) return;
 
                 deformBtn.classList.add('active');
-                deformBtn.title = 'Deforming... (Click to Stop)';
+                deformBtn.title = 'Auto-Deform: Active (Click to Pause)';
 
-                // Smooth 10-second organic liquid morph
-                this.state.smoothDeformRandom(10.0, 
+                // First shape morph right at start is swift (~3.2s) so viewers are instantly captivated;
+                // Subsequent continuous shape morphs run smoothly and majestically at 5.0s
+                const duration = isStartup ? 3.2 : 5.0;
+
+                this.state.smoothDeformRandom(duration, 
                     (progress) => {
                         this.raymarcher.resetAccumulation();
                     },
@@ -929,26 +932,23 @@ export class CockpitUI {
                         // Morph completed!
                         if (!this.isAutoDeforming) {
                             deformBtn.classList.remove('active');
-                            deformBtn.title = 'Auto-Deform: OFF (Click to Start)';
+                            deformBtn.title = 'Auto-Deform: Paused (Click to Start)';
                             return;
                         }
 
                         this.deformCount++;
 
-                        // After every three random shapes, change the formula as well!
-                        if (this.deformCount >= 3) {
+                        // After every 2 random shapes, smoothly transition formula as well!
+                        if (this.deformCount >= 2) {
                             this.deformCount = 0;
                             switchFormulaByIndex(1);
                         }
 
-                        // Wait 5 seconds before triggering the next organic shape
-                        deformBtn.title = 'Resting (5s)...';
-
-                        this.autoDeformTimer = setTimeout(() => {
-                            if (this.isAutoDeforming) {
-                                runAutoDeformCycle();
-                            }
-                        }, 5000);
+                        // CONTINUOUS: Immediately trigger next random shape with ZERO wait!
+                        // No pausing or freezing on completed shapes
+                        if (this.isAutoDeforming) {
+                            runAutoDeformCycle(false);
+                        }
                     }
                 );
             };
@@ -959,30 +959,29 @@ export class CockpitUI {
                 if (this.isAutoDeforming) {
                     this.deformCount = 0;
                     deformBtn.classList.add('active');
-                    deformBtn.title = 'Deforming... (Click to Stop)';
-                    runAutoDeformCycle();
+                    deformBtn.title = 'Auto-Deform: Active (Click to Pause)';
+                    runAutoDeformCycle(false);
                 } else {
                     deformBtn.classList.remove('active');
-                    deformBtn.title = 'Auto-Deform: OFF (Click to Start)';
+                    deformBtn.title = 'Auto-Deform: Paused (Click to Start)';
                     if (this.autoDeformTimer) {
                         clearTimeout(this.autoDeformTimer);
                         this.autoDeformTimer = null;
                     }
                     if (this.state.morphAnim) {
-                        cancelAnimationFrame(this.state.morphAnim);
                         this.state.morphAnim = null;
                     }
                 }
             });
 
-            // Trigger immediately on load as requested!
+            // Start morphing almost immediately on boot (50ms) to captivate the viewer right away
             deformBtn.classList.add('active');
-            deformBtn.title = 'Deforming... (Click to Stop)';
+            deformBtn.title = 'Auto-Deform: Active (Click to Pause)';
             setTimeout(() => {
                 if (this.isAutoDeforming) {
-                    runAutoDeformCycle();
+                    runAutoDeformCycle(true);
                 }
-            }, 600);
+            }, 50);
         }
 
         const btnUndo = document.getElementById('undo-btn');

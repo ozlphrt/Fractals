@@ -68,12 +68,14 @@ export const GLOBAL_PARAMS = [
 // Parameter boundaries that guarantee solid, interconnected sculptural forms
 // Prevents chaotic parameter combinations that disintegrate into scattered dust/speckles
 export const COHESIVE_FORMULA_BOUNDS = {
-    // Mandelbulb: Maintain monolithic solid rounded body with silky smooth flow, zero spikes
-    mb_power: { min: 6.0, max: 8.5 },
-    mb_julia_mix: { min: 0.0, max: 0.0 }, // Keep 0 to eliminate spiky needle distortion
-    mb_julia_cx: { min: 0.0, max: 0.0 },
-    mb_julia_cy: { min: 0.0, max: 0.0 },
-    mb_julia_cz: { min: 0.0, max: 0.0 },
+    // Mandelbulb: Silky smooth organic flow, powers from 5.5 to 10.0 with subtle gentle Julia folds
+    mb_power: { min: 5.5, max: 10.0 },
+    mb_julia_mix: { min: 0.0, max: 0.22 },
+    mb_julia_cx: { min: -0.45, max: 0.45 },
+    mb_julia_cy: { min: -0.45, max: 0.45 },
+    mb_julia_cz: { min: -0.35, max: 0.35 },
+    mb_rot_x: { min: -0.35, max: 0.35 },
+    mb_rot_y: { min: -0.35, max: 0.35 },
 
     // Mandelbox: Maintain massive connected architectural columns & arches (strictly positive scale to prevent crossing 0)
     mbox_scale: { min: 2.0, max: 2.65 },
@@ -529,7 +531,7 @@ export class StateManager {
     }
 
     // Generate randomized target parameters and smoothly morph towards them over durationSec
-    smoothDeformRandom(durationSec = 10.0, onProgress = null, onComplete = null) {
+    smoothDeformRandom(durationSec = 5.0, onProgress = null, onComplete = null) {
         if (this.morphAnim) {
             cancelAnimationFrame(this.morphAnim);
             this.morphAnim = null;
@@ -544,11 +546,9 @@ export class StateManager {
         // Randomize ONLY Formula Geometry Parameters within Cohesive Sculptural Bounds
         // Never modifies material palette, shading, or lighting values (preserves user look & light)
         // User can freely change materials or lighting at any time without the morph loop fighting them!
-        // Anchor morph targets to a curated solid preset with gentle organic jitter
-        // Guarantees auto-deformation morphs between magnificent interconnected architectural sculptures
-        const preset = (formula.presets && formula.presets.length > 0)
-            ? formula.presets[Math.floor(Math.random() * formula.presets.length)]
-            : null;
+        // Anchor morph targets to a curated solid preset with gentle organic exploration
+        const presets = formula.presets || [];
+        const preset = presets.length > 0 ? presets[Math.floor(Math.random() * presets.length)] : null;
         const baseValues = preset ? preset.values : {};
 
         for (const p of formula.params) {
@@ -556,17 +556,26 @@ export class StateManager {
             if (p.type === 'int' || p.id.endsWith('_iterations') || p.id === 'iterations' || p.id.includes('symmetry')) {
                 continue;
             }
+            const currentVal = this.values[p.id] ?? p.default;
             const baseVal = baseValues[p.id] ?? p.default;
             const bounds = COHESIVE_FORMULA_BOUNDS[p.id];
             const rangeMin = bounds ? (typeof bounds === 'function' ? p.min : bounds.min) : p.min;
             const rangeMax = bounds ? (typeof bounds === 'function' ? p.max : bounds.max) : p.max;
 
-            const jitterRange = (rangeMax - rangeMin) * 0.035;
+            const span = rangeMax - rangeMin;
+            const jitterRange = span * 0.22;
             const jitter = (Math.random() * 2.0 - 1.0) * jitterRange;
-            const val = Math.max(rangeMin, Math.min(rangeMax, baseVal + jitter));
+            let val = Math.max(rangeMin, Math.min(rangeMax, baseVal + jitter));
+
+            // Ensure every morph has a clearly visible dynamic shift from the current position
+            const minDelta = span * 0.12;
+            if (Math.abs(val - currentVal) < minDelta) {
+                const shiftDir = (val < (rangeMin + rangeMax) * 0.5) ? 1.0 : -1.0;
+                val = Math.max(rangeMin, Math.min(rangeMax, val + shiftDir * minDelta * (1.0 + Math.random() * 0.5)));
+            }
 
             morphTargetValues[p.id] = val;
-            morphStartValues[p.id] = this.values[p.id] ?? p.default;
+            morphStartValues[p.id] = currentVal;
         }
 
         // Stepped synchronously in main.js frame loop via updateParamMorph
