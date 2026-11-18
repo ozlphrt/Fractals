@@ -558,8 +558,8 @@ export class CockpitUI {
             btnCamReset.addEventListener('click', () => {
                 const defCam = this.state.getActiveFormula().defaultCam;
                 this.camera.resetView(defCam.pos, defCam.target);
-                this.camera.setCameraPreset('turntable');
-                camPresetBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === 'turntable'));
+                this.camera.setCameraPreset('follow');
+                camPresetBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === 'follow'));
                 this.raymarcher.resetAccumulation();
             });
         }

@@ -83,7 +83,7 @@ export class CameraController {
         this.autoRotatePitchSpeed = 0.005; // Slowed down 3.2X
 
         // Cinematic Camera Presets ('turntable' | 'action' | 'flyby' | 'follow' | 'dynamic' | 'hero')
-        this.activeCameraPreset = 'turntable';
+        this.activeCameraPreset = 'follow';
         this.presetTime = 0.0;
         this.presetBlendProgress = 1.0;
         this.presetBlendDuration = 2.0; // 2.0 seconds seamless cinematic crossfade
@@ -152,7 +152,7 @@ export class CameraController {
         this.yaw = Math.atan2(-dx, -dz);
         this.pitch = 0;
         this.roll = 0;
-        this.activeCameraPreset = 'turntable';
+        this.activeCameraPreset = 'follow';
         this.presetTime = 0.0;
         this.setZoomOverridden(false);
         this.hasMoved = true;
