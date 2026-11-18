@@ -20,6 +20,10 @@ class FractalSynthApp {
         this.camera = new CameraController(this.canvas, () => {
             this.raymarcher.resetAccumulation();
         });
+
+        // Auto-adjust sun azimuth and elevation to align with initial camera viewpoint (only at beginning)
+        this.alignSunWithCamera();
+
         this.raymarcher = new Raymarcher(this.canvas, this.state);
         this.ui = new CockpitUI(this.state, this.modulation, this.audio, this.camera, this.raymarcher);
 
@@ -50,6 +54,32 @@ class FractalSynthApp {
 
         this.setupResize();
         this.startLoop();
+    }
+
+    // Auto-adjust sun azimuth and elevation to align with initial camera position (only at beginning)
+    // Ensures key illumination directly lights the visible front surface of the object
+    alignSunWithCamera() {
+        const dx = this.camera.pos[0] - this.camera.target[0];
+        const dy = this.camera.pos[1] - this.camera.target[1];
+        const dz = this.camera.pos[2] - this.camera.target[2];
+        const len = Math.hypot(dx, dy, dz) || 1.0;
+        const nx = dx / len;
+        const ny = dy / len;
+        const nz = dz / len;
+
+        // Angle in horizontal plane towards camera
+        const camAzimuth = Math.atan2(nz, nx);
+        // Slightly offset by +22 degrees (+0.38 rad) for sculpted 3/4 photographic key lighting
+        let sunAzimuth = camAzimuth + 0.38;
+        if (sunAzimuth > Math.PI) sunAzimuth -= Math.PI * 2;
+        if (sunAzimuth < -Math.PI) sunAzimuth += Math.PI * 2;
+
+        // Flattering 35° to 50° elevation above camera horizon
+        const baseElevation = Math.asin(Math.max(-0.95, Math.min(0.95, ny)));
+        const sunElevation = Math.max(0.45, Math.min(1.25, baseElevation + 0.42));
+
+        this.state.set('sun_azimuth', parseFloat(sunAzimuth.toFixed(3)), false);
+        this.state.set('sun_elevation', parseFloat(sunElevation.toFixed(3)), false);
     }
 
     setupResize() {
