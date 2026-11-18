@@ -408,20 +408,19 @@ vec3 hashStar(vec3 p) {
     return fract((p.xxy + p.yxx) * p.zyx);
 }
 
-// Rock-solid, flicker-free celestial starfield
+// Delicate, flicker-free celestial starfield (subtle, sparse, deep-space ambiance)
 // Evaluates true unit-sphere celestial directions across an 8-cell neighborhood
-// Features subpixel analytic anti-aliasing matching screen pixel footprint to eliminate shimmering and popping
 vec3 getStarField(vec3 dir) {
     vec3 stars = vec3(0.0);
     
     // Pixel angular footprint in radians
     float pixAngle = 2.0 / max(100.0, min(u_resolution.x, u_resolution.y));
-    float rBase = pixAngle * 1.38; // ~2.75px diameter: guaranteed non-aliasing subpixel coverage
+    float rBase = pixAngle * 1.15; // Crisp subpixel pinprick without aliasing
     float r2Base = rBase * rBase;
     
-    // Layer 1: Dense, fine celestial background stars
+    // Layer 1: Sparse, subtle background star pinpricks
     {
-        float N = 28.0;
+        float N = 20.0;
         vec3 p = dir * N;
         vec3 base = floor(p);
         
@@ -430,7 +429,8 @@ vec3 getStarField(vec3 dir) {
                 for (int k = 0; k <= 1; k++) {
                     vec3 cell = base + vec3(float(i), float(j), float(k));
                     vec3 rnd = hashStar(cell);
-                    if (rnd.x < 0.74) continue;
+                    // Sparse density: only ~6% of cells contain a star
+                    if (rnd.x < 0.94) continue;
                     
                     vec3 starDir = normalize(cell + (rnd - 0.5) * 0.76);
                     float dist2 = 2.0 * max(0.0, 1.0 - dot(dir, starDir));
@@ -438,28 +438,29 @@ vec3 getStarField(vec3 dir) {
                     if (dist2 < r2Base) {
                         float q = 1.0 - dist2 / r2Base;
                         float star = q * q;
-                        float brightness = rnd.y * 1.6 + 0.7;
-                        vec3 starCol = mix(vec3(0.75, 0.88, 1.0), vec3(1.0, 0.95, 0.85), rnd.z);
-                        stars += starCol * (star * brightness * 1.5);
+                        float brightness = rnd.y * 0.35 + 0.20;
+                        vec3 starCol = mix(vec3(0.75, 0.85, 1.0), vec3(1.0, 0.95, 0.85), rnd.z);
+                        stars += starCol * (star * brightness * 0.50);
                     }
                 }
             }
         }
     }
     
-    // Layer 2: Medium navigational stars (crisp, steady points)
+    // Layer 2: Occasional medium navigation stars (gentle, steady points)
     {
-        float N = 16.0;
+        float N = 12.0;
         vec3 p = dir * N;
         vec3 base = floor(p);
-        float r2Med = r2Base * 1.35;
+        float r2Med = r2Base * 1.25;
         
         for (int i = 0; i <= 1; i++) {
             for (int j = 0; j <= 1; j++) {
                 for (int k = 0; k <= 1; k++) {
                     vec3 cell = base + vec3(float(i), float(j), float(k));
                     vec3 rnd = hashStar(cell + 43.17);
-                    if (rnd.x < 0.82) continue;
+                    // Rare: only ~4% of cells
+                    if (rnd.x < 0.96) continue;
                     
                     vec3 starDir = normalize(cell + (rnd - 0.5) * 0.76);
                     float dist2 = 2.0 * max(0.0, 1.0 - dot(dir, starDir));
@@ -467,28 +468,29 @@ vec3 getStarField(vec3 dir) {
                     if (dist2 < r2Med) {
                         float q = 1.0 - dist2 / r2Med;
                         float star = q * q;
-                        float brightness = rnd.y * 2.2 + 1.1;
-                        vec3 starCol = mix(vec3(0.80, 0.92, 1.0), vec3(1.0, 0.88, 0.70), rnd.z);
-                        stars += starCol * (star * brightness * 1.8);
+                        float brightness = rnd.y * 0.40 + 0.30;
+                        vec3 starCol = mix(vec3(0.80, 0.90, 1.0), vec3(1.0, 0.88, 0.72), rnd.z);
+                        stars += starCol * (star * brightness * 0.70);
                     }
                 }
             }
         }
     }
 
-    // Layer 3: Prominent celestial beacons (compact brilliant pinpricks, zero oversized halos)
+    // Layer 3: Very rare celestial landmark stars (tasteful, non-overpowering)
     {
-        float N = 9.0;
+        float N = 7.0;
         vec3 p = dir * N;
         vec3 base = floor(p);
-        float r2Big = r2Base * 1.65;
+        float r2Big = r2Base * 1.45;
         
         for (int i = 0; i <= 1; i++) {
             for (int j = 0; j <= 1; j++) {
                 for (int k = 0; k <= 1; k++) {
                     vec3 cell = base + vec3(float(i), float(j), float(k));
                     vec3 rnd = hashStar(cell + 89.41);
-                    if (rnd.x < 0.88) continue;
+                    // Ultra rare: only ~2.5% of cells
+                    if (rnd.x < 0.975) continue;
                     
                     vec3 starDir = normalize(cell + (rnd - 0.5) * 0.76);
                     float dist2 = 2.0 * max(0.0, 1.0 - dot(dir, starDir));
@@ -496,9 +498,9 @@ vec3 getStarField(vec3 dir) {
                     if (dist2 < r2Big) {
                         float q = 1.0 - dist2 / r2Big;
                         float star = q * q;
-                        float brightness = rnd.y * 2.8 + 1.4;
-                        vec3 starCol = mix(vec3(0.70, 0.85, 1.0), vec3(1.0, 0.92, 0.75), rnd.z);
-                        stars += starCol * (star * brightness * 2.2);
+                        float brightness = rnd.y * 0.45 + 0.40;
+                        vec3 starCol = mix(vec3(0.70, 0.85, 1.0), vec3(1.0, 0.90, 0.75), rnd.z);
+                        stars += starCol * (star * brightness * 0.85);
                     }
                 }
             }
