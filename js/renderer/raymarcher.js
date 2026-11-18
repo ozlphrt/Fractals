@@ -366,36 +366,37 @@ vec3 hashStar(vec3 p) {
     return fract((p.xxy + p.yxx) * p.zyx);
 }
 
+// Ultra-fine, subtle celestial starfield: tiny pinpricks, delicate and non-intrusive
 vec3 getStarField(vec3 dir) {
     vec3 stars = vec3(0.0);
     
-    // Distant crisp pinprick stars
+    // Layer 1: Tiny, delicate distant pinprick stars
     {
-        vec3 p = dir * 160.0;
+        vec3 p = dir * 420.0;
         vec3 ip = floor(p);
         vec3 fp = fract(p) - 0.5;
         vec3 rnd = hashStar(ip);
-        vec3 offset = (rnd - 0.5) * 0.72;
+        vec3 offset = (rnd - 0.5) * 0.70;
         float d = length(fp - offset);
-        float star = pow(max(0.0, 1.0 - d * 3.4), 16.0);
-        float brightness = step(0.925, rnd.x) * (rnd.y * 1.6 + 0.4);
-        vec3 starCol = mix(vec3(0.70, 0.85, 1.0), vec3(1.0, 0.92, 0.80), rnd.z);
+        // Extremely sharp falloff -> pure tiny subpixel pinprick
+        float star = pow(max(0.0, 1.0 - d * 6.5), 36.0);
+        float brightness = step(0.965, rnd.x) * (rnd.y * 0.35 + 0.15);
+        vec3 starCol = mix(vec3(0.70, 0.85, 1.0), vec3(1.0, 0.95, 0.85), rnd.z);
         stars += starCol * (star * brightness);
     }
     
-    // Brighter prominent focal stars with soft optical glow
+    // Layer 2: Occasional slightly brighter tiny star (still sharp pinprick, no large halo)
     {
-        vec3 p = dir * 65.0;
+        vec3 p = dir * 240.0;
         vec3 ip = floor(p);
         vec3 fp = fract(p) - 0.5;
-        vec3 rnd = hashStar(ip + 33.7);
+        vec3 rnd = hashStar(ip + 51.3);
         vec3 offset = (rnd - 0.5) * 0.70;
         float d = length(fp - offset);
-        float core = pow(max(0.0, 1.0 - d * 2.8), 24.0);
-        float halo = pow(max(0.0, 1.0 - d * 1.6), 5.0) * 0.22;
-        float brightness = step(0.965, rnd.x) * (rnd.y * 3.0 + 1.2);
-        vec3 starCol = mix(vec3(0.75, 0.90, 1.0), vec3(1.0, 0.84, 0.65), rnd.z);
-        stars += starCol * ((core + halo) * brightness);
+        float star = pow(max(0.0, 1.0 - d * 5.0), 32.0);
+        float brightness = step(0.985, rnd.x) * (rnd.y * 0.45 + 0.25);
+        vec3 starCol = mix(vec3(0.80, 0.90, 1.0), vec3(1.0, 0.88, 0.75), rnd.z);
+        stars += starCol * (star * brightness);
     }
     
     return stars;
