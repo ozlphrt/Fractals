@@ -219,7 +219,7 @@ export class Raymarcher {
             
             vec3 mapped = aces(rawCol * 0.92);
             mapped = pow(mapped, vec3(1.0 / 2.2));
-            float dither = bayer4x4(gl_FragCoord.xy) * 1.5;
+            float dither = bayer4x4(gl_FragCoord.xy) * 0.75;
             fragColor = vec4(clamp(mapped + vec3(dither), 0.0, 1.0), 1.0);
         }`;
 
@@ -359,7 +359,7 @@ vec3 cosinePalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
     return a + b * cos(6.28318 * (c * t + d));
 }
 
-// High-fidelity Continuous Soft Shadow with dynamic step budget
+// High-fidelity Continuous Soft Shadow with dynamic step budget and acne suppression
 float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
     float res = 1.0;
     float t = mint;
@@ -367,27 +367,27 @@ float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
     for (int i = 0; i < 16; i++) {
         if (i >= maxSteps || t >= maxt) break;
         float h = map(ro + rd * t);
-        if (h < 0.0005) return 0.0;
+        if (h < 0.001) return 0.0;
         res = min(res, k * h / t);
         if (res < 0.02) return 0.0; // Early exit when already in deep shadow
-        t += clamp(h * 0.85, 0.008, 0.25);
+        t += clamp(h * 0.90, 0.015, 0.35);
     }
     return clamp(res, 0.0, 1.0);
 }
 
-// High-efficiency Ambient Occlusion with dynamic tap count
+// High-efficiency Ambient Occlusion with macro-radius filtering
 float calcAO(vec3 p, vec3 n) {
     float occ = 0.0;
     float sca = 1.0;
     int taps = clamp(u_ao_taps, 2, 4);
     for (int i = 0; i < 4; i++) {
         if (i >= taps) break;
-        float h = 0.01 + 0.12 * float(i) / 3.0;
+        float h = 0.025 + 0.16 * float(i) / 3.0;
         float d = map(p + h * n);
-        occ += (h - d) * sca;
-        sca *= 0.75;
+        occ += max(0.0, h - d) * sca;
+        sca *= 0.70;
     }
-    return clamp(1.0 - u_ao_strength * occ, 0.0, 1.0);
+    return clamp(1.0 - u_ao_strength * occ * 1.35, 0.0, 1.0);
 }
 
 // Ray - Bounding Sphere intersection test
@@ -502,6 +502,8 @@ void main() {
                     t += max(0.05, abs(d) + 0.02);
                     continue;
                 }
+                // Refinement step: eliminate step-size discretization chatter
+                t -= max(u_hit_epsilon * 0.35, d * 0.45);
                 hit = true;
                 finalTrap = trap;
                 break;
@@ -526,7 +528,9 @@ void main() {
     
     if (hit) {
         vec3 pos = ro + rd * t;
-        vec3 nor = calcNormal(pos, max(0.0006, u_hit_epsilon * 0.5));
+        // Macroscopic curvature normal: filters out chaotic sub-pixel micro-grit and noise
+        float normEps = max(0.0028, t * 0.0012);
+        vec3 nor = calcNormal(pos, normEps);
         float ao = calcAO(pos, nor);
         
         // Orbit trap selection for coloring
@@ -551,21 +555,24 @@ void main() {
         float tCoord = trapVal * u_color_cycle;
         vec3 albedo = clamp(cosinePalette(tCoord, palA, palB, palC, palD), 0.0, 1.0);
         
-        // Deep crevice weathering
-        albedo = mix(albedo * 0.65, albedo, clamp(ao * 1.2, 0.0, 1.0));
+        // Smooth crevice weathering (soft continuous transition)
+        albedo = mix(albedo * 0.72, albedo, smoothstep(0.08, 0.92, ao));
         
         vec3 sunColor = vec3(u_sun_color_r, u_sun_color_g, u_sun_color_b);
         if (length(sunColor) < 0.1) sunColor = vec3(1.0, 0.92, 0.80);
         vec3 rimColor = vec3(u_rim_color_r, u_rim_color_g, u_rim_color_b);
         if (length(rimColor) < 0.1) rimColor = vec3(0.45, 0.65, 0.90);
         
-        // Main Sun Light - fully continuous shadow and diffuse, zero step clamp
+        // Main Sun Light - fully continuous shadow and diffuse, acne-free offset
         float dif = clamp(dot(nor, sunDir), 0.0, 1.0);
-        float sha = (dif > 0.001) ? softShadow(pos + nor * 0.015, sunDir, 0.025, 5.0, u_shadow_softness) : 0.0;
+        float sha = (dif > 0.001) ? softShadow(pos + nor * max(0.02, normEps * 5.0), sunDir, 0.035, 5.0, u_shadow_softness) : 0.0;
         
-        // Specular highlight (Fresnel + Blinn-Phong)
+        // Specular highlight (smooth filtered Blinn-Phong)
         vec3 hal = normalize(sunDir - rd);
-        float spe = pow(clamp(dot(nor, hal), 0.0, 1.0), 32.0 / max(0.01, u_roughness));
+        float rough = clamp(u_roughness, 0.05, 1.0);
+        float specExponent = mix(8.0, 48.0, 1.0 - rough);
+        float spe = pow(clamp(dot(nor, hal), 0.0, 1.0), specExponent);
+        spe *= (1.0 - rough * 0.65);
         float fre = pow(clamp(1.0 + dot(nor, rd), 0.0, 1.0), 4.0);
 
         // Rim Light / Backlight
