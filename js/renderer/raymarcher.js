@@ -630,9 +630,9 @@ void main() {
         gl.uniform1f(uniformMap.get('u_fov'), this.state.get('fov'));
         gl.uniform2f(uniformMap.get('u_subpixel_jitter'), 0.0, 0.0);
 
-        // Adaptive max ray steps: 85 steps during motion for locked 60 FPS, full 150 steps when still
-        const userSteps = this.state.get('max_steps') ?? 150;
-        const activeSteps = isMoving ? Math.min(85, userSteps) : userSteps;
+        // Adaptive max ray steps: min 170 steps guaranteed
+        const userSteps = this.state.get('max_steps') ?? 200;
+        const activeSteps = isMoving ? Math.max(170, Math.min(userSteps, Math.round(userSteps * 0.85))) : userSteps;
         set1i('u_max_steps', activeSteps);
         set1f('u_hit_epsilon', this.state.get('hit_epsilon'));
         set1i('u_trap_mode', this.state.get('trap_mode'));
