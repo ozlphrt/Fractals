@@ -26,6 +26,7 @@ class FractalSynthApp {
         // Community Folder & URL Creation Sharing System
         const self = this;
         const appAdapter = {
+            canvas: this.canvas,
             formulaRegistry: {
                 get activeFormula() { return self.state.getActiveFormula(); },
                 getFormula: (id) => FORMULAS[id]
@@ -39,7 +40,7 @@ class FractalSynthApp {
                 applyPreset: (id) => self.ui.applyMaterialPreset(id)
             },
             camera: this.camera,
-            setFormula: (id) => this.state.setActiveFormula(id)
+            setFormula: (id, imm = true) => this.state.setFormula(id, imm)
         };
         this.gallery = new GalleryManager(appAdapter);
 

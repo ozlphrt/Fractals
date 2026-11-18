@@ -35,9 +35,9 @@ export class Raymarcher {
         this.programs = new Map();
         this.uniformLocationsMap = new Map();
 
-        // Resolution management (Performance-tuned with FXAA anti-aliasing)
-        this.activeScale = 0.72;
-        this.targetScale = 0.72;
+        // Resolution management (1.0x native full resolution for ultra-smooth gradients)
+        this.activeScale = 1.0;
+        this.targetScale = 1.0;
         this.stillFrames = 0;
 
         // Offscreen Framebuffers for smooth cross-morphing
@@ -291,14 +291,15 @@ float map(vec3 pos) {
     return mapFractal(pos, dummy);
 }
 
-// 6-tap Central Differences Normal (Symmetric along XYZ, eliminates tetrahedral cross-hatch and diamond banding)
+// 4-tap Tetrahedron Normal (Analytic gradient, zero directional bias, smooth across all curved surfaces)
 vec3 calcNormal(vec3 p, float eps) {
-    vec2 e = vec2(eps, 0.0);
-    return normalize(vec3(
-        map(p + e.xyy) - map(p - e.xyy),
-        map(p + e.yxy) - map(p - e.yxy),
-        map(p + e.yyx) - map(p - e.yyx)
-    ));
+    const vec2 k = vec2(1.0, -1.0);
+    return normalize(
+        k.xyy * map(p + k.xyy * eps) +
+        k.yyx * map(p + k.yyx * eps) +
+        k.yxy * map(p + k.yxy * eps) +
+        k.xxx * map(p + k.xxx * eps)
+    );
 }
 
 // Inigo Quilez Cosine Palette
@@ -306,18 +307,18 @@ vec3 cosinePalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
     return a + b * cos(6.28318 * (c * t + d));
 }
 
-// High-fidelity Soft Shadow
+// High-fidelity Continuous Soft Shadow
 float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
     float res = 1.0;
     float t = mint;
-    for (int i = 0; i < 14; i++) {
+    for (int i = 0; i < 22; i++) {
         if (t >= maxt) break;
         float h = map(ro + rd * t);
-        if (h < 0.0003) return 0.12;
         res = min(res, k * h / t);
-        t += clamp(h, 0.015, 0.35);
+        if (res < 0.01) break;
+        t += clamp(h, 0.015, 0.25);
     }
-    return clamp(res, 0.12, 1.0);
+    return clamp(res, 0.0, 1.0);
 }
 
 // High-efficiency 4-tap Ambient Occlusion
@@ -349,7 +350,7 @@ void main() {
     // Raymarching
     float t = max(0.01, u_near_clip);
     float maxDist = 32.0;
-    vec4 trap = vec4(0.0);
+    vec4 trap = vec4(100.0);
     vec4 finalTrap = vec4(0.0);
     int stepCount = 0;
     float glow = 0.0;
@@ -367,21 +368,18 @@ void main() {
             glow += g * g;
         }
         
-        if (d < u_hit_epsilon * (1.0 + t * 0.03)) {
+        if (d < u_hit_epsilon * (1.0 + t * 0.08)) {
             // Near-clip culling: completely do not draw pieces too close to camera
             if (t < u_near_clip) {
                 t += max(0.05, abs(d) + 0.02);
                 continue;
             }
             hit = true;
-            // Analytic surface convergence:
-            // Snapping to root + single refinement step eliminates stepped terraces & rings
-            t += d;
-            float d2 = mapFractal(ro + rd * t, finalTrap);
-            t += d2;
+            t = max(0.005, t - d * 0.4);
+            finalTrap = trap;
             break;
         }
-        t += d * 0.75;
+        t += max(u_hit_epsilon * 0.5, d * 0.88);
     }
     
     vec3 sunDir = normalize(vec3(
@@ -395,7 +393,7 @@ void main() {
     
     if (hit) {
         vec3 pos = ro + rd * t;
-        vec3 nor = calcNormal(pos, max(0.001, u_hit_epsilon * 0.9));
+        vec3 nor = calcNormal(pos, max(0.0012, u_hit_epsilon * 0.9));
         float ao = calcAO(pos, nor);
         
         // Orbit trap selection for coloring
@@ -428,14 +426,9 @@ void main() {
         vec3 rimColor = vec3(u_rim_color_r, u_rim_color_g, u_rim_color_b);
         if (length(rimColor) < 0.1) rimColor = vec3(0.45, 0.65, 0.90);
         
-        // Main Sun Light (Shadow terminator guard eliminates grazing self-shadow fishbone ripples)
+        // Main Sun Light - fully continuous shadow and diffuse, zero step clamp
         float dif = clamp(dot(nor, sunDir), 0.0, 1.0);
-        float sha = 1.0;
-        if (dif > 0.02) {
-            sha = softShadow(pos + nor * max(0.025, u_hit_epsilon * 3.0), sunDir, 0.035, 5.0, u_shadow_softness);
-        } else {
-            sha = 0.12;
-        }
+        float sha = (dif > 0.001) ? softShadow(pos + nor * 0.015, sunDir, 0.025, 5.0, u_shadow_softness) : 0.0;
         
         // Specular highlight (Fresnel + Blinn-Phong)
         vec3 hal = normalize(sunDir - rd);
@@ -634,8 +627,9 @@ void main() {
         const userSteps = this.state.get('max_steps') ?? 200;
         const activeSteps = isMoving ? Math.max(170, Math.min(userSteps, Math.round(userSteps * 0.85))) : userSteps;
         set1i('u_max_steps', activeSteps);
-        const rawEps = this.state.get('hit_epsilon') ?? 0.0015;
-        set1f('u_hit_epsilon', Math.min(0.003, rawEps));
+        const rawEps = this.state.get('hit_epsilon');
+        const hitEps = (typeof rawEps === 'number' && rawEps <= 0.006) ? rawEps : 0.0015;
+        set1f('u_hit_epsilon', hitEps);
         set1i('u_trap_mode', this.state.get('trap_mode'));
         set1f('u_color_cycle', this.state.get('color_cycle'));
         set1f('u_color_phase', this.state.get('color_phase'));
@@ -695,10 +689,10 @@ void main() {
     render(camera, time, isMovingOrModulating = false) {
         const gl = this.gl;
 
-        // Adaptive resolution scaling: 0.65x while interacting/modulating for solid 60 FPS, 0.78x with FXAA when still
-        this.activeScale = isMovingOrModulating ? 0.65 : 0.78;
-        const renderW = Math.max(64, Math.floor(this.canvas.width * this.activeScale));
-        const renderH = Math.max(64, Math.floor(this.canvas.height * this.activeScale));
+        // Always render at native full 1:1 resolution for clean, un-pixelated graphics
+        this.activeScale = 1.0;
+        const renderW = Math.max(64, this.canvas.width);
+        const renderH = Math.max(64, this.canvas.height);
         this.updateFBOs(renderW, renderH);
 
         const morph = this.state.formulaMorph;

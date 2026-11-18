@@ -1506,6 +1506,163 @@ select option:checked,
     transform: translateY(-1px);
 }
 
+/* Sleek Compact Gallery Card Layout */
+.gallery-card.compact {
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 10px;
+    gap: 10px;
+    height: 60px;
+    min-height: 60px;
+    border-radius: var(--radius-sm);
+    box-sizing: border-box;
+}
+
+.gallery-card-thumb-wrap {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #090d16;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    flex-shrink: 0;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
+}
+
+.gallery-card-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.gallery-card-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+}
+
+.gallery-card-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.gallery-card-topline .gallery-formula-badge {
+    font-size: 0.58rem;
+    padding: 1px 6px;
+    letter-spacing: 0.04em;
+    line-height: 1.3;
+}
+
+.gallery-card-topline .gallery-author {
+    font-size: 0.60rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.7;
+}
+
+.gallery-card.compact .gallery-card-title {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.25;
+}
+
+.gallery-card-bottomline {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.gallery-card-bottomline .gallery-material-tag,
+.gallery-card-bottomline .gallery-camera-tag {
+    font-size: 0.58rem;
+    padding: 1px 5px;
+    line-height: 1.2;
+}
+
+.gallery-card.compact .gallery-card-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 0;
+    flex-shrink: 0;
+}
+
+.btn-card-load-mini {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    background: rgba(56, 189, 248, 0.16);
+    color: #38bdf8;
+    font-size: 0.68rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.btn-card-load-mini:hover {
+    background: rgba(56, 189, 248, 0.32);
+    border-color: #38bdf8;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.btn-card-load-mini:active {
+    transform: scale(0.95);
+}
+
+.gallery-mini-icon-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-card-icon-mini {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.65);
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.16s ease;
+}
+
+.btn-card-icon-mini:hover {
+    border-color: rgba(56, 189, 248, 0.45);
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.15);
+}
+
+.btn-card-icon-mini.btn-delete:hover {
+    border-color: rgba(239, 68, 68, 0.45);
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
+}
+
 .gallery-card-header {
     display: flex;
     justify-content: space-between;
