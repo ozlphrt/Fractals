@@ -8,7 +8,7 @@ import { PALETTE_PRESETS } from './palettes.js';
 export const GLOBAL_PARAMS = [
     // Raymarcher Quality
     { id: 'max_steps', name: 'Max Ray Steps', min: 170, max: 1000, step: 10, default: 200, uniform: 'u_max_steps', type: 'int', group: 'render' },
-    { id: 'hit_epsilon', name: 'Hit Threshold', min: 0.01, max: 0.04, step: 0.001, default: 0.01, uniform: 'u_hit_epsilon', type: 'float', group: 'render' },
+    { id: 'hit_epsilon', name: 'Hit Threshold', min: 0.0005, max: 0.02, step: 0.0005, default: 0.0015, uniform: 'u_hit_epsilon', type: 'float', group: 'render' },
     { id: 'fov', name: 'Field of View', min: 30, max: 100, step: 1, default: 60, uniform: 'u_fov', type: 'float', group: 'camera' },
     
     // Shading & Cosine Palette (Inigo Quilez natural earth/mineral formula)

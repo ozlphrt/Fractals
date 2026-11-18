@@ -349,7 +349,6 @@ void main() {
     
     // Raymarching
     float t = max(0.01, u_near_clip);
-    float tPrev = t;
     float maxDist = 32.0;
     vec4 trap = vec4(0.0);
     vec4 finalTrap = vec4(0.0);
@@ -369,33 +368,17 @@ void main() {
             glow += g * g;
         }
         
-        if (d < u_hit_epsilon * (1.0 + t * 0.08)) {
+        if (d < u_hit_epsilon * (1.0 + t * 0.04)) {
             // Near-clip culling: completely do not draw pieces too close to camera
             if (t < u_near_clip) {
-                tPrev = t;
                 t += max(0.05, abs(d) + 0.02);
                 continue;
             }
             hit = true;
-            // 5-step bracketed bisection: cuts remaining distance error by 32X
-            // Guaranteed monotonic convergence without noise or penetration artifacts
-            float tA = tPrev;
-            float tB = t;
-            for (int ref = 0; ref < 5; ref++) {
-                float tMid = 0.5 * (tA + tB);
-                float dMid = map(ro + rd * tMid);
-                if (dMid > u_hit_epsilon * 0.35) {
-                    tA = tMid;
-                } else {
-                    tB = tMid;
-                }
-            }
-            t = tB;
-            mapFractal(ro + rd * t, finalTrap);
+            finalTrap = trap;
             break;
         }
-        tPrev = t;
-        t += max(u_hit_epsilon * 0.5, d * 0.88);
+        t += d * 0.82;
     }
     
     vec3 sunDir = normalize(vec3(
@@ -409,21 +392,19 @@ void main() {
     
     if (hit) {
         vec3 pos = ro + rd * t;
-        // Fine, distance-adaptive normal finite-difference epsilon (decoupled from hit_epsilon)
-        float normEps = clamp(0.0006 + t * 0.00025, 0.0005, 0.002);
-        vec3 nor = calcNormal(pos, normEps);
+        vec3 nor = calcNormal(pos, clamp(0.0008 + t * 0.0002, 0.0006, 0.0018));
         float ao = calcAO(pos, nor);
         
         // Orbit trap selection for coloring
         float trapVal = 0.0;
         if (u_trap_mode == 0) {
-            trapVal = finalTrap.x;
+            trapVal = finalTrap.w * 0.25;
         } else if (u_trap_mode == 1) {
-            trapVal = finalTrap.y;
+            trapVal = finalTrap.x;
         } else if (u_trap_mode == 2) {
-            trapVal = finalTrap.z;
+            trapVal = finalTrap.y;
         } else {
-            trapVal = finalTrap.w / 16.0;
+            trapVal = finalTrap.z;
         }
         
         vec3 palA = vec3(u_pal_a_r, u_pal_a_g, u_pal_a_b);
@@ -433,19 +414,7 @@ void main() {
         if (length(palC) < 0.02) palC = vec3(1.0);
         vec3 palD = vec3(u_pal_d_r, u_pal_d_g, u_pal_d_b) + vec3(u_color_phase);
         
-        // Triplanar Texture Mapping: Blends 3 orthogonal planes weighted by surface normal
-        // Completely eliminates texture stretching, parallel grooves, and vertical slope distortion
-        vec3 triWeight = abs(nor);
-        triWeight = pow(triWeight, vec3(3.0));
-        triWeight /= max(1e-4, triWeight.x + triWeight.y + triWeight.z);
-
-        // Project natural geological strata & mineral textures across each axis
-        float texX = sin(pos.y * 8.0 + sin(pos.z * 4.0) * 0.3) * 0.5 + 0.5;
-        float texY = sin(pos.x * 8.0 + sin(pos.z * 4.0) * 0.3) * 0.5 + 0.5;
-        float texZ = sin(pos.x * 8.0 + sin(pos.y * 4.0) * 0.3) * 0.5 + 0.5;
-        float triTex = triWeight.x * texX + triWeight.y * texY + triWeight.z * texZ;
-
-        float tCoord = trapVal * u_color_cycle + (triTex - 0.5) * 0.06;
+        float tCoord = trapVal * u_color_cycle;
         vec3 albedo = clamp(cosinePalette(tCoord, palA, palB, palC, palD), 0.0, 1.0);
         
         // Deep crevice weathering
@@ -654,7 +623,8 @@ void main() {
         const userSteps = this.state.get('max_steps') ?? 200;
         const activeSteps = isMoving ? Math.max(170, Math.min(userSteps, Math.round(userSteps * 0.85))) : userSteps;
         set1i('u_max_steps', activeSteps);
-        set1f('u_hit_epsilon', this.state.get('hit_epsilon'));
+        const rawEps = this.state.get('hit_epsilon') ?? 0.0015;
+        set1f('u_hit_epsilon', Math.min(0.003, rawEps));
         set1i('u_trap_mode', this.state.get('trap_mode'));
         set1f('u_color_cycle', this.state.get('color_cycle'));
         set1f('u_color_phase', this.state.get('color_phase'));

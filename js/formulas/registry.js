@@ -451,38 +451,21 @@ float mapFractal(vec3 pos, out vec4 trap) {
     vec4 c = vec4(u_qj_cx, u_qj_cy, u_qj_cz, u_qj_cw);
     float md2 = 1.0;
     float mz2 = dot(z, z);
+    vec4 oTrap = vec4(abs(z.xyz), dot(z, z));
     int maxIt = int(u_qj_iterations);
     
-    vec3 trapAcc = vec3(0.0);
-    float smoothIter = float(maxIt);
-    bool escaped = false;
-    
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 12; i++) {
         if (i >= maxIt) break;
-        
         md2 *= 4.0 * mz2;
-        z = quatSq(z) + c;
+        z = vec4(z.x * z.x - dot(z.yzw, z.yzw), 2.0 * z.x * z.yzw) + c;
+        oTrap = min(oTrap, vec4(abs(z.xyz), dot(z, z)));
         mz2 = dot(z, z);
-        
-        // Smooth exponential weight: decay ensures zero discontinuity at escape boundary
-        float w = exp(-mz2 * 0.25);
-        trapAcc += w * vec3(sqrt(mz2), abs(z.y) + abs(z.z), abs(z.w));
-        
-        if (mz2 > 16.0 && !escaped) {
-            // Hubbard-Douady continuous potential (smooth fractional escape time)
-            smoothIter = float(i) - clamp(log(0.5 * log(mz2)) / 0.693147, 0.0, 1.0);
-            escaped = true;
-            break;
-        }
+        if (mz2 > 4.0) break;
     }
     
-    trap = vec4(
-        trapAcc.x * 0.4,
-        trapAcc.y * 0.35,
-        trapAcc.z * 0.5,
-        smoothIter
-    );
-    return 0.25 * sqrt(mz2 / max(md2, 1e-6)) * log(max(1.0001, mz2));
+    trap = oTrap;
+    if (mz2 < 1.0) return 0.0;
+    return 0.25 * sqrt(mz2 / max(md2, 1e-6)) * log(mz2);
 }
 `,
         cpuEvalDE: (p, state) => {
@@ -1063,40 +1046,21 @@ float mapFractal(vec3 pos, out vec4 trap) {
     vec4 z = c;
     float md2 = 1.0;
     float mz2 = dot(z, z);
+    vec4 oTrap = vec4(abs(z.xyz), dot(z, z));
     int maxIt = int(u_qm_iterations);
     
-    vec3 trapAcc = vec3(0.0);
-    float smoothIter = float(maxIt);
-    bool escaped = false;
-    
-    for (int i = 0; i < 24; i++) {
+    for (int i = 0; i < 14; i++) {
         if (i >= maxIt) break;
-        
         md2 = 4.0 * mz2 * md2 + 1.0;
-        z = quatSq(z) + c;
+        z = vec4(z.x * z.x - dot(z.yzw, z.yzw), 2.0 * z.x * z.yzw) + c;
+        oTrap = min(oTrap, vec4(abs(z.xyz), dot(z, z)));
         mz2 = dot(z, z);
-        
-        // Smooth exponential weight: decay ensures zero discontinuity at escape boundary
-        float w = exp(-mz2 * 0.25);
-        trapAcc += w * vec3(sqrt(mz2), abs(z.x * z.y), abs(z.z * z.w));
-        
-        if (mz2 > 16.0 && !escaped) {
-            // Hubbard-Douady continuous potential (smooth fractional escape time)
-            smoothIter = float(i) - clamp(log(0.5 * log(mz2)) / 0.693147, 0.0, 1.0);
-            escaped = true;
-            break;
-        }
+        if (mz2 > 4.0) break;
     }
     
-    trap = vec4(
-        trapAcc.x * 0.4,
-        trapAcc.y * 0.4,
-        trapAcc.z * 0.5,
-        smoothIter
-    );
-    
+    trap = oTrap;
     if (mz2 < 1.0) return 0.0;
-    return 0.35 * sqrt(mz2) * log(mz2) / max(1e-4, sqrt(md2));
+    return 0.35 * sqrt(mz2 / max(md2, 1e-6)) * log(mz2);
 }
 `,
         cpuEvalDE: (p, state) => {
