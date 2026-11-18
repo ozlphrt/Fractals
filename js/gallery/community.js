@@ -496,27 +496,23 @@ export class GalleryManager {
                 const matName = (item.material || '').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
 
                 html += `
-                    <div class="gallery-card" data-id="${item.id}">
-                        <div class="gallery-card-header">
-                            <span class="gallery-formula-badge">${formulaName}</span>
-                            <span class="gallery-author">${item.author || 'Anonymous'}</span>
+                    <div class="gallery-row" data-id="${item.id}">
+                        <div class="gallery-row-main btn-load" data-id="${item.id}" title="Click to load: ${item.title}">
+                            <span class="gallery-row-badge">${formulaName}</span>
+                            <span class="gallery-row-title">${item.title}</span>
+                            <span class="gallery-row-sub">· ${matName}</span>
                         </div>
-                        <div class="gallery-card-title">${item.title}</div>
-                        <div class="gallery-card-meta">
-                            <span class="gallery-material-tag">🎨 ${matName}</span>
-                            ${item.camera?.preset ? `<span class="gallery-camera-tag">🎥 ${item.camera.preset}</span>` : ''}
-                        </div>
-                        <div class="gallery-card-actions">
-                            <button class="btn-card-load btn-load" data-id="${item.id}" title="Load creation">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        <div class="gallery-row-actions">
+                            <button class="btn-row-action btn-load" data-id="${item.id}" title="Load creation">
+                                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                                 <span>Load</span>
                             </button>
-                            <button class="btn-card-share btn-share" data-id="${item.id}" title="Copy Share Link">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                            <button class="btn-row-icon btn-share" data-id="${item.id}" title="Copy Share Link">
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                             </button>
                             ${this.activeTab === 'saved' ? `
-                                <button class="btn-card-delete btn-delete" data-id="${item.id}" title="Delete Creation">
-                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                <button class="btn-row-icon btn-delete" data-id="${item.id}" title="Delete Creation">
+                                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                 </button>
                             ` : ''}
                         </div>
