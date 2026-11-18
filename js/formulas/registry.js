@@ -9,7 +9,11 @@ export const FORMULA_IDS = {
     KIFS: 'kifs',
     APOLLONIAN: 'apollonian',
     BURNING_SHIP: 'burning_ship',
-    JERUSALEM: 'jerusalem'
+    JERUSALEM: 'jerusalem',
+    JULIABULB: 'juliabulb',
+    KALISET: 'kalibox',
+    PSEUDO_KLEINIAN: 'pseudo_kleinian',
+    BOX_BULB: 'box_bulb'
 };
 
 export const FORMULAS = {
@@ -810,6 +814,467 @@ float mapFractal(vec3 pos, out vec4 trap) {
             const dz = Math.max(0.0, Math.abs(zz) - 1.0);
             const boxDist = Math.hypot(dx, dy, dz);
             return 0.65 * boxDist / Math.max(1e-4, dr);
+        }
+    },
+
+    [FORMULA_IDS.JULIABULB]: {
+        id: FORMULA_IDS.JULIABULB,
+        name: 'Juliabulb',
+        subtitle: 'Hyper-Organic Complex Spherical Coral',
+        defaultCam: {
+            pos: [1.2, 0.8, 2.0],
+            target: [0.0, 0.0, 0.0]
+        },
+        params: [
+            { id: 'jb_power', name: 'Power', min: 2.0, max: 10.0, step: 0.05, default: 6.0, uniform: 'u_jb_power', type: 'float' },
+            { id: 'jb_cx', name: 'Julia C.X', min: -1.2, max: 1.2, step: 0.01, default: -0.45, uniform: 'u_jb_cx', type: 'float' },
+            { id: 'jb_cy', name: 'Julia C.Y', min: -1.2, max: 1.2, step: 0.01, default: 0.35, uniform: 'u_jb_cy', type: 'float' },
+            { id: 'jb_cz', name: 'Julia C.Z', min: -1.2, max: 1.2, step: 0.01, default: 0.25, uniform: 'u_jb_cz', type: 'float' },
+            { id: 'jb_phase', name: 'Twist Phase', min: -3.14, max: 3.14, step: 0.02, default: 0.0, uniform: 'u_jb_phase', type: 'float' },
+            { id: 'jb_iterations', name: 'Iterations', min: 4, max: 18, step: 1, default: 10, uniform: 'u_jb_iterations', type: 'int' }
+        ],
+        presets: [
+            {
+                name: 'Tentacled Anemone',
+                values: { jb_power: 6.0, jb_cx: -0.45, jb_cy: 0.35, jb_cz: 0.25, jb_phase: 0.0, jb_iterations: 10 }
+            },
+            {
+                name: 'Glass Sea Urchin',
+                values: { jb_power: 7.5, jb_cx: -0.32, jb_cy: 0.52, jb_cz: 0.12, jb_phase: 0.45, jb_iterations: 11 }
+            },
+            {
+                name: 'Coral Bloom',
+                values: { jb_power: 4.8, jb_cx: 0.25, jb_cy: -0.40, jb_cz: 0.38, jb_phase: -0.30, jb_iterations: 9 }
+            },
+            {
+                name: 'Alien Seed Pod',
+                values: { jb_power: 8.2, jb_cx: -0.55, jb_cy: 0.20, jb_cz: -0.25, jb_phase: 0.85, jb_iterations: 12 }
+            }
+        ],
+        glsl: `
+float mapFractal(vec3 pos, out vec4 trap) {
+    vec3 z = pos;
+    vec3 c = vec3(u_jb_cx, u_jb_cy, u_jb_cz);
+    float dr = 1.0;
+    float r = 0.0;
+    vec4 orbit = vec4(100.0);
+    int maxIt = int(u_jb_iterations);
+
+    for (int i = 0; i < 18; i++) {
+        if (i >= maxIt) break;
+        r = length(z);
+        if (r > 4.0) break;
+
+        float theta = acos(clamp(z.z / max(r, 1e-6), -1.0, 1.0)) * u_jb_power + u_jb_phase;
+        float phi = atan(z.y, z.x) * u_jb_power;
+        float zr = pow(r, u_jb_power);
+        dr = pow(r, u_jb_power - 1.0) * u_jb_power * dr;
+
+        float sinT = sin(theta);
+        z = zr * vec3(sinT * cos(phi), sinT * sin(phi), cos(theta)) + c;
+
+        orbit.x = min(orbit.x, r * r);
+        orbit.y = min(orbit.y, abs(z.x * z.y));
+        orbit.z = min(orbit.z, abs(z.z));
+        orbit.w = float(i);
+    }
+
+    trap = orbit;
+    return 0.5 * log(max(1.0001, r)) * r / max(dr, 1e-6);
+}
+`,
+        cpuEvalDE: (p, state) => {
+            let zx = p[0], zy = p[1], zz = p[2];
+            const cx = state.jb_cx ?? -0.45;
+            const cy = state.jb_cy ?? 0.35;
+            const cz = state.jb_cz ?? 0.25;
+            const power = state.jb_power ?? 6.0;
+            const phase = state.jb_phase ?? 0.0;
+            const maxIt = Math.min(10, state.jb_iterations ?? 10);
+            let dr = 1.0;
+            let r = 0.0;
+
+            for (let i = 0; i < maxIt; i++) {
+                r = Math.hypot(zx, zy, zz);
+                if (r > 4.0) break;
+
+                const theta = Math.acos(Math.max(-1.0, Math.min(1.0, zz / Math.max(r, 1e-6)))) * power + phase;
+                const phi = Math.atan2(zy, zx) * power;
+                const zr = Math.pow(r, power);
+                dr = Math.pow(r, power - 1.0) * power * dr;
+
+                const sinT = Math.sin(theta);
+                zx = zr * sinT * Math.cos(phi) + cx;
+                zy = zr * sinT * Math.sin(phi) + cy;
+                zz = zr * Math.cos(theta) + cz;
+            }
+            if (r < 1.0) return 0.0;
+            return 0.5 * Math.log(r) * r / Math.max(1e-4, dr);
+        }
+    },
+
+    [FORMULA_IDS.KALISET]: {
+        id: FORMULA_IDS.KALISET,
+        name: 'Kaliset / Kalibox',
+        subtitle: 'Inverted Bio-Mechanical Crystal Nebula',
+        defaultCam: {
+            pos: [1.6, 1.2, 2.4],
+            target: [0.0, 0.0, 0.0]
+        },
+        params: [
+            { id: 'kb_scale', name: 'Scale Factor', min: 1.2, max: 2.6, step: 0.02, default: 1.85, uniform: 'u_kb_scale', type: 'float' },
+            { id: 'kb_cx', name: 'Shift C.X', min: -1.5, max: 0.5, step: 0.01, default: -0.75, uniform: 'u_kb_cx', type: 'float' },
+            { id: 'kb_cy', name: 'Shift C.Y', min: -1.5, max: 0.5, step: 0.01, default: -0.55, uniform: 'u_kb_cy', type: 'float' },
+            { id: 'kb_cz', name: 'Shift C.Z', min: -1.5, max: 0.5, step: 0.01, default: -0.95, uniform: 'u_kb_cz', type: 'float' },
+            { id: 'kb_box_mix', name: 'Box Fold Mix', min: 0.0, max: 1.0, step: 0.02, default: 0.35, uniform: 'u_kb_box_mix', type: 'float' },
+            { id: 'kb_rot', name: 'Planar Twist', min: -0.5, max: 0.5, step: 0.01, default: 0.08, uniform: 'u_kb_rot', type: 'float' },
+            { id: 'kb_iterations', name: 'Iterations', min: 6, max: 16, step: 1, default: 11, uniform: 'u_kb_iterations', type: 'int' }
+        ],
+        presets: [
+            {
+                name: 'Bio-Mech Hive',
+                values: { kb_scale: 1.85, kb_cx: -0.75, kb_cy: -0.55, kb_cz: -0.95, kb_box_mix: 0.35, kb_rot: 0.08, kb_iterations: 11 }
+            },
+            {
+                name: 'Nebula Crystal',
+                values: { kb_scale: 2.10, kb_cx: -0.82, kb_cy: -0.48, kb_cz: -0.88, kb_box_mix: 0.15, kb_rot: -0.12, kb_iterations: 12 }
+            },
+            {
+                name: 'Ancient Circuit Coral',
+                values: { kb_scale: 1.68, kb_cx: -0.68, kb_cy: -0.62, kb_cz: -1.02, kb_box_mix: 0.55, kb_rot: 0.15, kb_iterations: 10 }
+            },
+            {
+                name: 'Obsidian Reliquary',
+                values: { kb_scale: 1.95, kb_cx: -0.70, kb_cy: -0.50, kb_cz: -0.90, kb_box_mix: 0.70, kb_rot: 0.0, kb_iterations: 11 }
+            }
+        ],
+        glsl: `
+float mapFractal(vec3 pos, out vec4 trap) {
+    vec3 p = pos;
+    vec3 c = vec3(u_kb_cx, u_kb_cy, u_kb_cz);
+    float dr = 1.0;
+    vec4 orbit = vec4(100.0);
+    int maxIt = int(u_kb_iterations);
+    float cosR = cos(u_kb_rot);
+    float sinR = sin(u_kb_rot);
+    mat2 rotMat = mat2(cosR, -sinR, sinR, cosR);
+
+    for (int i = 0; i < 16; i++) {
+        if (i >= maxIt) break;
+        if (u_kb_box_mix > 0.001) {
+            vec3 bf = clamp(p, -1.0, 1.0) * 2.0 - p;
+            p = mix(p, bf, u_kb_box_mix);
+        }
+
+        p = abs(p);
+        float d2 = dot(p, p);
+        if (d2 < 1e-4) d2 = 1e-4;
+
+        dr = dr * (u_kb_scale / d2);
+        p = (p / d2) * u_kb_scale + c;
+
+        p.xy = rotMat * p.xy;
+
+        orbit.x = min(orbit.x, d2);
+        orbit.y = min(orbit.y, abs(p.x * p.y));
+        orbit.z = min(orbit.z, abs(p.z));
+        orbit.w = float(i);
+
+        if (dot(p, p) > 400.0) break;
+    }
+
+    trap = orbit;
+    return 0.65 * (length(p) - 0.15) / max(dr, 1e-5);
+}
+`,
+        cpuEvalDE: (p, state) => {
+            let px = p[0], py = p[1], pz = p[2];
+            const cx = state.kb_cx ?? -0.75;
+            const cy = state.kb_cy ?? -0.55;
+            const cz = state.kb_cz ?? -0.95;
+            const scale = state.kb_scale ?? 1.85;
+            const boxMix = state.kb_box_mix ?? 0.35;
+            const rot = state.kb_rot ?? 0.08;
+            const cosR = Math.cos(rot), sinR = Math.sin(rot);
+            const maxIt = Math.min(10, state.kb_iterations ?? 11);
+            let dr = 1.0;
+
+            for (let i = 0; i < maxIt; i++) {
+                if (boxMix > 0.001) {
+                    const bfx = Math.max(-1.0, Math.min(1.0, px)) * 2.0 - px;
+                    const bfy = Math.max(-1.0, Math.min(1.0, py)) * 2.0 - py;
+                    const bfz = Math.max(-1.0, Math.min(1.0, pz)) * 2.0 - pz;
+                    px = px + (bfx - px) * boxMix;
+                    py = py + (bfy - py) * boxMix;
+                    pz = pz + (bfz - pz) * boxMix;
+                }
+
+                px = Math.abs(px); py = Math.abs(py); pz = Math.abs(pz);
+                let d2 = px * px + py * py + pz * pz;
+                if (d2 < 1e-4) d2 = 1e-4;
+
+                dr = dr * (scale / d2);
+                px = (px / d2) * scale + cx;
+                py = (py / d2) * scale + cy;
+                pz = (pz / d2) * scale + cz;
+
+                const rx = cosR * px - sinR * py;
+                const ry = sinR * px + cosR * py;
+                px = rx; py = ry;
+
+                if (px * px + py * py + pz * pz > 400.0) break;
+            }
+            const lenP = Math.hypot(px, py, pz);
+            return 0.65 * Math.max(0.0, lenP - 0.15) / Math.max(1e-5, dr);
+        }
+    },
+
+    [FORMULA_IDS.PSEUDO_KLEINIAN]: {
+        id: FORMULA_IDS.PSEUDO_KLEINIAN,
+        name: 'Pseudo-Kleinian',
+        subtitle: 'Infinite Gothic Nave & Monolithic Colonnade Relic',
+        defaultCam: {
+            pos: [0.0, 0.45, 2.6],
+            target: [0.0, 0.0, 0.0]
+        },
+        params: [
+            { id: 'pk_csize_x', name: 'Box Size X', min: 0.6, max: 1.4, step: 0.02, default: 0.92, uniform: 'u_pk_csize_x', type: 'float' },
+            { id: 'pk_csize_y', name: 'Box Size Y', min: 0.6, max: 1.4, step: 0.02, default: 0.92, uniform: 'u_pk_csize_y', type: 'float' },
+            { id: 'pk_csize_z', name: 'Box Size Z', min: 0.6, max: 1.4, step: 0.02, default: 1.0, uniform: 'u_pk_csize_z', type: 'float' },
+            { id: 'pk_size', name: 'Inversion Size', min: 0.8, max: 1.4, step: 0.02, default: 1.02, uniform: 'u_pk_size', type: 'float' },
+            { id: 'pk_offset_x', name: 'Offset X', min: -0.3, max: 0.3, step: 0.01, default: 0.0, uniform: 'u_pk_offset_x', type: 'float' },
+            { id: 'pk_offset_y', name: 'Offset Y', min: -0.3, max: 0.3, step: 0.01, default: 0.0, uniform: 'u_pk_offset_y', type: 'float' },
+            { id: 'pk_offset_z', name: 'Offset Z', min: -0.3, max: 0.3, step: 0.01, default: 0.0, uniform: 'u_pk_offset_z', type: 'float' },
+            { id: 'pk_thickness', name: 'Arch Thickness', min: 0.005, max: 0.08, step: 0.002, default: 0.02, uniform: 'u_pk_thickness', type: 'float' },
+            { id: 'pk_iterations', name: 'Iterations', min: 6, max: 14, step: 1, default: 10, uniform: 'u_pk_iterations', type: 'int' }
+        ],
+        presets: [
+            {
+                name: 'Gothic Nave',
+                values: { pk_csize_x: 0.92, pk_csize_y: 0.92, pk_csize_z: 1.0, pk_size: 1.02, pk_offset_x: 0.0, pk_offset_y: 0.0, pk_offset_z: 0.0, pk_thickness: 0.02, pk_iterations: 10 }
+            },
+            {
+                name: 'Infinite Colonnade',
+                values: { pk_csize_x: 0.85, pk_csize_y: 0.98, pk_csize_z: 1.05, pk_size: 1.08, pk_offset_x: 0.05, pk_offset_y: -0.04, pk_offset_z: 0.02, pk_thickness: 0.025, pk_iterations: 11 }
+            },
+            {
+                name: 'Crystal Cloister',
+                values: { pk_csize_x: 0.96, pk_csize_y: 0.88, pk_csize_z: 0.95, pk_size: 0.98, pk_offset_x: -0.06, pk_offset_y: 0.05, pk_offset_z: -0.03, pk_thickness: 0.016, pk_iterations: 10 }
+            },
+            {
+                name: 'Bone Basilica',
+                values: { pk_csize_x: 1.05, pk_csize_y: 1.02, pk_csize_z: 1.10, pk_size: 1.12, pk_offset_x: 0.0, pk_offset_y: 0.08, pk_offset_z: 0.0, pk_thickness: 0.032, pk_iterations: 11 }
+            }
+        ],
+        glsl: `
+float mapFractal(vec3 pos, out vec4 trap) {
+    vec3 p = pos;
+    vec3 csize = vec3(u_pk_csize_x, u_pk_csize_y, u_pk_csize_z);
+    vec3 offset = vec3(u_pk_offset_x, u_pk_offset_y, u_pk_offset_z);
+    float deFactor = 1.0;
+    vec4 orbit = vec4(100.0);
+    int maxIt = int(u_pk_iterations);
+
+    for (int i = 0; i < 16; i++) {
+        if (i >= maxIt) break;
+        p = 2.0 * clamp(p, -csize, csize) - p;
+
+        float d2 = dot(p, p);
+        float k = max(u_pk_size / max(d2, 1e-6), 1.0);
+        p = p * k + offset;
+        deFactor = deFactor * k;
+
+        orbit.x = min(orbit.x, d2);
+        orbit.y = min(orbit.y, abs(p.z));
+        orbit.z = min(orbit.z, deFactor * 0.05);
+        orbit.w = float(i);
+
+        if (d2 > 100.0) break;
+    }
+
+    trap = orbit;
+    float rawDE = 0.5 * (abs(p.z) - u_pk_thickness) / max(deFactor, 1e-6);
+    vec3 dBox = abs(pos) - vec3(1.7, 1.4, 1.7);
+    float boundingBox = length(max(dBox, 0.0)) - 0.25;
+    return max(rawDE * 0.8, boundingBox);
+}
+`,
+        cpuEvalDE: (p, state) => {
+            let px = p[0], py = p[1], pz = p[2];
+            const cx = state.pk_csize_x ?? 0.92;
+            const cy = state.pk_csize_y ?? 0.92;
+            const cz = state.pk_csize_z ?? 1.0;
+            const size = state.pk_size ?? 1.02;
+            const ox = state.pk_offset_x ?? 0.0;
+            const oy = state.pk_offset_y ?? 0.0;
+            const oz = state.pk_offset_z ?? 0.0;
+            const thick = state.pk_thickness ?? 0.02;
+            const maxIt = Math.min(10, state.pk_iterations ?? 10);
+            let deFactor = 1.0;
+
+            for (let i = 0; i < maxIt; i++) {
+                px = 2.0 * Math.max(-cx, Math.min(cx, px)) - px;
+                py = 2.0 * Math.max(-cy, Math.min(cy, py)) - py;
+                pz = 2.0 * Math.max(-cz, Math.min(cz, pz)) - pz;
+
+                const d2 = px * px + py * py + pz * pz;
+                const k = Math.max(size / Math.max(d2, 1e-6), 1.0);
+                px = px * k + ox;
+                py = py * k + oy;
+                pz = pz * k + oz;
+                deFactor = deFactor * k;
+
+                if (d2 > 100.0) break;
+            }
+
+            const rawDE = 0.5 * Math.max(0.0, Math.abs(pz) - thick) / Math.max(1e-6, deFactor);
+            const bx = Math.max(0.0, Math.abs(p[0]) - 1.7);
+            const by = Math.max(0.0, Math.abs(p[1]) - 1.4);
+            const bz = Math.max(0.0, Math.abs(p[2]) - 1.7);
+            const boundingBox = Math.hypot(bx, by, bz) - 0.25;
+            return Math.max(rawDE * 0.8, boundingBox);
+        }
+    },
+
+    [FORMULA_IDS.BOX_BULB]: {
+        id: FORMULA_IDS.BOX_BULB,
+        name: 'Amazing Box-Bulb',
+        subtitle: 'Symbiotic Architectural & Organic Power Hybrid',
+        defaultCam: {
+            pos: [1.7, 1.3, 2.3],
+            target: [0.0, 0.0, 0.0]
+        },
+        params: [
+            { id: 'bb_mix', name: 'Box-Bulb Blend', min: 0.0, max: 1.0, step: 0.02, default: 0.45, uniform: 'u_bb_mix', type: 'float' },
+            { id: 'bb_scale', name: 'Box Scale', min: 1.6, max: 2.8, step: 0.02, default: 2.1, uniform: 'u_bb_scale', type: 'float' },
+            { id: 'bb_power', name: 'Bulb Power', min: 3.0, max: 9.0, step: 0.05, default: 6.0, uniform: 'u_bb_power', type: 'float' },
+            { id: 'bb_min_radius', name: 'Min Radius', min: 0.2, max: 0.8, step: 0.02, default: 0.5, uniform: 'u_bb_min_radius', type: 'float' },
+            { id: 'bb_fold', name: 'Fold Limit', min: 0.7, max: 1.4, step: 0.02, default: 1.0, uniform: 'u_bb_fold', type: 'float' },
+            { id: 'bb_iterations', name: 'Iterations', min: 6, max: 14, step: 1, default: 9, uniform: 'u_bb_iterations', type: 'int' }
+        ],
+        presets: [
+            {
+                name: 'Flesh Cathedral',
+                values: { bb_mix: 0.45, bb_scale: 2.1, bb_power: 6.0, bb_min_radius: 0.5, bb_fold: 1.0, bb_iterations: 9 }
+            },
+            {
+                name: 'Bone Monolith',
+                values: { bb_mix: 0.28, bb_scale: 2.35, bb_power: 5.2, bb_min_radius: 0.42, bb_fold: 1.15, bb_iterations: 10 }
+            },
+            {
+                name: 'Organic Reactor',
+                values: { bb_mix: 0.62, bb_scale: 1.95, bb_power: 7.2, bb_min_radius: 0.55, bb_fold: 0.90, bb_iterations: 9 }
+            },
+            {
+                name: 'Coral Fortress',
+                values: { bb_mix: 0.50, bb_scale: 2.20, bb_power: 6.8, bb_min_radius: 0.48, bb_fold: 1.05, bb_iterations: 10 }
+            }
+        ],
+        glsl: `
+float mapFractal(vec3 pos, out vec4 trap) {
+    vec3 p = pos;
+    float dr = 1.0;
+    vec4 orbit = vec4(100.0);
+    int maxIt = int(u_bb_iterations);
+
+    for (int i = 0; i < 16; i++) {
+        if (i >= maxIt) break;
+
+        // 1. Box fold step
+        vec3 pB = clamp(p, -u_bb_fold, u_bb_fold) * 2.0 - p;
+        float r2 = dot(pB, pB);
+        float minR2 = u_bb_min_radius * u_bb_min_radius;
+        float drB = dr;
+        if (r2 < minR2) {
+            float factor = 1.0 / minR2;
+            pB *= factor;
+            drB *= factor;
+        } else if (r2 < 1.0) {
+            float factor = 1.0 / r2;
+            pB *= factor;
+            drB *= factor;
+        }
+        pB = pB * u_bb_scale + pos;
+        drB = drB * abs(u_bb_scale) + 1.0;
+
+        // 2. Bulb step
+        float r = length(p);
+        float theta = acos(clamp(p.z / max(r, 1e-6), -1.0, 1.0)) * u_bb_power;
+        float phi = atan(p.y, p.x) * u_bb_power;
+        float zr = pow(r, u_bb_power);
+        float drBulb = pow(r, u_bb_power - 1.0) * u_bb_power * dr + 1.0;
+        float sinT = sin(theta);
+        vec3 pBlb = zr * vec3(sinT * cos(phi), sinT * sin(phi), cos(theta)) + pos;
+
+        // Smooth blend between architectural box and organic bulb
+        p = mix(pB, pBlb, u_bb_mix);
+        dr = mix(drB, drBulb, u_bb_mix);
+
+        orbit.x = min(orbit.x, dot(p, p));
+        orbit.y = min(orbit.y, abs(p.x * p.y));
+        orbit.z = min(orbit.z, abs(p.z));
+        orbit.w = float(i);
+
+        if (dot(p, p) > 64.0) break;
+    }
+
+    trap = orbit;
+    float lenP = length(p);
+    return 0.75 * (0.5 * log(max(1.0001, lenP)) * lenP / max(dr, 1e-5));
+}
+`,
+        cpuEvalDE: (p, state) => {
+            let px = p[0], py = p[1], pz = p[2];
+            const mixRatio = state.bb_mix ?? 0.45;
+            const scale = state.bb_scale ?? 2.1;
+            const power = state.bb_power ?? 6.0;
+            const minR = state.bb_min_radius ?? 0.5;
+            const fold = state.bb_fold ?? 1.0;
+            const minR2 = minR * minR;
+            const maxIt = Math.min(8, state.bb_iterations ?? 9);
+            let dr = 1.0;
+
+            for (let i = 0; i < maxIt; i++) {
+                // Box
+                let bx = Math.max(-fold, Math.min(fold, px)) * 2.0 - px;
+                let by = Math.max(-fold, Math.min(fold, py)) * 2.0 - py;
+                let bz = Math.max(-fold, Math.min(fold, pz)) * 2.0 - pz;
+                let r2 = bx * bx + by * by + bz * bz;
+                let drB = dr;
+                if (r2 < minR2) {
+                    const factor = 1.0 / minR2;
+                    bx *= factor; by *= factor; bz *= factor; drB *= factor;
+                } else if (r2 < 1.0) {
+                    const factor = 1.0 / r2;
+                    bx *= factor; by *= factor; bz *= factor; drB *= factor;
+                }
+                bx = bx * scale + p[0];
+                by = by * scale + p[1];
+                bz = bz * scale + p[2];
+                drB = drB * Math.abs(scale) + 1.0;
+
+                // Bulb
+                const r = Math.hypot(px, py, pz);
+                const theta = Math.acos(Math.max(-1.0, Math.min(1.0, pz / Math.max(r, 1e-6)))) * power;
+                const phi = Math.atan2(py, px) * power;
+                const zr = Math.pow(r, power);
+                const drBulb = Math.pow(r, power - 1.0) * power * dr + 1.0;
+                const sinT = Math.sin(theta);
+                const blbx = zr * sinT * Math.cos(phi) + p[0];
+                const blby = zr * sinT * Math.sin(phi) + p[1];
+                const blbz = zr * Math.cos(theta) + p[2];
+
+                px = bx + (blbx - bx) * mixRatio;
+                py = by + (blby - by) * mixRatio;
+                pz = bz + (blbz - bz) * mixRatio;
+                dr = drB + (drBulb - drB) * mixRatio;
+
+                if (px * px + py * py + pz * pz > 64.0) break;
+            }
+
+            const lenP = Math.hypot(px, py, pz);
+            if (lenP < 1.0) return 0.0;
+            return 0.75 * (0.5 * Math.log(lenP) * lenP / Math.max(1e-5, dr));
         }
     }
 };

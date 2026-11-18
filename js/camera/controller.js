@@ -790,6 +790,14 @@ export class CameraController {
                     return 1.85 + asym * 0.95; // Burning ship with asymmetry expands
                 } else if (id === 'jerusalem') {
                     return 2.35; // Jerusalem cube reaches ~2.35
+                } else if (id === 'juliabulb') {
+                    return 1.65; // Juliabulb coral reaches ~1.65
+                } else if (id === 'kalibox') {
+                    return 2.10; // Kaliset crystal reaches ~2.10
+                } else if (id === 'pseudo_kleinian') {
+                    return 2.25; // Pseudo-Kleinian relic reaches ~2.25
+                } else if (id === 'box_bulb') {
+                    return 2.15; // Box-Bulb hybrid reaches ~2.15
                 }
 
                 return 1.5;

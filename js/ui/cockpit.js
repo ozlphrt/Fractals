@@ -660,14 +660,28 @@ export class CockpitUI {
             });
         }
 
-        // 1. Fractal Formula Stepper & Cycler
-        const formulaIds = Object.keys(FORMULAS);
+        // 1. Fractal Formula Stepper & Cycler (Curated Contrast-Maximized Sequence)
+        const FORMULA_CYCLE_ORDER = [
+            FORMULA_IDS.MANDELBULB,       // Organic Spherical Power Fold
+            FORMULA_IDS.KALISET,          // Bio-Mechanical Nebula Crystal
+            FORMULA_IDS.MANDELBOX,        // Brutalist Box & Sphere Inversion Fold
+            FORMULA_IDS.JULIABULB,        // Hyper-Organic Coral & Anemone
+            FORMULA_IDS.JERUSALEM,        // Sub-Atomic Cybernetic Cross Cuts
+            FORMULA_IDS.PSEUDO_KLEINIAN,  // Infinite Gothic Nave & Relic Colonnade
+            FORMULA_IDS.QUAT_JULIA,       // 4D Liquid Hyper-Ribbons
+            FORMULA_IDS.BOX_BULB,         // Symbiotic Architectural & Organic Hybrid
+            FORMULA_IDS.KIFS,             // Polyhedral Reflection & Fractal Origami
+            FORMULA_IDS.APOLLONIAN,       // Kleinian 3D Sphere Inversion Packing
+            FORMULA_IDS.BURNING_SHIP      // Volcanic Absolute Value Spires
+        ].filter(id => FORMULAS[id]);
+
         const switchFormulaByIndex = (direction) => {
             this.deformCount = 0;
             const currentActive = this.state.formulaMorph ? this.state.formulaMorph.toId : this.state.activeFormulaId;
-            const currentIdx = formulaIds.indexOf(currentActive);
-            let nextIdx = (currentIdx + direction + formulaIds.length) % formulaIds.length;
-            const nextId = formulaIds[nextIdx];
+            const currentIdx = FORMULA_CYCLE_ORDER.indexOf(currentActive);
+            const baseIdx = currentIdx >= 0 ? currentIdx : 0;
+            let nextIdx = (baseIdx + direction + FORMULA_CYCLE_ORDER.length) % FORMULA_CYCLE_ORDER.length;
+            const nextId = FORMULA_CYCLE_ORDER[nextIdx];
             this.state.startFormulaMorph(nextId, 1.6);
             if (this.elFormulaSelect) this.elFormulaSelect.value = nextId;
             this.raymarcher.resetAccumulation();
