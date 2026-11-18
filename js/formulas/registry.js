@@ -28,20 +28,20 @@ export const FORMULAS = {
         ],
         presets: [
             {
-                name: 'Classic Power 8',
-                values: { mb_power: 8.0, mb_iterations: 12, mb_julia_mix: 0.0, mb_julia_cx: 0.0, mb_julia_cy: 0.0, mb_julia_cz: 0.0 }
+                name: 'Classic Power 8 Romanesco',
+                values: { mb_power: 8.0, mb_iterations: 14, mb_julia_mix: 0.0, mb_julia_cx: 0.0, mb_julia_cy: 0.0, mb_julia_cz: 0.0 }
             },
             {
-                name: 'Organic Power 7',
-                values: { mb_power: 7.0, mb_iterations: 12, mb_julia_mix: 0.0, mb_julia_cx: 0.0, mb_julia_cy: 0.0, mb_julia_cz: 0.0 }
+                name: 'Power 4 Quad-Lobe Biological',
+                values: { mb_power: 4.0, mb_iterations: 10, mb_julia_mix: 0.0, mb_julia_cx: 0.0, mb_julia_cy: 0.0, mb_julia_cz: 0.0 }
             },
             {
-                name: 'Smooth Romanesco Power 6',
-                values: { mb_power: 6.0, mb_iterations: 12, mb_julia_mix: 0.0, mb_julia_cx: 0.0, mb_julia_cy: 0.0, mb_julia_cz: 0.0 }
+                name: 'Power 11 Crystalline Spire',
+                values: { mb_power: 11.0, mb_iterations: 16, mb_julia_mix: 0.0, mb_julia_cx: 0.0, mb_julia_cy: 0.0, mb_julia_cz: 0.0 }
             },
             {
-                name: 'Monolithic Power 9',
-                values: { mb_power: 9.0, mb_iterations: 14, mb_julia_mix: 0.0, mb_julia_cx: 0.0, mb_julia_cy: 0.0, mb_julia_cz: 0.0 }
+                name: 'Power 6 Monolithic Coral Bulb',
+                values: { mb_power: 6.0, mb_iterations: 11, mb_julia_mix: 0.0, mb_julia_cx: 0.0, mb_julia_cy: 0.0, mb_julia_cz: 0.0 }
             }
         ],
         glsl: `
@@ -142,20 +142,20 @@ float mapFractal(vec3 pos, out vec4 trap) {
         ],
         presets: [
             {
-                name: 'Default Metropolis',
-                values: { mbox_scale: 2.2, mbox_iterations: 9, mbox_fold_limit: 1.0, mbox_min_radius: 0.5, mbox_fixed_radius: 1.0, mbox_rot_x: 0, mbox_rot_y: 0, mbox_rot_z: 0, mbox_offset_x: 0, mbox_offset_y: 0, mbox_offset_z: 0, mbox_near_clip: 0.70 }
+                name: 'Metropolis Citadel',
+                values: { mbox_scale: 2.25, mbox_iterations: 10, mbox_fold_limit: 1.0, mbox_min_radius: 0.5, mbox_fixed_radius: 1.0, mbox_rot_x: 0.0, mbox_rot_y: 0.0, mbox_rot_z: 0.0, mbox_offset_x: 0.0, mbox_offset_y: 0.0, mbox_offset_z: 0.0, mbox_near_clip: 0.70 }
             },
             {
-                name: 'Infinite Sci-Fi Grid',
-                values: { mbox_scale: -1.9, mbox_iterations: 10, mbox_fold_limit: 0.85, mbox_min_radius: 0.35, mbox_fixed_radius: 1.15, mbox_rot_x: 0.08, mbox_rot_y: -0.05, mbox_rot_z: 0.06, mbox_offset_x: 0.1, mbox_offset_y: -0.05, mbox_offset_z: 0.12, mbox_near_clip: 0.70 }
+                name: 'Brutalist Flying Buttresses',
+                values: { mbox_scale: 2.75, mbox_iterations: 11, mbox_fold_limit: 1.22, mbox_min_radius: 0.42, mbox_fixed_radius: 1.35, mbox_rot_x: 0.04, mbox_rot_y: 0.08, mbox_rot_z: 0.0, mbox_offset_x: -0.15, mbox_offset_y: 0.0, mbox_offset_z: 0.12, mbox_near_clip: 0.70 }
             },
             {
-                name: 'Gothic Colosseum',
-                values: { mbox_scale: 2.8, mbox_iterations: 10, mbox_fold_limit: 1.2, mbox_min_radius: 0.45, mbox_fixed_radius: 1.4, mbox_rot_x: 0.0, mbox_rot_y: 0.15, mbox_rot_z: 0.0, mbox_offset_x: -0.2, mbox_offset_y: 0.0, mbox_offset_z: 0.1, mbox_near_clip: 0.70 }
+                name: 'Sub-Zero Crystalline Lattice',
+                values: { mbox_scale: -1.85, mbox_iterations: 10, mbox_fold_limit: 0.82, mbox_min_radius: 0.36, mbox_fixed_radius: 1.18, mbox_rot_x: 0.07, mbox_rot_y: -0.06, mbox_rot_z: 0.05, mbox_offset_x: 0.12, mbox_offset_y: -0.08, mbox_offset_z: 0.14, mbox_near_clip: 0.70 }
             },
             {
-                name: 'Negative Folding Hive',
-                values: { mbox_scale: -2.6, mbox_iterations: 10, mbox_fold_limit: 0.7, mbox_min_radius: 0.28, mbox_fixed_radius: 0.9, mbox_rot_x: 0.12, mbox_rot_y: 0.2, mbox_rot_z: -0.1, mbox_offset_x: 0.0, mbox_offset_y: 0.2, mbox_offset_z: 0.0, mbox_near_clip: 0.70 }
+                name: 'Monolithic Hyper-Sanctuary',
+                values: { mbox_scale: 2.05, mbox_iterations: 9, mbox_fold_limit: 1.15, mbox_min_radius: 0.58, mbox_fixed_radius: 1.05, mbox_rot_x: -0.05, mbox_rot_y: 0.06, mbox_rot_z: -0.04, mbox_offset_x: 0.05, mbox_offset_y: 0.1, mbox_offset_z: -0.05, mbox_near_clip: 0.70 }
             }
         ],
         glsl: `
@@ -281,19 +281,19 @@ float mapFractal(vec3 pos, out vec4 trap) {
         presets: [
             {
                 name: 'Octahedral Clockwork Matrix',
-                values: { kifs_symmetry: 1, kifs_scale: 2.1, kifs_iterations: 11, kifs_offset_x: 1.0, kifs_offset_y: 1.0, kifs_offset_z: 1.0, kifs_pre_rot_x: 0.04, kifs_pre_rot_y: 0.08, kifs_pre_rot_z: -0.02, kifs_post_rot_x: -0.03, kifs_post_rot_y: 0.05, kifs_post_rot_z: 0.06 }
+                values: { kifs_symmetry: 1, kifs_scale: 2.12, kifs_iterations: 11, kifs_offset_x: 1.0, kifs_offset_y: 1.0, kifs_offset_z: 1.0, kifs_pre_rot_x: 0.04, kifs_pre_rot_y: 0.08, kifs_pre_rot_z: -0.02, kifs_post_rot_x: -0.03, kifs_post_rot_y: 0.05, kifs_post_rot_z: 0.06 }
             },
             {
-                name: 'Prismatic Crystal Pavilion',
-                values: { kifs_symmetry: 2, kifs_scale: 2.0, kifs_iterations: 10, kifs_offset_x: 1.1, kifs_offset_y: 1.0, kifs_offset_z: 0.9, kifs_pre_rot_x: 0.0, kifs_pre_rot_y: 0.1, kifs_pre_rot_z: 0.0, kifs_post_rot_x: 0.05, kifs_post_rot_y: -0.05, kifs_post_rot_z: 0.08 }
+                name: 'Sierpinski Sacred Pyramid',
+                values: { kifs_symmetry: 0, kifs_scale: 1.95, kifs_iterations: 10, kifs_offset_x: 1.15, kifs_offset_y: 1.15, kifs_offset_z: 1.15, kifs_pre_rot_x: 0.0, kifs_pre_rot_y: 0.0, kifs_pre_rot_z: 0.0, kifs_post_rot_x: 0.0, kifs_post_rot_y: 0.0, kifs_post_rot_z: 0.0 }
             },
             {
-                name: 'Cubic Menger Temple',
-                values: { kifs_symmetry: 3, kifs_scale: 2.3, kifs_iterations: 10, kifs_offset_x: 1.0, kifs_offset_y: 1.0, kifs_offset_z: 1.0, kifs_pre_rot_x: 0.02, kifs_pre_rot_y: 0.05, kifs_pre_rot_z: 0.0, kifs_post_rot_x: 0.0, kifs_post_rot_y: 0.03, kifs_post_rot_z: 0.04 }
+                name: 'Prismatic Crystal Spire',
+                values: { kifs_symmetry: 2, kifs_scale: 2.25, kifs_iterations: 12, kifs_offset_x: 1.25, kifs_offset_y: 0.85, kifs_offset_z: 1.05, kifs_pre_rot_x: 0.06, kifs_pre_rot_y: 0.14, kifs_pre_rot_z: 0.0, kifs_post_rot_x: 0.08, kifs_post_rot_y: -0.06, kifs_post_rot_z: 0.1 }
             },
             {
-                name: 'Sierpinski Cathedral',
-                values: { kifs_symmetry: 0, kifs_scale: 2.0, kifs_iterations: 11, kifs_offset_x: 1.0, kifs_offset_y: 1.0, kifs_offset_z: 1.0, kifs_pre_rot_x: 0.0, kifs_pre_rot_y: 0.06, kifs_pre_rot_z: 0.0, kifs_post_rot_x: 0.0, kifs_post_rot_y: 0.0, kifs_post_rot_z: 0.04 }
+                name: 'Cubic Menger Fortress',
+                values: { kifs_symmetry: 3, kifs_scale: 2.45, kifs_iterations: 10, kifs_offset_x: 1.0, kifs_offset_y: 1.0, kifs_offset_z: 1.0, kifs_pre_rot_x: 0.03, kifs_pre_rot_y: 0.06, kifs_pre_rot_z: 0.0, kifs_post_rot_x: 0.0, kifs_post_rot_y: 0.04, kifs_post_rot_z: 0.05 }
             }
         ],
         glsl: `
@@ -403,15 +403,19 @@ float mapFractal(vec3 pos, out vec4 trap) {
         presets: [
             {
                 name: 'Liquid Hyper-Ribbon',
-                values: { qj_cx: -0.2, qj_cy: 0.6, qj_cz: 0.4, qj_cw: 0.0, qj_slice_w: 0.0, qj_rot_xw: 0, qj_rot_yw: 0, qj_iterations: 11 }
+                values: { qj_cx: -0.2, qj_cy: 0.6, qj_cz: 0.4, qj_cw: 0.0, qj_slice_w: 0.0, qj_rot_xw: 0.0, qj_rot_yw: 0.0, qj_iterations: 11 }
             },
             {
-                name: 'Seahorse Hyper-Whorl',
-                values: { qj_cx: -0.4, qj_cy: -0.25, qj_cz: 0.35, qj_cw: 0.22, qj_slice_w: 0.28, qj_rot_xw: 0.45, qj_rot_yw: -0.3, qj_iterations: 13 }
+                name: 'Seahorse 4D Hyper-Nebula',
+                values: { qj_cx: -0.38, qj_cy: -0.28, qj_cz: 0.38, qj_cw: 0.22, qj_slice_w: 0.26, qj_rot_xw: 0.52, qj_rot_yw: -0.35, qj_iterations: 13 }
             },
             {
-                name: 'Alien Dendrite',
-                values: { qj_cx: 0.28, qj_cy: 0.0, qj_cz: 0.65, qj_cw: -0.3, qj_slice_w: -0.15, qj_rot_xw: -0.6, qj_rot_yw: 0.5, qj_iterations: 12 }
+                name: 'Alien Crystalline Dendrite',
+                values: { qj_cx: 0.32, qj_cy: 0.02, qj_cz: 0.62, qj_cw: -0.28, qj_slice_w: -0.18, qj_rot_xw: -0.65, qj_rot_yw: 0.55, qj_iterations: 12 }
+            },
+            {
+                name: 'Hypercomplex Torus Ring',
+                values: { qj_cx: -0.12, qj_cy: 0.18, qj_cz: 0.56, qj_cw: 0.14, qj_slice_w: 0.42, qj_rot_xw: -0.85, qj_rot_yw: 0.62, qj_iterations: 12 }
             }
         ],
         glsl: `

@@ -113,13 +113,21 @@ export class CockpitUI {
     renderPresets() {
         const formula = this.state.getActiveFormula();
         this.elPresetsGrid.innerHTML = '';
-        formula.presets.forEach(p => {
+        formula.presets.forEach((p, idx) => {
             const btn = document.createElement('button');
             btn.className = 'preset-btn';
+            if (idx === 0) btn.classList.add('active');
             btn.textContent = p.name;
             btn.addEventListener('click', () => {
-                this.state.setMany(p.values, true);
-                this.raymarcher.resetAccumulation();
+                // Visual feedback on selected preset button
+                this.elPresetsGrid.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Smoothly morph parameters gradually over 1.3 seconds
+                this.state.morphToValues(p.values, 1.3,
+                    () => this.raymarcher.resetAccumulation(),
+                    () => this.raymarcher.resetAccumulation()
+                );
             });
             this.elPresetsGrid.appendChild(btn);
         });
@@ -510,33 +518,17 @@ export class CockpitUI {
             });
         }
 
-        // Camera Mode Segmented Control
-        const btnOrbit = document.getElementById('cam-mode-orbit');
-        const btnFlight = document.getElementById('cam-mode-flight');
-        const updateCamBtns = () => {
-            if (this.camera.mode === 'orbit') {
-                btnOrbit?.classList.add('active');
-                btnFlight?.classList.remove('active');
-            } else {
-                btnFlight?.classList.add('active');
-                btnOrbit?.classList.remove('active');
-            }
-            const hudCam = document.getElementById('hud-cam-mode');
-            if (hudCam) hudCam.textContent = this.camera.mode.toUpperCase();
-        };
-
-        if (btnOrbit) {
-            btnOrbit.addEventListener('click', () => {
-                this.camera.setMode('orbit');
-                updateCamBtns();
+        // Camera Presets Grid (Action Cam, Fly-By Cam, Follow Cam, Dynamic Cam, etc.)
+        const camPresetBtns = document.querySelectorAll('#camera-presets-grid .cam-preset-btn');
+        camPresetBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                camPresetBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const preset = btn.dataset.preset;
+                this.camera.setCameraPreset(preset);
+                this.raymarcher.resetAccumulation();
             });
-        }
-        if (btnFlight) {
-            btnFlight.addEventListener('click', () => {
-                this.camera.setMode('flight');
-                updateCamBtns();
-            });
-        }
+        });
 
         // Auto-Rotate Button
         const btnAutoRotate = document.getElementById('auto-rotate-btn');
@@ -553,7 +545,9 @@ export class CockpitUI {
             btnCamReset.addEventListener('click', () => {
                 const defCam = this.state.getActiveFormula().defaultCam;
                 this.camera.resetView(defCam.pos, defCam.target);
-                updateCamBtns();
+                this.camera.setCameraPreset('turntable');
+                camPresetBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === 'turntable'));
+                this.raymarcher.resetAccumulation();
             });
         }
 

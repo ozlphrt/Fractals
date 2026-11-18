@@ -203,6 +203,68 @@ export class StateManager {
         }
     }
 
+    // Smoothly morph a dictionary of parameter values over durationSec with quintic ease-in-out
+    morphToValues(targetDict, durationSec = 1.3, onProgress = null, onComplete = null) {
+        if (this.morphAnim) {
+            cancelAnimationFrame(this.morphAnim);
+            this.morphAnim = null;
+        }
+
+        const startValues = {};
+        const endValues = {};
+
+        for (const [id, targetVal] of Object.entries(targetDict)) {
+            startValues[id] = this.values[id] !== undefined ? this.values[id] : (this.targetValues[id] ?? targetVal);
+            endValues[id] = targetVal;
+            this.targetValues[id] = targetVal;
+        }
+
+        const startTime = performance.now();
+        const durationMs = Math.max(100, durationSec * 1000);
+
+        // Quintic smooth ease-in-out curve for gradual, organic transition
+        const easeInOutQuintic = (t) => t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+
+        const step = (now) => {
+            const elapsed = now - startTime;
+            const linearT = Math.min(1.0, Math.max(0.0, elapsed / durationMs));
+            const easedT = easeInOutQuintic(linearT);
+
+            const allParams = [...(this.getActiveFormula()?.params || []), ...GLOBAL_PARAMS];
+
+            for (const [id, targetVal] of Object.entries(endValues)) {
+                const startVal = startValues[id];
+                if (startVal !== undefined) {
+                    const p = allParams.find(param => param.id === id);
+                    let val;
+                    if (p && p.type === 'int') {
+                        val = Math.round(startVal + (targetVal - startVal) * easedT);
+                    } else {
+                        val = startVal + (targetVal - startVal) * easedT;
+                    }
+                    this.values[id] = val;
+                    this.notify(id, val);
+                }
+            }
+
+            if (onProgress) onProgress(linearT);
+
+            if (linearT < 1.0) {
+                this.morphAnim = requestAnimationFrame(step);
+            } else {
+                for (const [id, targetVal] of Object.entries(endValues)) {
+                    this.values[id] = targetVal;
+                    this.notify(id, targetVal);
+                }
+                this.morphAnim = null;
+                this.pushHistory();
+                if (onComplete) onComplete();
+            }
+        };
+
+        this.morphAnim = requestAnimationFrame(step);
+    }
+
     // Step physical inertia towards targetValues each frame
     updateInertia(dt) {
         if (this.morphAnim) return false; // Handled by morph animation loop

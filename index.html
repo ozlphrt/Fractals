@@ -177,16 +177,38 @@
                 <!-- Tab: Camera & Motion -->
                 <div class="tab-pane" id="tab-settings-cam">
                     <div class="drawer-group">
-                        <label class="group-label">Lens & Optics</label>
-                        <div class="sliders-stack" id="cam-params-container"></div>
+                        <label class="group-label">Camera Presets</label>
+                        <div class="camera-presets-grid" id="camera-presets-grid">
+                            <button class="cam-preset-btn active" data-preset="turntable">
+                                <span class="cam-preset-title">Turntable</span>
+                                <span class="cam-preset-desc">Majestic 360 Orbit</span>
+                            </button>
+                            <button class="cam-preset-btn" data-preset="action">
+                                <span class="cam-preset-title">Action Cam</span>
+                                <span class="cam-preset-desc">Dynamic Chase & Shake</span>
+                            </button>
+                            <button class="cam-preset-btn" data-preset="flyby">
+                                <span class="cam-preset-title">Fly-By Cam</span>
+                                <span class="cam-preset-desc">Lissajous Slalom</span>
+                            </button>
+                            <button class="cam-preset-btn" data-preset="follow">
+                                <span class="cam-preset-title">Follow Cam</span>
+                                <span class="cam-preset-desc">Close Surface Contour</span>
+                            </button>
+                            <button class="cam-preset-btn" data-preset="dynamic">
+                                <span class="cam-preset-title">Dynamic Cam</span>
+                                <span class="cam-preset-desc">Vortex Core Spiral Dive</span>
+                            </button>
+                            <button class="cam-preset-btn" data-preset="hero">
+                                <span class="cam-preset-title">Hero Shot</span>
+                                <span class="cam-preset-desc">Low-Angle Monolith</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="drawer-group">
-                        <label class="group-label">Navigation Mode</label>
-                        <div class="segmented-control">
-                            <button class="seg-btn active" id="cam-mode-orbit">Orbit Turntable</button>
-                            <button class="seg-btn" id="cam-mode-flight">6-DOF Flight (V)</button>
-                        </div>
+                        <label class="group-label">Lens & Optics</label>
+                        <div class="sliders-stack" id="cam-params-container"></div>
                     </div>
 
                     <div class="drawer-group">

@@ -792,6 +792,64 @@ select option:checked,
     border-color: rgba(255, 255, 255, 0.15);
 }
 
+.preset-btn.active {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--brand-accent);
+    color: var(--text-primary);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Camera Presets Grid */
+.camera-presets-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 7px;
+    margin-bottom: 4px;
+}
+
+.cam-preset-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--drawer-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cam-preset-btn:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+.cam-preset-btn.active {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--brand-accent);
+    color: var(--text-primary);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.05);
+}
+
+.cam-preset-title {
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.cam-preset-desc {
+    font-size: 0.63rem;
+    color: var(--text-tertiary);
+    line-height: 1.25;
+}
+
 /* Segmented & Pill Controls */
 .segmented-control {
     display: flex;

@@ -46,9 +46,12 @@ export class CameraController {
         this.orbitRadius = 1.2;
         this.idealDistance = 1.2;
         
-        // Manual Zoom Override State & Callback
+        // Manual Zoom Override State & Heavy Inertial Zoom Physics
         this.isZoomOverridden = false;
         this.onZoomOverrideChange = null;
+        this.targetOrbitRadius = 1.2;
+        this.zoomDamping = 5.2; // Heavy viscous damping: cinematic weighty glide
+        this.zoomSensitivity = 0.00042; // Controlled, weighted zoom step per wheel notch
         
         // Flight rotation euler (yaw, pitch, roll)
         this.yaw = 0.0;
@@ -78,6 +81,10 @@ export class CameraController {
         this.autoRotate = true;
         this.autoRotateSpeed = 0.035; // Horizontal drift
         this.autoRotatePitchSpeed = 0.016; // Vertical pitch drift
+
+        // Cinematic Camera Presets ('turntable' | 'action' | 'flyby' | 'follow' | 'dynamic' | 'hero')
+        this.activeCameraPreset = 'turntable';
+        this.presetTime = 0.0;
 
         this.hasMoved = true;
         this.setupInputListeners();
@@ -119,6 +126,7 @@ export class CameraController {
 
     resetToDefaultZoom() {
         this.setZoomOverridden(false);
+        this.targetOrbitRadius = this.idealDistance;
         this.hasMoved = true;
     }
 
@@ -134,12 +142,97 @@ export class CameraController {
         const dy = this.pos[1] - this.target[1];
         const dz = this.pos[2] - this.target[2];
         this.orbitRadius = Math.max(0.01, Math.hypot(dx, dy, dz));
+        this.targetOrbitRadius = this.orbitRadius;
         this.angularVelYaw = 0.0;
         this.angularVelPitch = 0.0;
         this.yaw = Math.atan2(-dx, -dz);
         this.pitch = 0;
         this.roll = 0;
+        this.activeCameraPreset = 'turntable';
+        this.presetTime = 0.0;
         this.setZoomOverridden(false);
+        this.hasMoved = true;
+    }
+
+    setCameraPreset(presetName) {
+        this.activeCameraPreset = presetName;
+        this.presetTime = 0.0;
+        if (this.mode !== 'orbit') {
+            this.setMode('orbit');
+        }
+        this.hasMoved = true;
+    }
+
+    applyCameraPreset(dt) {
+        const baseR = this.idealDistance || 1.2;
+        const zoomScale = this.isZoomOverridden ? (this.orbitRadius / baseR) : 1.0;
+        const R = baseR * zoomScale;
+
+        let tx = 0.0, ty = 0.0, tz = 0.0;
+        let px = this.pos[0], py = this.pos[1], pz = this.pos[2];
+
+        if (this.activeCameraPreset === 'action') {
+            // Action Cam: High-energy chase with dynamic banking and handheld micro-shake
+            const t = this.presetTime * 0.75;
+            const rMod = R * (0.88 + 0.24 * Math.sin(2.2 * t));
+            px = rMod * Math.cos(t);
+            py = R * 0.38 * Math.cos(1.6 * t);
+            pz = rMod * Math.sin(t);
+            
+            // Handheld micro-shake noise
+            const shakeX = 0.007 * Math.sin(t * 16.0) + 0.003 * Math.cos(t * 29.0);
+            const shakeY = 0.006 * Math.cos(t * 19.0) + 0.003 * Math.sin(t * 31.0);
+            const shakeZ = 0.005 * Math.sin(t * 23.0);
+            px += shakeX; py += shakeY; pz += shakeZ;
+
+            tx = R * 0.08 * Math.sin(t * 1.3);
+            ty = R * 0.06 * Math.cos(t * 1.7);
+            tz = R * 0.08 * Math.cos(t * 1.3);
+        } else if (this.activeCameraPreset === 'flyby') {
+            // Fly-By Cam: Sweeping Lissajous figure-8 slalom curving close past spires
+            const t = this.presetTime * 0.36;
+            px = R * 1.35 * Math.sin(t);
+            py = R * 0.52 * Math.sin(2.0 * t);
+            pz = R * 1.22 * Math.cos(t);
+            tx = R * 0.16 * Math.sin(t * 1.5);
+            ty = R * 0.10 * Math.cos(t * 2.0);
+            tz = R * 0.14 * Math.cos(t * 1.5);
+        } else if (this.activeCameraPreset === 'follow') {
+            // Follow Cam: Low-altitude orbital sweep hugging contour ridges
+            const t = this.presetTime * 0.26;
+            const followR = R * 0.62;
+            px = followR * Math.cos(t);
+            py = followR * 0.28 * Math.sin(t * 2.0) + followR * 0.12;
+            pz = followR * Math.sin(t);
+            tx = followR * 0.42 * Math.cos(t + 0.6);
+            ty = followR * 0.20 * Math.sin((t + 0.6) * 2.0);
+            tz = followR * 0.42 * Math.sin(t + 0.6);
+        } else if (this.activeCameraPreset === 'dynamic') {
+            // Dynamic Cam: Vortex corkscrew spiral dive plunging in and out of core
+            const t = this.presetTime * 0.40;
+            const spiralR = R * (0.88 + 0.44 * Math.sin(t * 0.55));
+            px = spiralR * Math.sin(t);
+            py = R * 0.55 * Math.cos(t * 0.55);
+            pz = spiralR * Math.cos(t);
+            tx = 0.0; ty = 0.0; tz = 0.0;
+        } else if (this.activeCameraPreset === 'hero') {
+            // Hero Shot: Imposing low-angle perspective looking upward at the towers
+            const t = this.presetTime * 0.16;
+            px = R * 0.70 * Math.sin(t);
+            py = -R * 0.42 + 0.06 * Math.sin(t * 0.8);
+            pz = R * 0.88 * Math.cos(t);
+            tx = 0.0; ty = R * 0.22; tz = 0.0;
+        }
+
+        const lerpSpeed = Math.min(1.0, (this.activeCameraPreset === 'action' ? 6.5 : 4.2) * dt);
+        this.pos[0] += (px - this.pos[0]) * lerpSpeed;
+        this.pos[1] += (py - this.pos[1]) * lerpSpeed;
+        this.pos[2] += (pz - this.pos[2]) * lerpSpeed;
+        this.target[0] += (tx - this.target[0]) * lerpSpeed;
+        this.target[1] += (ty - this.target[1]) * lerpSpeed;
+        this.target[2] += (tz - this.target[2]) * lerpSpeed;
+
+        this.orbitRadius = Math.hypot(this.pos[0] - this.target[0], this.pos[1] - this.target[1], this.pos[2] - this.target[2]);
         this.hasMoved = true;
     }
 
@@ -213,25 +306,22 @@ export class CameraController {
             }
         });
 
-        // Wheel Zoom
+        // Heavy Inertial Wheel Zoom (Buttery smooth exponential glide with physical mass feeling)
         this.canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
             if (this.mode === 'orbit') {
-                const zoomFactor = Math.exp(e.deltaY * 0.001);
-                const offset = [
-                    (this.pos[0] - this.target[0]) * zoomFactor,
-                    (this.pos[1] - this.target[1]) * zoomFactor,
-                    (this.pos[2] - this.target[2]) * zoomFactor
-                ];
-                const newRadius = Math.hypot(offset[0], offset[1], offset[2]);
-                if (newRadius >= 0.02 && newRadius <= 100.0) {
-                    this.orbitRadius = newRadius;
-                    this.pos[0] = this.target[0] + offset[0];
-                    this.pos[1] = this.target[1] + offset[1];
-                    this.pos[2] = this.target[2] + offset[2];
-                    this.hasMoved = true;
-                    this.setZoomOverridden(true);
+                this.setZoomOverridden(true);
+                // Clamp delta to prevent platform-specific mousewheel surges
+                const clampedDelta = Math.max(-120, Math.min(120, e.deltaY));
+                
+                // Keep target synced if external systems changed orbitRadius
+                if (Math.abs(this.targetOrbitRadius - this.orbitRadius) > 3.0) {
+                    this.targetOrbitRadius = this.orbitRadius;
                 }
+
+                // Weighted exponential distance scaling
+                const zoomFactor = Math.exp(clampedDelta * this.zoomSensitivity);
+                this.targetOrbitRadius = Math.max(0.04, Math.min(60.0, this.targetOrbitRadius * zoomFactor));
             } else {
                 this.speedMultiplier = Math.max(0.1, Math.min(10.0, this.speedMultiplier * (e.deltaY < 0 ? 1.15 : 0.87)));
             }
@@ -480,6 +570,7 @@ export class CameraController {
         // Smooth critically damped exponential ease
         const lerpSpeed = Math.min(1.0, 5.5 * dt);
         this.orbitRadius += (idealDistance - this.orbitRadius) * lerpSpeed;
+        this.targetOrbitRadius = this.orbitRadius;
 
         // Smoothly recenter target if it was panned
         if (Math.hypot(this.target[0], this.target[1], this.target[2]) > 0.001) {
@@ -558,6 +649,28 @@ export class CameraController {
 
             if (moved) this.hasMoved = true;
         } else if (this.mode === 'orbit') {
+            // Smooth heavy viscous zoom glide towards target distance
+            if (this.isZoomOverridden) {
+                const diff = this.targetOrbitRadius - this.orbitRadius;
+                if (Math.abs(diff) > 0.0001) {
+                    const factor = 1.0 - Math.exp(-this.zoomDamping * dt);
+                    this.orbitRadius += diff * factor;
+
+                    // Reposition camera pos smoothly along current view direction
+                    const offset = [
+                        this.pos[0] - this.target[0],
+                        this.pos[1] - this.target[1],
+                        this.pos[2] - this.target[2]
+                    ];
+                    const curDist = Math.hypot(offset[0], offset[1], offset[2]) || 1.0;
+                    const scale = this.orbitRadius / curDist;
+                    this.pos[0] = this.target[0] + offset[0] * scale;
+                    this.pos[1] = this.target[1] + offset[1] * scale;
+                    this.pos[2] = this.target[2] + offset[2] * scale;
+                    this.hasMoved = true;
+                }
+            }
+
             const hasAngularImpulse = (Math.abs(this.angularVelYaw) > 0.00002 || Math.abs(this.angularVelPitch) > 0.00002);
 
             if (!this.isDraggingOrbit && hasAngularImpulse) {
@@ -567,9 +680,16 @@ export class CameraController {
                 // Heavy viscous friction drag (preserves sustained weighty glide)
                 this.angularVelYaw *= this.inertiaFriction;
                 this.angularVelPitch *= this.inertiaFriction;
-            } else if (!this.isDraggingOrbit && this.autoRotate) {
-                // Continuous multi-axis auto-rotation in all directions
-                this.rotateOrbit(this.autoRotateSpeed * dt, this.autoRotatePitchSpeed * dt * 0.4);
+            } else if (!this.isDraggingOrbit) {
+                if (this.activeCameraPreset === 'turntable') {
+                    if (this.autoRotate) {
+                        // Continuous multi-axis auto-rotation in all directions
+                        this.rotateOrbit(this.autoRotateSpeed * dt, this.autoRotatePitchSpeed * dt * 0.4);
+                    }
+                } else {
+                    this.presetTime += dt;
+                    this.applyCameraPreset(dt);
+                }
             }
         }
 
