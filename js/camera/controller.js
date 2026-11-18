@@ -213,7 +213,52 @@ export class CameraController {
                 return corrected;
             }
 
-            setMode(newMode) {
+            // Distance estimate at radius r along the current camera->target ray (orbit mode)
+    deAtRadius(dir, r) {
+        const p = [this.target[0] + dir[0] * r, this.target[1] + dir[1] * r, this.target[2] + dir[2] * r];
+        const d = this.collisionProvider(p);
+        return isNaN(d) ? 0.0 : d;
+    }
+
+    // Silky orbit clearance: never teleports. Eases the camera outward with a critically-damped
+    // exponential whenever it enters the soft zone around the surface, so the camera "glides off"
+    // the shape instead of bouncing.
+    smoothOrbitClearance(dt) {
+        const soft = this.safeRadius * 2.5;
+        const off = [this.pos[0] - this.target[0], this.pos[1] - this.target[1], this.pos[2] - this.target[2]];
+        const curR = Math.hypot(off[0], off[1], off[2]);
+        if (curR < 1e-6) return false;
+        const dir = [off[0] / curR, off[1] / curR, off[2] / curR];
+        if (this.deAtRadius(dir, curR) >= soft) return false;
+
+        // Find the nearest clear radius further out along the ray
+        let needR = curR;
+        for (let i = 0; i < 40; i++) {
+            needR += 0.04 + i * 0.01;
+            if (this.deAtRadius(dir, needR) >= soft) break;
+        }
+        const k = 1.0 - Math.exp(-6.0 * dt);
+        const newR = curR + (needR - curR) * k;
+        this.pos[0] = this.target[0] + dir[0] * newR;
+        this.pos[1] = this.target[1] + dir[1] * newR;
+        this.pos[2] = this.target[2] + dir[2] * newR;
+        this.orbitRadius = newR;
+        this.targetOrbitRadius = Math.max(this.targetOrbitRadius, newR);
+        this.hasMoved = true;
+        return true;
+    }
+
+    // True if moving to radius r (same direction) would enter the surface soft zone
+    wouldEnterSurface(r) {
+        if (!this.collisionEnabled || !this.collisionProvider || this.collisionSuspended) return false;
+        const off = [this.pos[0] - this.target[0], this.pos[1] - this.target[1], this.pos[2] - this.target[2]];
+        const curR = Math.hypot(off[0], off[1], off[2]);
+        if (curR < 1e-6) return false;
+        const dir = [off[0] / curR, off[1] / curR, off[2] / curR];
+        return this.deAtRadius(dir, r) < this.safeRadius * 3.0;
+    }
+
+    setMode(newMode) {
                 if (this.mode === newMode) return;
                 this.mode = newMode;
                 if (newMode === 'flight') {
@@ -375,7 +420,7 @@ export class CameraController {
                 }
 
                 // Heavy, silky-smooth fluid camera head damping
-                const lerpSpeed = Math.min(1.0, 2.2 * dt);
+                const lerpSpeed = 1.0 - Math.exp(-2.2 * dt);
                 this.pos[0] += (goalPx - this.pos[0]) * lerpSpeed;
                 this.pos[1] += (goalPy - this.pos[1]) * lerpSpeed;
                 this.pos[2] += (goalPz - this.pos[2]) * lerpSpeed;
@@ -732,6 +777,10 @@ export class CameraController {
                 if (this.isZoomOverridden) return;
 
                 let targetDist = canonDist;
+        // Look-ahead: never glide inward into the surface soft zone (prevents zoom/collision bounce)
+        if (targetDist < this.orbitRadius && this.wouldEnterSurface(this.orbitRadius - Math.min(0.05, this.orbitRadius - targetDist))) {
+            targetDist = this.orbitRadius;
+        }
                 // If canonDist is closer than the safe surface distance along the current viewing ray,
                 // clamp targetDist so auto-zoom NEVER pulls the camera into the solid
                 if (this.collisionEnabled && this.collisionProvider && !this.collisionSuspended) {
@@ -748,7 +797,7 @@ export class CameraController {
                 if (Math.abs(diff) < 0.0002 && targetOffset < 0.0002) return;
 
                 // Smooth critically damped exponential ease
-                const lerpSpeed = Math.min(1.0, 4.5 * dt);
+                const lerpSpeed = 1.0 - Math.exp(-4.5 * dt);
                 this.orbitRadius += diff * lerpSpeed;
                 this.targetOrbitRadius = this.orbitRadius;
 
@@ -858,7 +907,11 @@ export class CameraController {
                             this.targetOrbitRadius = minOrbitR;
                         }
 
-                        const diff = this.targetOrbitRadius - this.orbitRadius;
+                        let diff = this.targetOrbitRadius - this.orbitRadius;
+                        if (diff < 0 && this.wouldEnterSurface(this.orbitRadius + diff * (1.0 - Math.exp(-this.zoomDamping * dt)))) {
+                            this.targetOrbitRadius = this.orbitRadius;
+                            diff = 0.0;
+                        }
                         if (Math.abs(diff) > 0.0001) {
                             const factor = 1.0 - Math.exp(-this.zoomDamping * dt);
                             this.orbitRadius += diff * factor;
@@ -888,8 +941,9 @@ export class CameraController {
                         this.rotateOrbit(this.angularVelYaw, this.angularVelPitch);
 
                         // Heavy viscous friction drag (preserves sustained weighty glide)
-                        this.angularVelYaw *= this.inertiaFriction;
-                        this.angularVelPitch *= this.inertiaFriction;
+                        const fr = Math.pow(this.inertiaFriction, Math.min(3.0, dt * 60.0));
+                this.angularVelYaw *= fr;
+                        this.angularVelPitch *= fr;
                     } else if (!this.isDraggingOrbit) {
                         if (this.activeCameraPreset === 'turntable' && this.presetBlendProgress >= 1.0) {
                             if (this.autoRotate) {
@@ -907,7 +961,7 @@ export class CameraController {
                 // Camera can get as close as safeRadius to the surface, but NEVER penetrates inside solid geometry
                 this.collisionPushed = false;
                 if (this.collisionEnabled && this.collisionProvider && !this.collisionSuspended) {
-                        const pushed = this.resolveCollision(this.pos);
+                        const pushed = (this.mode === 'orbit') ? this.smoothOrbitClearance(dt) : this.resolveCollision(this.pos);
                         if (pushed) {
                             this.collisionPushed = true;
                             this.hasMoved = true;
