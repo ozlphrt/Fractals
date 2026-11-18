@@ -1030,6 +1030,13 @@ float mapFractal(vec3 pos, out vec4 trap) {
         ],
         glsl: `
 // 4D Quaternion Mandelbrot Set DE (Hubbard-Douady analytic distance estimator)
+vec4 quatSq(vec4 q) {
+    return vec4(
+        q.x * q.x - dot(q.yzw, q.yzw),
+        2.0 * q.x * q.yzw
+    );
+}
+
 float mapFractal(vec3 pos, out vec4 trap) {
     vec4 c = vec4(pos, u_qm_slice_w);
     
