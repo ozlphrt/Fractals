@@ -470,6 +470,9 @@ export class CameraController {
                 this.target[2] += (goalTz - this.target[2]) * lerpSpeed;
 
                 this.orbitRadius = Math.hypot(this.pos[0] - this.target[0], this.pos[1] - this.target[1], this.pos[2] - this.target[2]);
+                if (this.isZoomOverridden) {
+                    this.targetOrbitRadius = this.orbitRadius;
+                }
                 this.hasMoved = true;
             }
 
@@ -609,12 +612,16 @@ export class CameraController {
                         const dx = e.touches[0].clientX - e.touches[1].clientX;
                         const dy = e.touches[0].clientY - e.touches[1].clientY;
                         const currentPinchDist = Math.hypot(dx, dy);
+                        if (initialPinchDist <= 5) {
+                            initialPinchDist = currentPinchDist;
+                            initialRadius = this.orbitRadius;
+                        }
                         if (initialPinchDist > 5 && currentPinchDist > 5) {
                             const ratio = initialPinchDist / currentPinchDist;
-                            if (Math.abs(ratio - 1.0) > 0.02) {
-                                this.setZoomOverridden(true);
-                            }
-                            const targetRadius = Math.max(0.02, Math.min(60.0, initialRadius * ratio));
+                            this.setZoomOverridden(true);
+                            const targetRadius = Math.max(0.04, Math.min(60.0, initialRadius * ratio));
+                            this.orbitRadius = targetRadius;
+                            this.targetOrbitRadius = targetRadius;
                             const currentOffset = [
                                 this.pos[0] - this.target[0],
                                 this.pos[1] - this.target[1],
@@ -622,7 +629,6 @@ export class CameraController {
                             ];
                             const currentLen = Math.hypot(currentOffset[0], currentOffset[1], currentOffset[2]) || 1.0;
                             const scale = targetRadius / currentLen;
-                            this.orbitRadius = targetRadius;
                             this.pos[0] = this.target[0] + currentOffset[0] * scale;
                             this.pos[1] = this.target[1] + currentOffset[1] * scale;
                             this.pos[2] = this.target[2] + currentOffset[2] * scale;
@@ -653,11 +659,22 @@ export class CameraController {
                 this.canvas.addEventListener('touchend', (e) => {
                     if (e.touches.length === 0) {
                         this.isDraggingOrbit = false;
+                        initialPinchDist = 0;
                     } else if (e.touches.length === 1) {
                         lastTouchX = e.touches[0].clientX;
                         lastTouchY = e.touches[0].clientY;
                         this.isDraggingOrbit = true;
+                        initialPinchDist = 0;
+                        this.angularVelYaw = 0.0;
+                        this.angularVelPitch = 0.0;
                     }
+                });
+
+                this.canvas.addEventListener('touchcancel', () => {
+                    this.isDraggingOrbit = false;
+                    initialPinchDist = 0;
+                    this.angularVelYaw = 0.0;
+                    this.angularVelPitch = 0.0;
                 });
 
                 document.addEventListener('pointerlockchange', () => {
@@ -937,7 +954,7 @@ export class CameraController {
                 } else if (this.mode === 'orbit') {
                     // Smooth heavy viscous zoom glide towards target distance
                     if (this.isZoomOverridden) {
-                        const minOrbitR = (this.idealDistance || 1.6) * 0.42;
+                        const minOrbitR = Math.max(0.04, this.safeRadius * 1.5);
                         if (this.collisionEnabled && this.targetOrbitRadius < minOrbitR) {
                             this.targetOrbitRadius = minOrbitR;
                         }
