@@ -179,7 +179,9 @@ export class Raymarcher {
             
             vec3 mapped = aces(rawCol);
             mapped = pow(mapped, vec3(1.0 / 2.2));
-            fragColor = vec4(mapped, 1.0);
+            // 8-bit gradient dither eliminates color tearing and Mach bands on smooth gradients
+            float dither = (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
+            fragColor = vec4(clamp(mapped + vec3(dither), 0.0, 1.0), 1.0);
         }`;
 
         const vs = this.compileShader(gl.VERTEX_SHADER, vsSource);
@@ -345,8 +347,9 @@ void main() {
     float fovFactor = tan(radians(u_fov * 0.5));
     vec3 rd = normalize(p.x * uu * fovFactor + p.y * vv * fovFactor + ww);
     
-    // Raymarching
-    float t = max(0.01, u_near_clip);
+    // Raymarching with sub-step screen dither to eliminate step-alignment contouring
+    float dither = fract(sin(dot(fragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    float t = max(0.01, u_near_clip) + dither * (u_hit_epsilon * 0.35);
     float maxDist = 32.0;
     vec4 trap = vec4(100.0);
     vec4 finalTrap = vec4(0.0);
@@ -373,8 +376,12 @@ void main() {
                 continue;
             }
             hit = true;
-            t = max(0.005, t - d * 0.4);
-            finalTrap = trap;
+            // 4-step secant/Newton root refinement: converges t to exact zero-crossing surface boundary
+            for (int ref = 0; ref < 4; ref++) {
+                float rd_d = map(ro + rd * t);
+                t += rd_d;
+            }
+            mapFractal(ro + rd * t, finalTrap);
             break;
         }
         t += max(u_hit_epsilon * 0.5, d * 0.88);
@@ -391,7 +398,9 @@ void main() {
     
     if (hit) {
         vec3 pos = ro + rd * t;
-        vec3 nor = calcNormal(pos, max(0.0012, u_hit_epsilon * 0.9));
+        // Fine, distance-adaptive normal finite-difference epsilon (decoupled from hit_epsilon)
+        float normEps = clamp(0.0006 + t * 0.00025, 0.0005, 0.002);
+        vec3 nor = calcNormal(pos, normEps);
         float ao = calcAO(pos, nor);
         
         // Orbit trap selection for coloring
