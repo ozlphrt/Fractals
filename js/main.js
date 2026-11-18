@@ -216,6 +216,9 @@ class FractalSynthApp {
                 this.camera.setCollisionProvider(null);
             }
 
+            // Suspend camera collision while the formula is morphing (outgoing DE is meaningless then)
+            this.camera.collisionSuspended = Boolean(this.state.formulaMorph);
+
             // 5b. Auto zoom to include 80% of the fractal inside the viewport at all times
             this.camera.updateAutoZoom(activeFormula, this.state.values, this.state.get('fov') || 60, dt, this.state.formulaMorph);
 
