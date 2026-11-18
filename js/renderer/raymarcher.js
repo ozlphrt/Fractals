@@ -408,19 +408,18 @@ vec3 hashStar(vec3 p) {
     return fract((p.xxy + p.yxx) * p.zyx);
 }
 
-// Delicate, flicker-free celestial starfield (subtle, sparse, deep-space ambiance)
-// Evaluates true unit-sphere celestial directions across an 8-cell neighborhood
+// Realistic astronomical starfield: sparse, natural magnitude power-law distribution
+// Features genuine stellar diffraction point-spread falloff and OBAFGKM spectral temperatures
 vec3 getStarField(vec3 dir) {
     vec3 stars = vec3(0.0);
     
     // Pixel angular footprint in radians
     float pixAngle = 2.0 / max(100.0, min(u_resolution.x, u_resolution.y));
-    float rBase = pixAngle * 1.15; // Crisp subpixel pinprick without aliasing
-    float r2Base = rBase * rBase;
+    float rBase = pixAngle * 1.05; // True crisp subpixel pinpoint
     
-    // Layer 1: Sparse, subtle background star pinpricks
+    // Layer 1: Faint, delicate background star dust (deep cosmic canvas)
     {
-        float N = 20.0;
+        float N = 22.0;
         vec3 p = dir * N;
         vec3 base = floor(p);
         
@@ -429,78 +428,67 @@ vec3 getStarField(vec3 dir) {
                 for (int k = 0; k <= 1; k++) {
                     vec3 cell = base + vec3(float(i), float(j), float(k));
                     vec3 rnd = hashStar(cell);
-                    // Sparse density: only ~6% of cells contain a star
-                    if (rnd.x < 0.94) continue;
+                    // Sparse: only ~7% of cells
+                    if (rnd.x < 0.93) continue;
                     
-                    vec3 starDir = normalize(cell + (rnd - 0.5) * 0.76);
+                    vec3 starDir = normalize(cell + (rnd - 0.5) * 0.74);
                     float dist2 = 2.0 * max(0.0, 1.0 - dot(dir, starDir));
+                    float dist = sqrt(dist2);
                     
-                    if (dist2 < r2Base) {
-                        float q = 1.0 - dist2 / r2Base;
-                        float star = q * q;
-                        float brightness = rnd.y * 0.35 + 0.20;
-                        vec3 starCol = mix(vec3(0.75, 0.85, 1.0), vec3(1.0, 0.95, 0.85), rnd.z);
-                        stars += starCol * (star * brightness * 0.50);
+                    if (dist < rBase) {
+                        float normD = dist / rBase;
+                        // Steep optical point-spread function: sharp central needle with smooth zero-derivative boundary
+                        float psf = exp(-normD * 3.6) * (1.0 - normD * normD);
+                        // Power-law apparent magnitude distribution: vast majority are faint, only rare ones brighter
+                        float mag = pow(rnd.y, 4.2) * 0.16 + 0.015;
+                        
+                        // Astronomical spectral classification (O/B blue-white, A pure white, G/K warm gold)
+                        vec3 starCol;
+                        if (rnd.z < 0.50) {
+                            starCol = mix(vec3(0.72, 0.86, 1.0), vec3(0.96, 0.98, 1.0), rnd.z / 0.50);
+                        } else {
+                            starCol = mix(vec3(0.96, 0.98, 1.0), vec3(1.0, 0.88, 0.68), (rnd.z - 0.50) / 0.50);
+                        }
+                        stars += starCol * (psf * mag);
                     }
                 }
             }
         }
     }
     
-    // Layer 2: Occasional medium navigation stars (gentle, steady points)
+    // Layer 2: Rare navigational landmark stars (subtle, graceful beacons)
     {
-        float N = 12.0;
+        float N = 10.0;
         vec3 p = dir * N;
         vec3 base = floor(p);
-        float r2Med = r2Base * 1.25;
+        float rMed = rBase * 1.25;
         
         for (int i = 0; i <= 1; i++) {
             for (int j = 0; j <= 1; j++) {
                 for (int k = 0; k <= 1; k++) {
                     vec3 cell = base + vec3(float(i), float(j), float(k));
-                    vec3 rnd = hashStar(cell + 43.17);
-                    // Rare: only ~4% of cells
-                    if (rnd.x < 0.96) continue;
+                    vec3 rnd = hashStar(cell + 47.19);
+                    // Very rare: only ~3.5% of cells
+                    if (rnd.x < 0.965) continue;
                     
-                    vec3 starDir = normalize(cell + (rnd - 0.5) * 0.76);
+                    vec3 starDir = normalize(cell + (rnd - 0.5) * 0.74);
                     float dist2 = 2.0 * max(0.0, 1.0 - dot(dir, starDir));
+                    float dist = sqrt(dist2);
                     
-                    if (dist2 < r2Med) {
-                        float q = 1.0 - dist2 / r2Med;
-                        float star = q * q;
-                        float brightness = rnd.y * 0.40 + 0.30;
-                        vec3 starCol = mix(vec3(0.80, 0.90, 1.0), vec3(1.0, 0.88, 0.72), rnd.z);
-                        stars += starCol * (star * brightness * 0.70);
-                    }
-                }
-            }
-        }
-    }
-
-    // Layer 3: Very rare celestial landmark stars (tasteful, non-overpowering)
-    {
-        float N = 7.0;
-        vec3 p = dir * N;
-        vec3 base = floor(p);
-        float r2Big = r2Base * 1.45;
-        
-        for (int i = 0; i <= 1; i++) {
-            for (int j = 0; j <= 1; j++) {
-                for (int k = 0; k <= 1; k++) {
-                    vec3 cell = base + vec3(float(i), float(j), float(k));
-                    vec3 rnd = hashStar(cell + 89.41);
-                    // Ultra rare: only ~2.5% of cells
-                    if (rnd.x < 0.975) continue;
-                    
-                    vec3 starDir = normalize(cell + (rnd - 0.5) * 0.76);
-                    float dist2 = 2.0 * max(0.0, 1.0 - dot(dir, starDir));
-                    
-                    if (dist2 < r2Big) {
-                        float q = 1.0 - dist2 / r2Big;
-                        float star = q * q;
-                        float brightness = rnd.y * 0.45 + 0.40;
-                        vec3 starCol = mix(vec3(0.70, 0.85, 1.0), vec3(1.0, 0.90, 0.75), rnd.z);
-                        stars += starCol * (star * brightness * 0.85);
+                    if (dist < rMed) {
+                        float normD = dist / rMed;
+                        float psf = exp(-normD * 3.4) * (1.0 - normD * normD);
+                        float mag = pow(rnd.y, 3.5) * 0.24 + 0.035;
+                        
+                        vec3 starCol;
+                        if (rnd.z < 0.45) {
+                            starCol = mix(vec3(0.75, 0.88, 1.0), vec3(0.98, 0.98, 1.0), rnd.z / 0.45);
+                        } else if (rnd.z < 0.85) {
+                            starCol = mix(vec3(0.98, 0.98, 1.0), vec3(1.0, 0.90, 0.72), (rnd.z - 0.45) / 0.40);
+                        } else {
+                            starCol = mix(vec3(1.0, 0.90, 0.72), vec3(1.0, 0.76, 0.58), (rnd.z - 0.85) / 0.15);
+                        }
+                        stars += starCol * (psf * mag);
                     }
                 }
             }
@@ -545,24 +533,24 @@ vec3 getComet(vec3 rd, float time) {
     
     // Head glowing nucleus & coma
     float distToHead = length(rd - headPos);
-    float nucleus = smoothstep(0.006, 0.0, distToHead) * 3.5;
-    float coma = exp(-distToHead * 140.0) * 1.8;
+    float nucleus = smoothstep(0.005, 0.0, distToHead) * 1.1;
+    float coma = exp(-distToHead * 160.0) * 0.55;
     
     // Tail calculation
     vec3 toRd = rd - headPos;
     float tailDistAlong = dot(toRd, tailDir);
     float tailGlow = 0.0;
     
-    float maxTailLen = 0.28;
+    float maxTailLen = 0.26;
     if (tailDistAlong > 0.0 && tailDistAlong < maxTailLen) {
         vec3 perp = toRd - tailDir * tailDistAlong;
         float distPerp = length(perp);
         
-        float tailWidth = 0.003 + tailDistAlong * 0.035;
+        float tailWidth = 0.0025 + tailDistAlong * 0.032;
         float tailFade = smoothstep(maxTailLen, 0.0, tailDistAlong);
         
-        float ionTrail = exp(-distPerp / (tailWidth * 0.4)) * tailFade * 1.5;
-        float dustTrail = exp(-distPerp / tailWidth) * tailFade * 0.7;
+        float ionTrail = exp(-distPerp / (tailWidth * 0.4)) * tailFade * 0.55;
+        float dustTrail = exp(-distPerp / tailWidth) * tailFade * 0.28;
         
         tailGlow = ionTrail + dustTrail;
     }
