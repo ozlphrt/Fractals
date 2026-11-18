@@ -116,14 +116,6 @@ export const COHESIVE_FORMULA_BOUNDS = {
     apol_rot_x: { min: -0.1, max: 0.1 },
     apol_rot_y: { min: -0.1, max: 0.1 },
 
-    // Dodecahedron IFS: Sacred golden ratio polyhedra
-    dodec_scale: { min: 1.85, max: 2.45 },
-    dodec_offset: { min: 0.7, max: 1.3 },
-    dodec_phi: { min: 1.52, max: 1.72 },
-    dodec_inversion: { min: 0.25, max: 0.75 },
-    dodec_rot_x: { min: -0.1, max: 0.1 },
-    dodec_rot_y: { min: -0.1, max: 0.1 },
-
     // 3D Burning Ship: Menacing volcanic towers
     bs_power: { min: 3.0, max: 15.0 },
     bs_asym: { min: 0.0, max: 5.0 },

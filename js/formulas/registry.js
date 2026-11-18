@@ -8,7 +8,6 @@ export const FORMULA_IDS = {
     MANDELBOX: 'mandelbox',
     KIFS: 'kifs',
     APOLLONIAN: 'apollonian',
-    DODECAHEDRON: 'dodecahedron',
     BURNING_SHIP: 'burning_ship',
     JERUSALEM: 'jerusalem',
     QUAT_MANDELBROT: 'quat_mandelbrot'
@@ -614,174 +613,6 @@ float mapFractal(vec3 pos, out vec4 trap) {
         }
     },
 
-    [FORMULA_IDS.DODECAHEDRON]: {
-        id: FORMULA_IDS.DODECAHEDRON,
-        name: 'Dodecahedron IFS',
-        subtitle: 'Golden Ratio 12-Face Sacred Geometry',
-        defaultCam: {
-            pos: [1.7, 1.3, 2.5],
-            target: [0.0, 0.0, 0.0]
-        },
-        params: [
-            { id: 'dodec_scale', name: 'Scale Factor', min: 1.5, max: 2.8, step: 0.02, default: 2.18, uniform: 'u_dodec_scale', type: 'float' },
-            { id: 'dodec_offset', name: 'Core Offset', min: 0.4, max: 1.8, step: 0.02, default: 1.02, uniform: 'u_dodec_offset', type: 'float' },
-            { id: 'dodec_inversion', name: 'Void Hollow / Inversion', min: 0.0, max: 1.2, step: 0.02, default: 0.48, uniform: 'u_dodec_inversion', type: 'float' },
-            { id: 'dodec_phi', name: 'Golden Ratio Mod', min: 1.3, max: 1.9, step: 0.01, default: 1.618, uniform: 'u_dodec_phi', type: 'float' },
-            { id: 'dodec_rot_x', name: 'Fold Rot X', min: -0.3, max: 0.3, step: 0.01, default: 0.04, uniform: 'u_dodec_rot_x', type: 'float' },
-            { id: 'dodec_rot_y', name: 'Fold Rot Y', min: -0.3, max: 0.3, step: 0.01, default: 0.08, uniform: 'u_dodec_rot_y', type: 'float' },
-            { id: 'dodec_iterations', name: 'Iterations', min: 4, max: 16, step: 1, default: 11, uniform: 'u_dodec_iterations', type: 'int' }
-        ],
-        presets: [
-            {
-                name: 'Keplerian Sacred Stellation',
-                values: { dodec_scale: 2.18, dodec_offset: 1.02, dodec_inversion: 0.48, dodec_phi: 1.618, dodec_rot_x: 0.04, dodec_rot_y: 0.08, dodec_iterations: 11 }
-            },
-            {
-                name: 'Golden Alhambra Pavilion',
-                values: { dodec_scale: 2.05, dodec_offset: 0.88, dodec_inversion: 0.62, dodec_phi: 1.625, dodec_rot_x: 0.02, dodec_rot_y: 0.14, dodec_iterations: 12 }
-            },
-            {
-                name: 'Icosahedral Crystal Lotus',
-                values: { dodec_scale: 2.38, dodec_offset: 1.18, dodec_inversion: 0.35, dodec_phi: 1.58, dodec_rot_x: -0.06, dodec_rot_y: -0.05, dodec_iterations: 10 }
-            },
-            {
-                name: 'Celestial Kepler-Poinsot Sanctuary',
-                values: { dodec_scale: 2.48, dodec_offset: 1.25, dodec_inversion: 0.52, dodec_phi: 1.68, dodec_rot_x: 0.10, dodec_rot_y: 0.02, dodec_iterations: 11 }
-            }
-        ],
-        glsl: `
-// Dodecahedron / Icosahedron Golden Ratio IFS DE (Sacred Multi-Faceted Coxeter Lotus)
-float mapFractal(vec3 pos, out vec4 trap) {
-    vec3 p = pos;
-    float scale = u_dodec_scale;
-    vec4 orbit = vec4(100.0);
-    float dr = 1.0;
-    int maxIt = int(u_dodec_iterations);
-    
-    float phi = u_dodec_phi;
-    vec3 n1 = normalize(vec3(1.0, 0.0, phi));
-    vec3 n2 = normalize(vec3(0.0, phi, 1.0));
-    vec3 n3 = normalize(vec3(phi, 1.0, 0.0));
-    
-    mat3 rot = rotX(u_dodec_rot_x) * rotY(u_dodec_rot_y);
-    float inv = u_dodec_inversion;
-    float minR2 = inv * 0.25;
-    float fixedR2 = inv * 1.0;
-    
-    for (int i = 0; i < 16; i++) {
-        if (i >= maxIt) break;
-        p = rot * p;
-        
-        // Dihedral Coxeter folding (interlocking gothic crystalline facets)
-        p = abs(p);
-        if (p.x - p.y < 0.0) p.xy = p.yx;
-        if (p.x - p.z < 0.0) p.xz = p.zx;
-        if (p.y - p.z < 0.0) p.yz = p.zy;
-        
-        // Golden ratio 12-face dodecahedral reflection folds
-        float d1 = dot(p, n1);
-        if (d1 < 0.0) p -= 2.0 * d1 * n1;
-        float d2 = dot(p, n2);
-        if (d2 < 0.0) p -= 2.0 * d2 * n2;
-        float d3 = dot(p, n3);
-        if (d3 < 0.0) p -= 2.0 * d3 * n3;
-        
-        // Architectural sphere inversion hollow: carves arched galleries & star filigree
-        if (inv > 0.05) {
-            float r2 = dot(p, p);
-            if (r2 < minR2) {
-                float temp = fixedR2 / minR2;
-                p *= temp;
-                dr *= temp;
-            } else if (r2 < fixedR2) {
-                float temp = fixedR2 / r2;
-                p *= temp;
-                dr *= temp;
-            }
-        }
-        
-        p = p * scale - vec3(u_dodec_offset) * (scale - 1.0);
-        dr = dr * scale;
-        
-        orbit.x = min(orbit.x, length(p));
-        orbit.y = min(orbit.y, abs(p.x * p.y) + abs(p.z));
-        orbit.z = min(orbit.z, abs(dot(p, n1)));
-        orbit.w = float(i);
-    }
-    
-    trap = orbit;
-    return 0.65 * (length(p) - 1.0) / max(1e-4, dr);
-}
-`,
-        cpuEvalDE: (p, state) => {
-            let zx = p[0], zy = p[1], zz = p[2];
-            const scale = state.dodec_scale ?? 2.18;
-            const off = state.dodec_offset ?? 1.02;
-            const inv = state.dodec_inversion ?? 0.48;
-            const minR2 = inv * 0.25;
-            const fixedR2 = inv * 1.0;
-            const phi = state.dodec_phi ?? 1.618;
-            const l = Math.hypot(1.0, phi);
-            const n1 = [1.0 / l, 0.0, phi / l];
-            const n2 = [0.0, phi / l, 1.0 / l];
-            const n3 = [phi / l, 1.0 / l, 0.0];
-            const rx = state.dodec_rot_x ?? 0.04;
-            const ry = state.dodec_rot_y ?? 0.08;
-            const cx = Math.cos(rx), sx = Math.sin(rx);
-            const cy = Math.cos(ry), sy = Math.sin(ry);
-            const maxIt = Math.min(11, state.dodec_iterations ?? 11);
-            let dr = 1.0;
-
-            for (let i = 0; i < maxIt; i++) {
-                // rotX
-                const y1 = cx * zy - sx * zz;
-                const z1 = sx * zy + cx * zz;
-                // rotY
-                zx = cy * zx + sy * z1;
-                zz = -sy * zx + cy * z1;
-                zy = y1;
-
-                // Coxeter dihedral folds
-                zx = Math.abs(zx); zy = Math.abs(zy); zz = Math.abs(zz);
-                if (zx - zy < 0.0) { const t = zx; zx = zy; zy = t; }
-                if (zx - zz < 0.0) { const t = zx; zx = zz; zz = t; }
-                if (zy - zz < 0.0) { const t = zy; zy = zz; zz = t; }
-
-                // Golden dodecahedron folds
-                const d1 = zx * n1[0] + zy * n1[1] + zz * n1[2];
-                if (d1 < 0.0) { zx -= 2.0 * d1 * n1[0]; zy -= 2.0 * d1 * n1[1]; zz -= 2.0 * d1 * n1[2]; }
-                const d2 = zx * n2[0] + zy * n2[1] + zz * n2[2];
-                if (d2 < 0.0) { zx -= 2.0 * d2 * n2[0]; zy -= 2.0 * d2 * n2[1]; zz -= 2.0 * d2 * n2[2]; }
-                const d3 = zx * n3[0] + zy * n3[1] + zz * n3[2];
-                if (d3 < 0.0) { zx -= 2.0 * d3 * n3[0]; zy -= 2.0 * d3 * n3[1]; zz -= 2.0 * d3 * n3[2]; }
-
-                // Sphere inversion hollow
-                if (inv > 0.05) {
-                    const r2 = zx * zx + zy * zy + zz * zz;
-                    if (r2 < minR2) {
-                        const temp = fixedR2 / minR2;
-                        zx *= temp; zy *= temp; zz *= temp;
-                        dr *= temp;
-                    } else if (r2 < fixedR2) {
-                        const temp = fixedR2 / r2;
-                        zx *= temp; zy *= temp; zz *= temp;
-                        dr *= temp;
-                    }
-                }
-
-                zx = zx * scale - off * (scale - 1.0);
-                zy = zy * scale - off * (scale - 1.0);
-                zz = zz * scale - off * (scale - 1.0);
-                dr = dr * scale;
-
-                const r = Math.hypot(zx, zy, zz);
-                if (r > 600.0) break;
-            }
-            const len = Math.hypot(zx, zy, zz);
-            return 0.65 * (len - 1.0) / Math.max(1e-4, dr);
-        }
-    },
-
     [FORMULA_IDS.BURNING_SHIP]: {
         id: FORMULA_IDS.BURNING_SHIP,
         name: '3D Burning Ship',
@@ -992,9 +823,9 @@ float mapFractal(vec3 pos, out vec4 trap) {
             target: [0.0, 0.0, 0.0]
         },
         params: [
-            { id: 'qm_slice_w', name: '4D W-Slice', min: -1.0, max: 1.0, step: 0.02, default: 0.0, uniform: 'u_qm_slice_w', type: 'float' },
-            { id: 'qm_rot_xw', name: '4D Rot X-W', min: -3.14, max: 3.14, step: 0.02, default: 0.0, uniform: 'u_qm_rot_xw', type: 'float' },
-            { id: 'qm_rot_yw', name: '4D Rot Y-W', min: -3.14, max: 3.14, step: 0.02, default: 0.0, uniform: 'u_qm_rot_yw', type: 'float' },
+            { id: 'qm_slice_w', name: '4D W-Slice', min: -1.0, max: 1.0, step: 0.02, default: 0.18, uniform: 'u_qm_slice_w', type: 'float' },
+            { id: 'qm_rot_xw', name: '4D Rot X-W', min: -3.14, max: 3.14, step: 0.02, default: 0.52, uniform: 'u_qm_rot_xw', type: 'float' },
+            { id: 'qm_rot_yw', name: '4D Rot Y-W', min: -3.14, max: 3.14, step: 0.02, default: -0.38, uniform: 'u_qm_rot_yw', type: 'float' },
             { id: 'qm_iterations', name: 'Iterations', min: 6, max: 24, step: 1, default: 13, uniform: 'u_qm_iterations', type: 'int' }
         ],
         presets: [
@@ -1016,11 +847,13 @@ float mapFractal(vec3 pos, out vec4 trap) {
             }
         ],
         glsl: `
-// 4D Quaternion Mandelbrot Set DE (Hubbard-Douady analytic distance estimator)
+// 4D Hypercomplex Mandelbrot Set DE (Bicomplex multiplication eliminates parallel circular disc degeneracy)
 vec4 quatSq(vec4 q) {
     return vec4(
-        q.x * q.x - dot(q.yzw, q.yzw),
-        2.0 * q.x * q.yzw
+        q.x * q.x - q.y * q.y - q.z * q.z + q.w * q.w,
+        2.0 * (q.x * q.y - q.z * q.w),
+        2.0 * (q.x * q.z - q.y * q.w),
+        2.0 * (q.x * q.w + q.y * q.z)
     );
 }
 
@@ -1061,9 +894,9 @@ float mapFractal(vec3 pos, out vec4 trap) {
 }
 `,
         cpuEvalDE: (p, state) => {
-            let cx = p[0], cy = p[1], cz = p[2], cw = state.qm_slice_w ?? 0.0;
-            const cosXW = Math.cos(state.qm_rot_xw ?? 0.0), sinXW = Math.sin(state.qm_rot_xw ?? 0.0);
-            const cosYW = Math.cos(state.qm_rot_yw ?? 0.0), sinYW = Math.sin(state.qm_rot_yw ?? 0.0);
+            let cx = p[0], cy = p[1], cz = p[2], cw = state.qm_slice_w ?? 0.18;
+            const cosXW = Math.cos(state.qm_rot_xw ?? 0.52), sinXW = Math.sin(state.qm_rot_xw ?? 0.52);
+            const cosYW = Math.cos(state.qm_rot_yw ?? -0.38), sinYW = Math.sin(state.qm_rot_yw ?? -0.38);
             const nxw0 = cosXW * cx - sinXW * cw, nxw1 = sinXW * cx + cosXW * cw;
             cx = nxw0; cw = nxw1;
             const nyw0 = cosYW * cy - sinYW * cw, nyw1 = sinYW * cy + cosYW * cw;
@@ -1076,10 +909,10 @@ float mapFractal(vec3 pos, out vec4 trap) {
 
             for (let i = 0; i < maxIt; i++) {
                 md2 = 4.0 * mz2 * md2 + 1.0;
-                const nx = zx * zx - (zy * zy + zz * zz + zw * zw) + cx;
-                const ny = 2.0 * zx * zy + cy;
-                const nz = 2.0 * zx * zz + cz;
-                const nw = 2.0 * zx * zw + cw;
+                const nx = zx * zx - zy * zy - zz * zz + zw * zw + cx;
+                const ny = 2.0 * (zx * zy - zz * zw) + cy;
+                const nz = 2.0 * (zx * zz - zy * zw) + cz;
+                const nw = 2.0 * (zx * zw + zy * zz) + cw;
                 zx = nx; zy = ny; zz = nz; zw = nw;
                 mz2 = zx * zx + zy * zy + zz * zz + zw * zw;
                 if (mz2 > 16.0) break;

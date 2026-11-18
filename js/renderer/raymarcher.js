@@ -408,18 +408,76 @@ vec3 hashStar(vec3 p) {
     return fract((p.xxy + p.yxx) * p.zyx);
 }
 
-// Realistic astronomical starfield: sparse, natural magnitude power-law distribution
-// Features genuine stellar diffraction point-spread falloff and OBAFGKM spectral temperatures
+// Procedural 3D noise for celestial nebula clouds
+float hashNoise(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    vec3 h1 = hashStar(i);
+    vec3 h2 = hashStar(i + vec3(1.0, 0.0, 0.0));
+    vec3 h3 = hashStar(i + vec3(0.0, 1.0, 0.0));
+    vec3 h4 = hashStar(i + vec3(1.0, 1.0, 0.0));
+    vec3 h5 = hashStar(i + vec3(0.0, 0.0, 1.0));
+    vec3 h6 = hashStar(i + vec3(1.0, 0.0, 1.0));
+    vec3 h7 = hashStar(i + vec3(0.0, 1.0, 1.0));
+    vec3 h8 = hashStar(i + vec3(1.0, 1.0, 1.0));
+    
+    float n1 = mix(h1.x, h2.x, f.x);
+    float n2 = mix(h3.x, h4.x, f.x);
+    float n3 = mix(h5.x, h6.x, f.x);
+    float n4 = mix(h7.x, h8.x, f.x);
+    float nA = mix(n1, n2, f.y);
+    float nB = mix(n3, n4, f.y);
+    return mix(nA, nB, f.z);
+}
+
+float nebulaFBM(vec3 p) {
+    float f = 0.0;
+    f += 0.500 * hashNoise(p);
+    f += 0.250 * hashNoise(p * 2.02 + 1.7);
+    f += 0.125 * hashNoise(p * 4.05 + 3.2);
+    return f;
+}
+
+// Subtle, organic Milky Way galactic dust clouds and interstellar nebulosity
+vec3 getMilkyWay(vec3 rd) {
+    // Tilted galactic equator normal across celestial sphere
+    const vec3 galNormal = vec3(0.53, 0.76, 0.37);
+    float galLat = dot(rd, galNormal);
+    float band = exp(-abs(galLat) * 4.6);
+    if (band < 0.01) return vec3(0.0);
+    
+    // Core bulge toward Sagittarius
+    const vec3 galCenter = vec3(-0.62, 0.31, 0.72);
+    float centerProx = max(0.0, dot(rd, galCenter));
+    float bulge = pow(centerProx, 3.2) * 0.70;
+    
+    // Organic turbulence & dark absorption rift
+    float n = nebulaFBM(rd * 3.2);
+    float rift = smoothstep(0.04, 0.22, abs(galLat + (n - 0.5) * 0.16));
+    float cloudDensity = band * (n * 0.70 + bulge * 0.85) * (0.35 + 0.65 * rift);
+    
+    // Cosmic dust & gas colors (deep indigo, interstellar violet dust, warm galactic core)
+    vec3 colDust = vec3(0.038, 0.022, 0.048);
+    vec3 colCore = vec3(0.065, 0.048, 0.032);
+    vec3 colGas  = vec3(0.018, 0.035, 0.065);
+    
+    vec3 mw = mix(colGas, colDust, n) * (cloudDensity * 1.5);
+    mw += colCore * (bulge * band * 0.85);
+    return mw;
+}
+
+// Crisp, clearly visible celestial starfield with genuine point spread and spectral colors
 vec3 getStarField(vec3 dir) {
     vec3 stars = vec3(0.0);
     
     // Pixel angular footprint in radians
     float pixAngle = 2.0 / max(100.0, min(u_resolution.x, u_resolution.y));
-    float rBase = pixAngle * 1.05; // True crisp subpixel pinpoint
+    float rBase = pixAngle * 1.25;
     
-    // Layer 1: Faint, delicate background star dust (deep cosmic canvas)
+    // Layer 1: Clearly visible background stars
     {
-        float N = 22.0;
+        float N = 24.0;
         vec3 p = dir * N;
         vec3 base = floor(p);
         
@@ -428,8 +486,8 @@ vec3 getStarField(vec3 dir) {
                 for (int k = 0; k <= 1; k++) {
                     vec3 cell = base + vec3(float(i), float(j), float(k));
                     vec3 rnd = hashStar(cell);
-                    // Sparse: only ~7% of cells
-                    if (rnd.x < 0.93) continue;
+                    // ~14% density: pleasant, clear constellation field
+                    if (rnd.x < 0.86) continue;
                     
                     vec3 starDir = normalize(cell + (rnd - 0.5) * 0.74);
                     float dist2 = 2.0 * max(0.0, 1.0 - dot(dir, starDir));
@@ -437,39 +495,36 @@ vec3 getStarField(vec3 dir) {
                     
                     if (dist < rBase) {
                         float normD = dist / rBase;
-                        // Steep optical point-spread function: sharp central needle with smooth zero-derivative boundary
-                        float psf = exp(-normD * 3.6) * (1.0 - normD * normD);
-                        // Power-law apparent magnitude distribution: vast majority are faint, only rare ones brighter
-                        float mag = pow(rnd.y, 4.2) * 0.16 + 0.015;
+                        float psf = exp(-normD * 2.6) * (1.0 - normD * normD);
+                        float mag = pow(rnd.y, 2.6) * 0.65 + 0.16;
                         
-                        // Astronomical spectral classification (O/B blue-white, A pure white, G/K warm gold)
                         vec3 starCol;
-                        if (rnd.z < 0.50) {
-                            starCol = mix(vec3(0.72, 0.86, 1.0), vec3(0.96, 0.98, 1.0), rnd.z / 0.50);
+                        if (rnd.z < 0.45) {
+                            starCol = mix(vec3(0.75, 0.88, 1.0), vec3(0.96, 0.98, 1.0), rnd.z / 0.45);
                         } else {
-                            starCol = mix(vec3(0.96, 0.98, 1.0), vec3(1.0, 0.88, 0.68), (rnd.z - 0.50) / 0.50);
+                            starCol = mix(vec3(0.96, 0.98, 1.0), vec3(1.0, 0.90, 0.72), (rnd.z - 0.45) / 0.55);
                         }
-                        stars += starCol * (psf * mag);
+                        stars += starCol * (psf * mag * 1.2);
                     }
                 }
             }
         }
     }
     
-    // Layer 2: Rare navigational landmark stars (subtle, graceful beacons)
+    // Layer 2: Radiant navigational landmark stars
     {
-        float N = 10.0;
+        float N = 12.0;
         vec3 p = dir * N;
         vec3 base = floor(p);
-        float rMed = rBase * 1.25;
+        float rMed = rBase * 1.32;
         
         for (int i = 0; i <= 1; i++) {
             for (int j = 0; j <= 1; j++) {
                 for (int k = 0; k <= 1; k++) {
                     vec3 cell = base + vec3(float(i), float(j), float(k));
                     vec3 rnd = hashStar(cell + 47.19);
-                    // Very rare: only ~3.5% of cells
-                    if (rnd.x < 0.965) continue;
+                    // ~8% density
+                    if (rnd.x < 0.92) continue;
                     
                     vec3 starDir = normalize(cell + (rnd - 0.5) * 0.74);
                     float dist2 = 2.0 * max(0.0, 1.0 - dot(dir, starDir));
@@ -477,18 +532,18 @@ vec3 getStarField(vec3 dir) {
                     
                     if (dist < rMed) {
                         float normD = dist / rMed;
-                        float psf = exp(-normD * 3.4) * (1.0 - normD * normD);
-                        float mag = pow(rnd.y, 3.5) * 0.24 + 0.035;
+                        float psf = exp(-normD * 2.4) * (1.0 - normD * normD);
+                        float mag = pow(rnd.y, 2.2) * 0.85 + 0.32;
                         
                         vec3 starCol;
                         if (rnd.z < 0.45) {
-                            starCol = mix(vec3(0.75, 0.88, 1.0), vec3(0.98, 0.98, 1.0), rnd.z / 0.45);
+                            starCol = mix(vec3(0.78, 0.90, 1.0), vec3(0.98, 0.98, 1.0), rnd.z / 0.45);
                         } else if (rnd.z < 0.85) {
-                            starCol = mix(vec3(0.98, 0.98, 1.0), vec3(1.0, 0.90, 0.72), (rnd.z - 0.45) / 0.40);
+                            starCol = mix(vec3(0.98, 0.98, 1.0), vec3(1.0, 0.92, 0.76), (rnd.z - 0.45) / 0.40);
                         } else {
-                            starCol = mix(vec3(1.0, 0.90, 0.72), vec3(1.0, 0.76, 0.58), (rnd.z - 0.85) / 0.15);
+                            starCol = mix(vec3(1.0, 0.92, 0.76), vec3(1.0, 0.80, 0.62), (rnd.z - 0.85) / 0.15);
                         }
-                        stars += starCol * (psf * mag);
+                        stars += starCol * (psf * mag * 1.3);
                     }
                 }
             }
@@ -637,7 +692,7 @@ void main() {
     vec3 skyTop = vec3(0.006, 0.014, 0.038);
     vec3 skyBottom = vec3(0.002, 0.004, 0.012);
     vec3 skyBg = mix(skyBottom, skyTop, clamp(rd.y * 0.5 + 0.5, 0.0, 1.0));
-    vec3 col = skyBg + getStarField(rd) + getComet(rd, u_time);
+    vec3 col = skyBg + getMilkyWay(rd) + getStarField(rd) + getComet(rd, u_time);
     
     if (hit) {
         vec3 pos = ro + rd * t;
@@ -864,8 +919,6 @@ void main() {
                 return 4.5;
             case 'apollonian':
                 return 4.8;
-            case 'dodecahedron':
-                return 5.2;
             case 'jerusalem':
                 return 5.4;
             case 'quat_mandelbrot':
@@ -943,6 +996,8 @@ void main() {
         set1f('u_sun_color_r', this.state.get('sun_color_r') ?? 1.0);
         set1f('u_sun_color_g', this.state.get('sun_color_g') ?? 0.92);
         set1f('u_sun_color_b', this.state.get('sun_color_b') ?? 0.80);
+        set1f('u_sun_color_b', this.state.get('sun_color_b') ?? 0.80);
+        set1f('u_shadow_softness', this.state.get('shadow_softness') ?? 12.0);
         set1f('u_shadow_softness', this.state.get('shadow_softness') ?? 12.0);
         set1f('u_ao_strength', this.state.get('ao_strength') ?? 0.7);
         set1f('u_backlight_intensity', this.state.get('backlight_intensity') ?? 1.2);

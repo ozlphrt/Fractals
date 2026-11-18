@@ -768,8 +768,6 @@ export class CameraController {
                     return 1.25 + 0.35 * offLen; // ~1.85
                 } else if (id === 'apollonian') {
                     return (values.apol_radius ?? 1.55) + 0.65; // ~2.20
-                } else if (id === 'dodecahedron') {
-                    return 2.25; // Dodecahedron IFS reaches ~2.25
                 } else if (id === 'burning_ship') {
                     const asym = values.bs_asym ?? 0.0;
                     return 1.85 + asym * 0.95; // Burning ship with asymmetry expands

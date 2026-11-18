@@ -83,26 +83,26 @@ export const CURATED_COMMUNITY_CREATIONS = [
     },
     {
         id: 'curated-04',
-        title: 'Sacred Limestone Stellation',
+        title: 'Sacred Limestone Sanctuary',
         author: '@sacred_geo',
-        formula: FORMULA_IDS.DODECAHEDRON,
+        formula: FORMULA_IDS.JERUSALEM,
         material: 'ancient_limestone',
         params: {
-            dodec_scale: 2.15,
-            dodec_offset: 1.0,
-            dodec_phi: 1.618,
-            dodec_rot_x: 0.05,
-            dodec_rot_y: 0.08,
-            dodec_iterations: 10,
+            jerus_scale: 3.2,
+            jerus_cut: 0.85,
+            jerus_offset: 1.0,
+            jerus_rot_x: 0.04,
+            jerus_rot_y: 0.06,
+            jerus_iterations: 8,
             glow_intensity: 0.1
         },
         camera: {
-            pos: [1.2, 0.8, 1.6],
+            pos: [1.8, 1.4, 2.3],
             target: [0.0, 0.0, 0.0],
             preset: 'turntable',
-            orbitRadius: 2.15
+            orbitRadius: 2.35
         },
-        tags: ['Sacred Geometry', 'Limestone', 'Dodecahedron']
+        tags: ['Sacred Geometry', 'Limestone', 'Jerusalem']
     },
     {
         id: 'curated-05',
