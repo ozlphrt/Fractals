@@ -645,6 +645,7 @@ export class CockpitUI {
                     drawer.querySelectorAll('.d-tab-btn').forEach(b => b.classList.remove('active'));
                     drawer.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
                     btn.classList.add('active');
+                    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
                     const targetPane = document.getElementById(btn.dataset.tab);
                     if (targetPane) targetPane.classList.add('active');
                 });
