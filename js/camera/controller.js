@@ -270,10 +270,6 @@ export class CameraController {
         this.hasMoved = true;
     }
 
-        this.orbitRadius = Math.hypot(this.pos[0] - this.target[0], this.pos[1] - this.target[1], this.pos[2] - this.target[2]);
-        this.hasMoved = true;
-    }
-
     setupInputListeners() {
         // Keyboard
         window.addEventListener('keydown', (e) => {
