@@ -182,20 +182,33 @@ export class StateManager {
 
         const formula = FORMULAS[randomFormulaId];
         if (formula) {
+            // Anchor to a curated cohesive preset to guarantee solid, interconnected architectural geometry
+            // Completely prevents scattered dots or fragmented particles
+            const preset = (formula.presets && formula.presets.length > 0)
+                ? formula.presets[Math.floor(Math.random() * formula.presets.length)]
+                : null;
+            const baseValues = preset ? preset.values : {};
+
             for (const p of formula.params) {
                 // Keep discrete iterations at harmonious defaults
                 if (p.type === 'int' || p.id.endsWith('_iterations') || p.id === 'iterations' || p.id.includes('symmetry')) {
+                    if (baseValues[p.id] !== undefined) {
+                        this.values[p.id] = baseValues[p.id];
+                        this.targetValues[p.id] = baseValues[p.id];
+                    }
                     continue;
                 }
+
+                const baseVal = baseValues[p.id] ?? p.default;
                 const bounds = COHESIVE_FORMULA_BOUNDS[p.id];
-                let val;
-                if (typeof bounds === 'function') {
-                    val = bounds();
-                } else if (bounds) {
-                    val = bounds.min + Math.random() * (bounds.max - bounds.min);
-                } else {
-                    val = p.min + Math.random() * (p.max - p.min);
-                }
+                const rangeMin = bounds ? (typeof bounds === 'function' ? p.min : bounds.min) : p.min;
+                const rangeMax = bounds ? (typeof bounds === 'function' ? p.max : bounds.max) : p.max;
+
+                // Subtle ±3.5% organic jitter around proven preset coordinate manifold
+                const jitterRange = (rangeMax - rangeMin) * 0.035;
+                const jitter = (Math.random() * 2.0 - 1.0) * jitterRange;
+                let val = Math.max(rangeMin, Math.min(rangeMax, baseVal + jitter));
+
                 this.values[p.id] = val;
                 this.targetValues[p.id] = val;
             }
@@ -365,6 +378,27 @@ export class StateManager {
             if (target === undefined) continue;
 
             const current = this.values[id];
+
+            // Shortest arc angular difference for azimuth (handles -pi / +pi boundary smoothly)
+            if (id === 'sun_azimuth') {
+                let diff = target - current;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+
+                if (Math.abs(diff) > 0.0001) {
+                    anyMoving = true;
+                    let nextVal = target - diff * damping;
+                    while (nextVal > Math.PI) nextVal -= Math.PI * 2;
+                    while (nextVal < -Math.PI) nextVal += Math.PI * 2;
+                    this.values[id] = nextVal;
+                    this.notify(id, nextVal);
+                } else if (current !== target) {
+                    this.values[id] = target;
+                    this.notify(id, target);
+                }
+                continue;
+            }
+
             const diff = target - current;
 
             if (Math.abs(diff) > 0.0001) {
@@ -520,20 +554,27 @@ export class StateManager {
         // Randomize ONLY Formula Geometry Parameters within Cohesive Sculptural Bounds
         // Never modifies material palette, shading, or lighting values (preserves user look & light)
         // User can freely change materials or lighting at any time without the morph loop fighting them!
+        // Anchor morph targets to a curated solid preset with gentle organic jitter
+        // Guarantees auto-deformation morphs between magnificent interconnected architectural sculptures
+        const preset = (formula.presets && formula.presets.length > 0)
+            ? formula.presets[Math.floor(Math.random() * formula.presets.length)]
+            : null;
+        const baseValues = preset ? preset.values : {};
+
         for (const p of formula.params) {
             // Skip discrete integers (iterations, symmetry groups) to ensure strictly continuous smooth deformation
             if (p.type === 'int' || p.id.endsWith('_iterations') || p.id === 'iterations' || p.id.includes('symmetry')) {
                 continue;
             }
+            const baseVal = baseValues[p.id] ?? p.default;
             const bounds = COHESIVE_FORMULA_BOUNDS[p.id];
-            let val;
-            if (typeof bounds === 'function') {
-                val = bounds();
-            } else if (bounds) {
-                val = bounds.min + Math.random() * (bounds.max - bounds.min);
-            } else {
-                val = p.min + Math.random() * (p.max - p.min);
-            }
+            const rangeMin = bounds ? (typeof bounds === 'function' ? p.min : bounds.min) : p.min;
+            const rangeMax = bounds ? (typeof bounds === 'function' ? p.max : bounds.max) : p.max;
+
+            const jitterRange = (rangeMax - rangeMin) * 0.035;
+            const jitter = (Math.random() * 2.0 - 1.0) * jitterRange;
+            const val = Math.max(rangeMin, Math.min(rangeMax, baseVal + jitter));
+
             morphTargetValues[p.id] = val;
             morphStartValues[p.id] = this.values[p.id] ?? p.default;
         }

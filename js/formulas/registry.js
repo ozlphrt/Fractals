@@ -224,6 +224,13 @@ float mapFractal(vec3 pos, out vec4 trap) {
             const fixR2 = fixR * fixR;
             const maxIt = Math.min(14, state.mbox_iterations ?? 11);
 
+            const rx = state.mbox_rot_x ?? 0.0;
+            const ry = state.mbox_rot_y ?? 0.0;
+            const rz = state.mbox_rot_z ?? 0.0;
+            const cx = Math.cos(rx), sx = Math.sin(rx);
+            const cy = Math.cos(ry), sy = Math.sin(ry);
+            const cz = Math.cos(rz), sz = Math.sin(rz);
+
             let zx = p[0] + (state.mbox_offset_x ?? 0);
             let zy = p[1] + (state.mbox_offset_y ?? 0);
             let zz = p[2] + (state.mbox_offset_z ?? 0);
@@ -246,6 +253,20 @@ float mapFractal(vec3 pos, out vec4 trap) {
                     const temp = fixR2 / r2;
                     zx *= temp; zy *= temp; zz *= temp;
                     dr *= temp;
+                }
+
+                // Rotations matching GLSL rotX * rotY * rotZ
+                if (Math.abs(rx) > 1e-5 || Math.abs(ry) > 1e-5 || Math.abs(rz) > 1e-5) {
+                    // rotX
+                    const y1 = cx * zy - sx * zz;
+                    const z1 = sx * zy + cx * zz;
+                    // rotY
+                    const x2 = cy * zx + sy * z1;
+                    const z2 = -sy * zx + cy * z1;
+                    // rotZ
+                    zx = cz * x2 - sz * y1;
+                    zy = sz * x2 + cz * y1;
+                    zz = z2;
                 }
 
                 zx = scale * zx + ox;

@@ -83,7 +83,7 @@ export class CameraController {
         this.autoRotatePitchSpeed = 0.005; // Slowed down 3.2X
 
         // Cinematic Camera Presets ('turntable' | 'action' | 'flyby' | 'follow' | 'dynamic' | 'hero')
-        this.activeCameraPreset = 'follow';
+        this.activeCameraPreset = 'turntable';
         this.presetTime = 0.0;
         this.presetBlendProgress = 1.0;
         this.presetBlendDuration = 2.0; // 2.0 seconds seamless cinematic crossfade
@@ -146,33 +146,63 @@ export class CameraController {
         const R_safe = minClearance !== null ? minClearance : this.safeRadius;
         let de = this.collisionProvider(pos);
 
-        // Stuck inside solid or non-numerical value: recover to last safe position
-        if (isNaN(de) || de <= 0.0001) {
-            if (this.lastSafePos) {
-                pos[0] = this.lastSafePos[0];
-                pos[1] = this.lastSafePos[1];
-                pos[2] = this.lastSafePos[2];
-                return true;
+        // Vector from target to camera pos (radial outward direction)
+        const dx = pos[0] - this.target[0];
+        const dy = pos[1] - this.target[1];
+        const dz = pos[2] - this.target[2];
+        const curR = Math.hypot(dx, dy, dz) || 1.0;
+        const outX = dx / curR;
+        const outY = dy / curR;
+        const outZ = dz / curR;
+
+        // Stuck inside solid or non-numerical value: smoothly push outward along radial vector
+        // Never hard-teleport to old position, which causes severe 60Hz fighting jitter
+        if (isNaN(de) || de <= 0.0002) {
+            const pushDist = Math.max(0.04, R_safe * 1.25);
+            pos[0] += outX * pushDist;
+            pos[1] += outY * pushDist;
+            pos[2] += outZ * pushDist;
+            if (this.mode === 'orbit') {
+                const newDist = curR + pushDist;
+                if (newDist > this.orbitRadius) {
+                    this.orbitRadius = newDist;
+                    this.targetOrbitRadius = newDist;
+                }
             }
-            return false;
+            return true;
         }
 
         if (de >= R_safe) {
             return false;
         }
 
-        // Push out iteratively along surface normal
+        // Push out iteratively along combined surface normal and radial direction
         let corrected = false;
         for (let iter = 0; iter < 3; iter++) {
             if (de >= R_safe) break;
             const norm = this.estimateNormal(pos, Math.max(0.002, R_safe * 0.25));
-            const pushDist = (R_safe - de) * 1.08;
-            pos[0] += norm[0] * pushDist;
-            pos[1] += norm[1] * pushDist;
-            pos[2] += norm[2] * pushDist;
+            const pushX = norm[0] * 0.7 + outX * 0.3;
+            const pushY = norm[1] * 0.7 + outY * 0.3;
+            const pushZ = norm[2] * 0.7 + outZ * 0.3;
+            const pushLen = Math.hypot(pushX, pushY, pushZ) || 1.0;
+
+            const pushDist = (R_safe - de) * 1.12;
+            pos[0] += (pushX / pushLen) * pushDist;
+            pos[1] += (pushY / pushLen) * pushDist;
+            pos[2] += (pushZ / pushLen) * pushDist;
             corrected = true;
             de = this.collisionProvider(pos);
             if (isNaN(de) || de <= 0.0) break;
+        }
+
+        // When in orbit mode, synchronize orbit radius with the corrected distance
+        // This permanently stops the orbit solver from pulling the camera back into the solid!
+        if (corrected && this.mode === 'orbit') {
+            const newDist = Math.hypot(pos[0] - this.target[0], pos[1] - this.target[1], pos[2] - this.target[2]);
+            if (newDist > this.orbitRadius) {
+                this.orbitRadius = newDist;
+                this.targetOrbitRadius = newDist;
+            }
         }
 
         return corrected;
@@ -236,7 +266,7 @@ export class CameraController {
         this.yaw = Math.atan2(-dx, -dz);
         this.pitch = 0;
         this.roll = 0;
-        this.activeCameraPreset = 'follow';
+        this.activeCameraPreset = 'turntable';
         this.presetTime = 0.0;
         this.setZoomOverridden(false);
         this.hasMoved = true;
@@ -255,10 +285,13 @@ export class CameraController {
     }
 
     applyCameraPreset(dt) {
-        const baseR = Math.max(this.idealDistance || 1.2, (this.objRadius || 1.2) * 1.15);
+        // Ample clearance envelope: comfortably clears 3D polyhedral diagonals and corners (e.g. Mandelbox, Dodecahedron)
+        const baseR = Math.max(this.idealDistance || 1.2, (this.objRadius || 1.2) * 1.36);
         const zoomScale = this.isZoomOverridden ? (this.orbitRadius / baseR) : 1.0;
         const R = baseR * zoomScale;
 
+        // Keep target centered strictly on origin [0, 0, 0] across all presets
+        // Eliminates the issue where fractals were shoved to the right hand side of the screen
         let goalTx = 0.0, goalTy = 0.0, goalTz = 0.0;
         let goalPx = this.pos[0], goalPy = this.pos[1], goalPz = this.pos[2];
 
@@ -275,56 +308,51 @@ export class CameraController {
             goalPz = this.target[2] + (offset[2] / curDist) * R;
             goalTx = 0.0; goalTy = 0.0; goalTz = 0.0;
         } else if (this.activeCameraPreset === 'action') {
-            // Action Cam: Slowed down 4X, serene cinema fly-through
+            // Action Cam: Slowed down 4X, serene cinema fly-around
             const t = this.presetTime * 0.18;
-            const rMod = Math.max((this.objRadius || 1.2) * 1.05, R * (0.95 + 0.18 * Math.sin(2.2 * t)));
+            const rMod = Math.max((this.objRadius || 1.2) * 1.30, R * (0.95 + 0.15 * Math.sin(2.2 * t)));
             goalPx = rMod * Math.cos(t);
-            goalPy = R * 0.32 * Math.cos(1.6 * t);
+            goalPy = R * 0.28 * Math.cos(1.6 * t);
             goalPz = rMod * Math.sin(t);
             
-            // Subtle, gentle organic breathing
-            const shakeX = 0.002 * Math.sin(t * 8.0);
-            const shakeY = 0.002 * Math.cos(t * 9.0);
-            const shakeZ = 0.0015 * Math.sin(t * 11.0);
+            // Subtle organic breathing
+            const shakeX = 0.0015 * Math.sin(t * 8.0);
+            const shakeY = 0.0015 * Math.cos(t * 9.0);
+            const shakeZ = 0.0010 * Math.sin(t * 11.0);
             goalPx += shakeX; goalPy += shakeY; goalPz += shakeZ;
-
-            goalTx = R * 0.06 * Math.sin(t * 1.3);
-            goalTy = R * 0.04 * Math.cos(t * 1.7);
-            goalTz = R * 0.06 * Math.cos(t * 1.3);
+            goalTx = 0.0; goalTy = 0.0; goalTz = 0.0;
         } else if (this.activeCameraPreset === 'flyby') {
             // Fly-By Cam: Slowed down 4X, sweeping majestic slalom
             const t = this.presetTime * 0.09;
-            goalPx = R * 1.35 * Math.sin(t);
-            goalPy = R * 0.48 * Math.sin(2.0 * t);
-            goalPz = R * 1.25 * Math.cos(t);
-            goalTx = R * 0.14 * Math.sin(t * 1.5);
-            goalTy = R * 0.08 * Math.cos(t * 2.0);
-            goalTz = R * 0.12 * Math.cos(t * 1.5);
+            const flyR = Math.max((this.objRadius || 1.2) * 1.35, R * 1.20);
+            goalPx = flyR * Math.sin(t);
+            goalPy = R * 0.38 * Math.sin(2.0 * t);
+            goalPz = flyR * Math.cos(t);
+            goalTx = 0.0; goalTy = 0.0; goalTz = 0.0;
         } else if (this.activeCameraPreset === 'follow') {
-            // Follow Cam: Slowed down 3.7X, serene surface contour glide (safe distance)
+            // Follow Cam: Centered contour glide with ample safe clearance
             const t = this.presetTime * 0.07;
-            const followR = Math.max((this.objRadius || 1.2) * 1.08, R * 0.88);
+            const followR = Math.max((this.objRadius || 1.2) * 1.35, R * 1.15);
             goalPx = followR * Math.cos(t);
-            goalPy = followR * 0.22 * Math.sin(t * 2.0) + followR * 0.10;
+            goalPy = followR * 0.20 * Math.sin(t * 2.0);
             goalPz = followR * Math.sin(t);
-            goalTx = followR * 0.38 * Math.cos(t + 0.6);
-            goalTy = followR * 0.16 * Math.sin((t + 0.6) * 2.0);
-            goalTz = followR * 0.38 * Math.sin(t + 0.6);
+            goalTx = 0.0; goalTy = 0.0; goalTz = 0.0;
         } else if (this.activeCameraPreset === 'dynamic') {
             // Dynamic Cam: Slowed down 5X, hypnotic slow vortex dive
             const t = this.presetTime * 0.08;
-            const spiralR = Math.max((this.objRadius || 1.2) * 1.05, R * (0.95 + 0.35 * Math.sin(t * 0.55)));
+            const spiralR = Math.max((this.objRadius || 1.2) * 1.32, R * (0.95 + 0.28 * Math.sin(t * 0.55)));
             goalPx = spiralR * Math.sin(t);
-            goalPy = R * 0.50 * Math.cos(t * 0.55);
+            goalPy = R * 0.42 * Math.cos(t * 0.55);
             goalPz = spiralR * Math.cos(t);
             goalTx = 0.0; goalTy = 0.0; goalTz = 0.0;
         } else if (this.activeCameraPreset === 'hero') {
             // Hero Shot: Slowed down 4.5X, monumental low-angle panoramic tilt
             const t = this.presetTime * 0.04;
-            goalPx = Math.max((this.objRadius || 1.2) * 1.05, R * 0.82) * Math.sin(t);
-            goalPy = -R * 0.40 + 0.04 * Math.sin(t * 0.8);
-            goalPz = R * 0.88 * Math.cos(t);
-            goalTx = 0.0; goalTy = R * 0.20; goalTz = 0.0;
+            const heroR = Math.max((this.objRadius || 1.2) * 1.30, R * 1.05);
+            goalPx = heroR * Math.sin(t);
+            goalPy = -R * 0.28 + 0.04 * Math.sin(t * 0.8);
+            goalPz = heroR * Math.cos(t);
+            goalTx = 0.0; goalTy = 0.0; goalTz = 0.0;
         }
 
         // Push preset goal position outside geometry if collision is enabled
@@ -823,7 +851,7 @@ export class CameraController {
         } else if (this.mode === 'orbit') {
             // Smooth heavy viscous zoom glide towards target distance
             if (this.isZoomOverridden) {
-                const minOrbitR = (this.objRadius || 1.2) * 0.5 + this.safeRadius;
+                const minOrbitR = (this.objRadius || 1.2) * 1.08 + this.safeRadius;
                 if (this.collisionEnabled && this.targetOrbitRadius < minOrbitR) {
                     this.targetOrbitRadius = minOrbitR;
                 }

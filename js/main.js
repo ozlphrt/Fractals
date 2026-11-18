@@ -52,6 +52,10 @@ class FractalSynthApp {
         this.fps = 60;
         this.fpsAlpha = 0.05;
 
+        // Periodic cinematic camera preset cycling
+        this.presetTimer = 0.0;
+        this.presetCycleInterval = 28.0 + Math.random() * 10.0;
+
         this.setupResize();
         this.startLoop();
     }
@@ -215,6 +219,25 @@ class FractalSynthApp {
 
             // 6b. Continuous smooth auto-tracking of key lighting to keep visible surface sculpted & well-lit
             this.updateSunAutoTracking(dt);
+
+            // 6c. Periodic automatic camera preset cycling (keeps cinematic views varied & fresh)
+            if (this.camera.mode === 'orbit' && !this.camera.isDraggingOrbit && !this.camera.isZoomOverridden) {
+                this.presetTimer += dt;
+                if (this.presetTimer >= this.presetCycleInterval) {
+                    this.presetTimer = 0.0;
+                    this.presetCycleInterval = 25.0 + Math.random() * 15.0;
+                    const presets = ['turntable', 'action', 'flyby', 'follow', 'dynamic', 'hero'];
+                    const candidates = presets.filter(p => p !== this.camera.activeCameraPreset);
+                    const nextPreset = candidates[Math.floor(Math.random() * candidates.length)];
+                    this.camera.setCameraPreset(nextPreset);
+                    if (this.ui && this.ui.syncActiveCameraPreset) {
+                        this.ui.syncActiveCameraPreset(nextPreset);
+                    }
+                }
+            } else {
+                // Pause / slowly decay timer while user is actively dragging or zooming
+                this.presetTimer = Math.max(0.0, this.presetTimer - dt * 0.5);
+            }
 
             const isMorphing = (this.state.morphAnim !== null) || isFormulaMorphing || isParamMorphing;
             const isDynamic = camMoved || slidersMoving || isMorphing || (hasMod && (this.audio.isPlaying || this.modulation.bindings.size > 0));

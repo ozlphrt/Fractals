@@ -500,6 +500,13 @@ export class CockpitUI {
         }
     }
 
+    syncActiveCameraPreset(presetName) {
+        const camPresetBtns = document.querySelectorAll('#camera-presets-grid .cam-preset-btn');
+        camPresetBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.preset === presetName);
+        });
+    }
+
     // Modulation Popover
     openModPopover(param, btnElement) {
         this.activeModParamId = param.id;
@@ -832,8 +839,8 @@ export class CockpitUI {
             btnCamReset.addEventListener('click', () => {
                 const defCam = this.state.getActiveFormula().defaultCam;
                 this.camera.resetView(defCam.pos, defCam.target);
-                this.camera.setCameraPreset('follow');
-                camPresetBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === 'follow'));
+                this.camera.setCameraPreset('turntable');
+                camPresetBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === 'turntable'));
                 this.raymarcher.resetAccumulation();
             });
         }

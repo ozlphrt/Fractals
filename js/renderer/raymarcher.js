@@ -35,8 +35,8 @@ export class Raymarcher {
         this.programs = new Map();
         this.uniformLocationsMap = new Map();
 
-        // Resolution management: Discrete scale levels & frame-budget governor
-        this.scaleLevels = [1.0, 0.85, 0.70, 0.55];
+        // Resolution management: Discrete scale levels (high fidelity, zero crawling)
+        this.scaleLevels = [1.0, 0.90, 0.82];
         this.scaleIndex = 0;
         this.activeScale = 1.0;
         this.frameTimeHistory = [];
@@ -495,7 +495,7 @@ void main() {
                 glow += g * g;
             }
             
-            float hitThresh = u_hit_epsilon * (1.0 + t * 0.04);
+            float hitThresh = u_hit_epsilon * (1.0 + t * 0.015);
             if (d < hitThresh) {
                 // Near-clip culling: completely do not draw pieces too close to camera
                 if (t < u_near_clip) {
@@ -503,13 +503,13 @@ void main() {
                     continue;
                 }
                 // Refinement step: eliminate step-size discretization chatter
-                t -= max(u_hit_epsilon * 0.35, d * 0.45);
+                t += d * 0.5;
                 hit = true;
                 finalTrap = trap;
                 break;
             }
-            // Balanced 0.78x ray relaxation: avoids grazing overshoots while preserving high framerate
-            t += max(u_hit_epsilon * 0.60, d * 0.78);
+            // Conservative 0.68x ray stepping: completely eliminates grazing overshoots through thin lattice walls
+            t += max(u_hit_epsilon * 0.25, d * 0.68);
         }
     }
     
