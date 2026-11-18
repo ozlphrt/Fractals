@@ -408,56 +408,101 @@ vec3 hashStar(vec3 p) {
     return fract((p.xxy + p.yxx) * p.zyx);
 }
 
-// Refined, flicker-free celestial starfield (anti-aliased quadratic falloff, strictly bounded max radius)
+// Rock-solid, flicker-free celestial starfield
+// Evaluates true unit-sphere celestial directions across an 8-cell neighborhood
+// Features subpixel analytic anti-aliasing matching screen pixel footprint to eliminate shimmering and popping
 vec3 getStarField(vec3 dir) {
     vec3 stars = vec3(0.0);
     
-    // Layer 1: Dense, crisp background star pinpricks (anti-aliased, zero flicker)
+    // Pixel angular footprint in radians
+    float pixAngle = 2.0 / max(100.0, min(u_resolution.x, u_resolution.y));
+    float rBase = pixAngle * 1.38; // ~2.75px diameter: guaranteed non-aliasing subpixel coverage
+    float r2Base = rBase * rBase;
+    
+    // Layer 1: Dense, fine celestial background stars
     {
-        vec3 p = dir * 120.0;
-        vec3 ip = floor(p);
-        vec3 fp = fract(p) - 0.5;
-        vec3 rnd = hashStar(ip);
-        vec3 offset = (rnd - 0.5) * 0.70;
-        float d = length(fp - offset);
-        float rMax = 0.08;
-        float q = clamp(1.0 - (d * d) / (rMax * rMax), 0.0, 1.0);
-        float star = q * q;
-        float brightness = step(0.82, rnd.x) * (rnd.y * 1.8 + 0.8);
-        vec3 starCol = mix(vec3(0.75, 0.88, 1.0), vec3(1.0, 0.95, 0.85), rnd.z);
-        stars += starCol * (star * brightness * 1.8);
+        float N = 28.0;
+        vec3 p = dir * N;
+        vec3 base = floor(p);
+        
+        for (int i = 0; i <= 1; i++) {
+            for (int j = 0; j <= 1; j++) {
+                for (int k = 0; k <= 1; k++) {
+                    vec3 cell = base + vec3(float(i), float(j), float(k));
+                    vec3 rnd = hashStar(cell);
+                    if (rnd.x < 0.74) continue;
+                    
+                    vec3 starDir = normalize(cell + (rnd - 0.5) * 0.76);
+                    float dist2 = 2.0 * max(0.0, 1.0 - dot(dir, starDir));
+                    
+                    if (dist2 < r2Base) {
+                        float q = 1.0 - dist2 / r2Base;
+                        float star = q * q;
+                        float brightness = rnd.y * 1.6 + 0.7;
+                        vec3 starCol = mix(vec3(0.75, 0.88, 1.0), vec3(1.0, 0.95, 0.85), rnd.z);
+                        stars += starCol * (star * brightness * 1.5);
+                    }
+                }
+            }
+        }
     }
     
-    // Layer 2: Medium navigational stars (crisp, well-defined points)
+    // Layer 2: Medium navigational stars (crisp, steady points)
     {
-        vec3 p = dir * 60.0;
-        vec3 ip = floor(p);
-        vec3 fp = fract(p) - 0.5;
-        vec3 rnd = hashStar(ip + 17.3);
-        vec3 offset = (rnd - 0.5) * 0.65;
-        float d = length(fp - offset);
-        float rMax = 0.075;
-        float q = clamp(1.0 - (d * d) / (rMax * rMax), 0.0, 1.0);
-        float star = q * q;
-        float brightness = step(0.88, rnd.x) * (rnd.y * 2.2 + 1.0);
-        vec3 starCol = mix(vec3(0.80, 0.92, 1.0), vec3(1.0, 0.88, 0.70), rnd.z);
-        stars += starCol * (star * brightness * 2.0);
+        float N = 16.0;
+        vec3 p = dir * N;
+        vec3 base = floor(p);
+        float r2Med = r2Base * 1.35;
+        
+        for (int i = 0; i <= 1; i++) {
+            for (int j = 0; j <= 1; j++) {
+                for (int k = 0; k <= 1; k++) {
+                    vec3 cell = base + vec3(float(i), float(j), float(k));
+                    vec3 rnd = hashStar(cell + 43.17);
+                    if (rnd.x < 0.82) continue;
+                    
+                    vec3 starDir = normalize(cell + (rnd - 0.5) * 0.76);
+                    float dist2 = 2.0 * max(0.0, 1.0 - dot(dir, starDir));
+                    
+                    if (dist2 < r2Med) {
+                        float q = 1.0 - dist2 / r2Med;
+                        float star = q * q;
+                        float brightness = rnd.y * 2.2 + 1.1;
+                        vec3 starCol = mix(vec3(0.80, 0.92, 1.0), vec3(1.0, 0.88, 0.70), rnd.z);
+                        stars += starCol * (star * brightness * 1.8);
+                    }
+                }
+            }
+        }
     }
 
-    // Layer 3: Prominent celestial beacons (compact brilliant pinpricks, no oversized halos)
+    // Layer 3: Prominent celestial beacons (compact brilliant pinpricks, zero oversized halos)
     {
-        vec3 p = dir * 30.0;
-        vec3 ip = floor(p);
-        vec3 fp = fract(p) - 0.5;
-        vec3 rnd = hashStar(ip + 71.9);
-        vec3 offset = (rnd - 0.5) * 0.60;
-        float d = length(fp - offset);
-        float rMax = 0.070;
-        float q = clamp(1.0 - (d * d) / (rMax * rMax), 0.0, 1.0);
-        float star = q * q;
-        float brightness = step(0.92, rnd.x) * (rnd.y * 2.8 + 1.4);
-        vec3 starCol = mix(vec3(0.70, 0.85, 1.0), vec3(1.0, 0.92, 0.75), rnd.z);
-        stars += starCol * (star * brightness * 2.4);
+        float N = 9.0;
+        vec3 p = dir * N;
+        vec3 base = floor(p);
+        float r2Big = r2Base * 1.65;
+        
+        for (int i = 0; i <= 1; i++) {
+            for (int j = 0; j <= 1; j++) {
+                for (int k = 0; k <= 1; k++) {
+                    vec3 cell = base + vec3(float(i), float(j), float(k));
+                    vec3 rnd = hashStar(cell + 89.41);
+                    if (rnd.x < 0.88) continue;
+                    
+                    vec3 starDir = normalize(cell + (rnd - 0.5) * 0.76);
+                    float dist2 = 2.0 * max(0.0, 1.0 - dot(dir, starDir));
+                    
+                    if (dist2 < r2Big) {
+                        float q = 1.0 - dist2 / r2Big;
+                        float star = q * q;
+                        float brightness = rnd.y * 2.8 + 1.4;
+                        vec3 starCol = mix(vec3(0.70, 0.85, 1.0), vec3(1.0, 0.92, 0.75), rnd.z);
+                        stars += starCol * (star * brightness * 2.2);
+                    }
+                }
+            }
+        }
     }
     
     return stars;
