@@ -35,10 +35,20 @@ export class Raymarcher {
         this.programs = new Map();
         this.uniformLocationsMap = new Map();
 
-        // Resolution management (1.0x native full resolution for ultra-smooth gradients)
+        // Resolution management: Discrete scale levels & frame-budget governor
+        this.scaleLevels = [1.0, 0.85, 0.70, 0.55];
+        this.scaleIndex = 0;
         this.activeScale = 1.0;
-        this.targetScale = 1.0;
+        this.frameTimeHistory = [];
+        this.lastScaleChangeTime = performance.now();
+        this.overBudgetDuration = 0;
+        this.underBudgetDuration = 0;
         this.stillFrames = 0;
+
+        // GPU Timer query extension (EXT_disjoint_timer_query_webgl2)
+        this.timerExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+        this.gpuQueries = [];
+        this.lastGpuMs = 0.0;
 
         // Offscreen Framebuffers for smooth cross-morphing
         this.fboA = null;
@@ -48,8 +58,9 @@ export class Raymarcher {
         this.fboWidth = 0;
         this.fboHeight = 0;
 
-        // Composite shader program
+        // Composite shader program & cached uniforms
         this.compositeProgram = null;
+        this.compositeUniforms = null;
 
         this.initQuad();
         this.initCompositeShader();
@@ -104,6 +115,8 @@ export class Raymarcher {
         uniform sampler2D u_tex_b;
         uniform float u_blend;
         uniform vec2 u_tex_size;
+        uniform vec2 u_uv_scale;
+        uniform vec2 u_render_size;
         
         vec3 aces(vec3 x) {
             float a = 2.51;
@@ -189,12 +202,13 @@ export class Raymarcher {
         }
 
         void main() {
-            vec2 rcpFrame = vec2(1.0) / max(vec2(1.0), u_tex_size);
-            vec3 colA = sampleFXAA(u_tex_a, v_uv, rcpFrame);
+            vec2 rcpFrame = (vec2(1.0) / max(vec2(1.0), u_render_size)) * u_uv_scale;
+            vec2 uv = clamp(v_uv * u_uv_scale, vec2(0.5) / u_tex_size, (u_render_size - vec2(0.5)) / u_tex_size);
+            vec3 colA = sampleFXAA(u_tex_a, uv, rcpFrame);
             vec3 rawCol;
             
             if (u_blend > 0.001) {
-                vec3 colB = sampleFXAA(u_tex_b, v_uv, rcpFrame);
+                vec3 colB = sampleFXAA(u_tex_b, uv, rcpFrame);
                 // Quintic smoothstep for seamless organic transition
                 float t = clamp(u_blend, 0.0, 1.0);
                 float s = t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
@@ -212,6 +226,16 @@ export class Raymarcher {
         const vs = this.compileShader(gl.VERTEX_SHADER, vsSource);
         const fsComp = this.compileShader(gl.FRAGMENT_SHADER, fsCompositeSource);
         this.compositeProgram = this.createProgram(vs, fsComp);
+
+        // Pre-cache composite program uniform locations (avoids per-frame getUniformLocation calls)
+        this.compositeUniforms = {
+            u_tex_a: gl.getUniformLocation(this.compositeProgram, 'u_tex_a'),
+            u_tex_b: gl.getUniformLocation(this.compositeProgram, 'u_tex_b'),
+            u_blend: gl.getUniformLocation(this.compositeProgram, 'u_blend'),
+            u_tex_size: gl.getUniformLocation(this.compositeProgram, 'u_tex_size'),
+            u_uv_scale: gl.getUniformLocation(this.compositeProgram, 'u_uv_scale'),
+            u_render_size: gl.getUniformLocation(this.compositeProgram, 'u_render_size')
+        };
     }
 
     compileShader(type, source) {
@@ -259,6 +283,9 @@ uniform vec2 u_subpixel_jitter;
 // Global settings
 uniform int u_max_steps;
 uniform float u_hit_epsilon;
+uniform float u_bound_radius;
+uniform int u_shadow_steps;
+uniform int u_ao_taps;
 
 // Shading & Cosine Palette
 uniform int u_trap_mode;
@@ -332,12 +359,13 @@ vec3 cosinePalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
     return a + b * cos(6.28318 * (c * t + d));
 }
 
-// High-fidelity Continuous Soft Shadow with early termination
+// High-fidelity Continuous Soft Shadow with dynamic step budget
 float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
     float res = 1.0;
     float t = mint;
+    int maxSteps = clamp(u_shadow_steps, 6, 16);
     for (int i = 0; i < 16; i++) {
-        if (t >= maxt) break;
+        if (i >= maxSteps || t >= maxt) break;
         float h = map(ro + rd * t);
         if (h < 0.0005) return 0.0;
         res = min(res, k * h / t);
@@ -347,17 +375,30 @@ float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
     return clamp(res, 0.0, 1.0);
 }
 
-// High-efficiency 4-tap Ambient Occlusion
+// High-efficiency Ambient Occlusion with dynamic tap count
 float calcAO(vec3 p, vec3 n) {
     float occ = 0.0;
     float sca = 1.0;
+    int taps = clamp(u_ao_taps, 2, 4);
     for (int i = 0; i < 4; i++) {
+        if (i >= taps) break;
         float h = 0.01 + 0.12 * float(i) / 3.0;
         float d = map(p + h * n);
         occ += (h - d) * sca;
         sca *= 0.75;
     }
     return clamp(1.0 - u_ao_strength * occ, 0.0, 1.0);
+}
+
+// Ray - Bounding Sphere intersection test
+// Returns vec2(tNear, tFar) if hit (tFar >= 0), or vec2(-1.0) if missed
+vec2 intersectSphere(vec3 ro, vec3 rd, float radius) {
+    float b = dot(ro, rd);
+    float c = dot(ro, ro) - radius * radius;
+    float h = b * b - c;
+    if (h < 0.0) return vec2(-1.0);
+    float sh = sqrt(h);
+    return vec2(-b - sh, -b + sh);
 }
 
 // High-performance procedural celestial starfield
@@ -425,31 +466,49 @@ void main() {
     float glow = 0.0;
     bool hit = false;
     
-    for (int i = 0; i < 500; i++) {
-        if (i >= u_max_steps || t > maxDist) break;
-        stepCount = i;
-        vec3 curPos = ro + rd * t;
-        float d = mapFractal(curPos, trap);
-        
-        // Fast polynomial volumetric glow (culled in near clearance zone)
-        if (u_glow_intensity > 0.005 && t >= u_near_clip) {
-            float g = max(0.0, 1.0 - d * 2.5);
-            glow += g * g;
-        }
-        
-        float hitThresh = u_hit_epsilon * (1.0 + t * 0.04);
-        if (d < hitThresh) {
-            // Near-clip culling: completely do not draw pieces too close to camera
-            if (t < u_near_clip) {
-                t += max(0.05, abs(d) + 0.02);
-                continue;
+    // Analytic Bounding Sphere skip test
+    bool skipMarch = false;
+    if (u_bound_radius > 0.0) {
+        vec2 hitSph = intersectSphere(ro, rd, u_bound_radius);
+        if (hitSph.y < 0.0) {
+            // Ray completely misses the bounding sphere -> instant sky/stars exit!
+            skipMarch = true;
+        } else {
+            // Ray hits bounding sphere: skip marching through empty space between camera and sphere entry
+            if (hitSph.x > t) {
+                t = hitSph.x;
             }
-            hit = true;
-            finalTrap = trap;
-            break;
+            maxDist = min(maxDist, hitSph.y + 0.25);
         }
-        // Balanced 0.78x ray relaxation: avoids grazing overshoots while preserving high framerate
-        t += max(u_hit_epsilon * 0.60, d * 0.78);
+    }
+
+    if (!skipMarch) {
+        for (int i = 0; i < 500; i++) {
+            if (i >= u_max_steps || t > maxDist) break;
+            stepCount = i;
+            vec3 curPos = ro + rd * t;
+            float d = mapFractal(curPos, trap);
+            
+            // Fast polynomial volumetric glow (culled in near clearance zone)
+            if (u_glow_intensity > 0.005 && t >= u_near_clip) {
+                float g = max(0.0, 1.0 - d * 2.5);
+                glow += g * g;
+            }
+            
+            float hitThresh = u_hit_epsilon * (1.0 + t * 0.04);
+            if (d < hitThresh) {
+                // Near-clip culling: completely do not draw pieces too close to camera
+                if (t < u_near_clip) {
+                    t += max(0.05, abs(d) + 0.02);
+                    continue;
+                }
+                hit = true;
+                finalTrap = trap;
+                break;
+            }
+            // Balanced 0.78x ray relaxation: avoids grazing overshoots while preserving high framerate
+            t += max(u_hit_epsilon * 0.60, d * 0.78);
+        }
     }
     
     vec3 sunDir = normalize(vec3(
@@ -596,7 +655,8 @@ void main() {
 
         const standardUniforms = [
             'u_resolution', 'u_time', 'u_cam_pos', 'u_cam_target', 'u_cam_up', 'u_fov', 'u_subpixel_jitter',
-            'u_max_steps', 'u_hit_epsilon', 'u_trap_mode', 'u_color_cycle', 'u_color_phase',
+            'u_max_steps', 'u_hit_epsilon', 'u_bound_radius', 'u_shadow_steps', 'u_ao_taps',
+            'u_trap_mode', 'u_color_cycle', 'u_color_phase',
             'u_pal_a_r', 'u_pal_a_g', 'u_pal_a_b',
             'u_pal_b_r', 'u_pal_b_g', 'u_pal_b_b',
             'u_pal_c_r', 'u_pal_c_g', 'u_pal_c_b',
@@ -667,6 +727,33 @@ void main() {
         this.stillFrames = 0;
     }
 
+    computeSafeBoundingRadius(formula, values = {}) {
+        if (!formula) return 6.5;
+        switch (formula.id) {
+            case 'mandelbox':
+                return 7.8;
+            case 'burningship': {
+                const asym = typeof values.asym === 'number' ? values.asym : (formula.params.find(p => p.id === 'asym')?.default ?? 0.0);
+                return Math.max(3.2, 1.55 + asym * 1.15) * 1.45 + 0.35;
+            }
+            case 'mandelbulb':
+                return 4.2;
+            case 'julia3d':
+                return 4.0;
+            case 'menger':
+                return 3.2;
+            case 'apollonian':
+                return 4.5;
+            case 'octahedral':
+            case 'dodecahedral':
+                return 5.2;
+            case 'kleinian':
+                return 6.0;
+            default:
+                return 6.5;
+        }
+    }
+
     renderFormulaPass(formula, targetFBO, camera, time, renderW, renderH, isMoving = false) {
         const gl = this.gl;
         const prog = this.getProgramForFormula(formula);
@@ -696,6 +783,14 @@ void main() {
         gl.uniform3fv(uniformMap.get('u_cam_up'), camera.getUpVector());
         gl.uniform1f(uniformMap.get('u_fov'), this.state.get('fov'));
         gl.uniform2f(uniformMap.get('u_subpixel_jitter'), 0.0, 0.0);
+
+        // Bounding sphere radius culling (eliminates 40%-60% of sky raymarch steps)
+        const boundRadius = this.computeSafeBoundingRadius(formula, this.state.values);
+        set1f('u_bound_radius', boundRadius);
+
+        // Dynamic shadow & AO tap allocation based on movement
+        set1i('u_shadow_steps', isMoving ? 8 : 16);
+        set1i('u_ao_taps', isMoving ? 2 : 4);
 
         // Adaptive max ray steps: guaranteed sufficient step budget while maintaining 60 FPS
         const userSteps = this.state.get('max_steps') ?? 140;
@@ -763,64 +858,140 @@ void main() {
     render(camera, time, isMovingOrModulating = false, currentFps = 60) {
         const gl = this.gl;
 
-        // Dynamic Adaptive Resolution Scaling to guarantee 50-60 FPS
-        const morph = this.state.formulaMorph;
-        const isDoublePass = Boolean(morph && FORMULAS[morph.fromId] && FORMULAS[morph.toId]);
-        
-        let target = 1.0;
-        if (isDoublePass) {
-            // During formula cross-morphing, two full passes execute per frame
-            target = 0.68;
-        } else if (isMovingOrModulating) {
-            target = (currentFps > 0 && currentFps < 42) ? 0.65 : 0.78;
-        } else if (currentFps > 0 && currentFps < 40) {
-            target = 0.72;
-        } else {
-            target = 1.0;
+        // 1. Process GPU Timer Queries (disjoint-safe)
+        if (this.timerExt) {
+            while (this.gpuQueries.length > 0) {
+                const queryInfo = this.gpuQueries[0];
+                const available = gl.getQueryParameter(queryInfo.query, gl.QUERY_RESULT_AVAILABLE);
+                const disjoint = gl.getParameter(this.timerExt.GPU_DISJOINT_EXT);
+
+                if (available && !disjoint) {
+                    const elapsedNs = gl.getQueryParameter(queryInfo.query, gl.QUERY_RESULT);
+                    this.lastGpuMs = elapsedNs * 1e-6;
+                    gl.deleteQuery(queryInfo.query);
+                    this.gpuQueries.shift();
+                } else if (available || disjoint) {
+                    gl.deleteQuery(queryInfo.query);
+                    this.gpuQueries.shift();
+                } else {
+                    break;
+                }
+            }
         }
 
-        // Smoothly glide resolution scale
-        this.activeScale += (target - this.activeScale) * 0.18;
-        const renderW = Math.max(64, Math.round(this.canvas.width * this.activeScale));
-        const renderH = Math.max(64, Math.round(this.canvas.height * this.activeScale));
-        this.updateFBOs(renderW, renderH);
+        // 2. Discrete Frame-Budget Resolution Governor (Rolling 30 frames with hysteresis)
+        const frameMs = 1000 / Math.max(1, currentFps);
+        this.frameTimeHistory.push(frameMs);
+        if (this.frameTimeHistory.length > 30) this.frameTimeHistory.shift();
+
+        const avgFrameMs = this.frameTimeHistory.reduce((a, b) => a + b, 0) / this.frameTimeHistory.length;
+        const nowMs = performance.now();
+        const deltaGovernor = this._lastGovernorTime ? (nowMs - this._lastGovernorTime) : 16;
+        this._lastGovernorTime = nowMs;
+        const timeSinceLastScaleChange = nowMs - this.lastScaleChangeTime;
+
+        const morph = this.state.formulaMorph;
+        const isDoublePass = Boolean(morph && FORMULAS[morph.fromId] && FORMULAS[morph.toId]);
+
+        let targetIndex = this.scaleIndex;
+        // Step down fast if frame budget exceeds 19.5ms (> 350ms duration)
+        if (avgFrameMs > 19.5) {
+            this.overBudgetDuration += deltaGovernor;
+            this.underBudgetDuration = 0;
+            if (this.overBudgetDuration > 350 && timeSinceLastScaleChange > 400) {
+                targetIndex = Math.min(this.scaleLevels.length - 1, this.scaleIndex + 1);
+                this.overBudgetDuration = 0;
+                this.lastScaleChangeTime = nowMs;
+            }
+        } else if (avgFrameMs < 14.0 && !isDoublePass && !isMovingOrModulating) {
+            // Step up cautiously if ample headroom (< 14.0ms for > 1500ms)
+            this.underBudgetDuration += deltaGovernor;
+            this.overBudgetDuration = 0;
+            if (this.underBudgetDuration > 1500 && timeSinceLastScaleChange > 1500) {
+                targetIndex = Math.max(0, this.scaleIndex - 1);
+                this.underBudgetDuration = 0;
+                this.lastScaleChangeTime = nowMs;
+            }
+        } else {
+            this.overBudgetDuration = 0;
+            this.underBudgetDuration = 0;
+        }
+
+        this.scaleIndex = targetIndex;
+        let effectiveIndex = this.scaleIndex;
+        // Dual-pass cross-morphing requires 1 step lower scale to maintain 60 FPS
+        if (isDoublePass && effectiveIndex === 0) {
+            effectiveIndex = 1;
+        }
+        this.activeScale = this.scaleLevels[effectiveIndex];
+
+        // 3. Keep Framebuffers statically sized to canvas (Zero per-frame reallocation!)
+        const canvasW = this.canvas.width;
+        const canvasH = this.canvas.height;
+        this.updateFBOs(canvasW, canvasH);
+
+        // Sub-viewport resolution
+        const renderW = Math.max(64, Math.round(canvasW * this.activeScale));
+        const renderH = Math.max(64, Math.round(canvasH * this.activeScale));
+
+        // 4. Begin GPU Timer Query for raymarch pass
+        let activeQuery = null;
+        if (this.timerExt && this.gpuQueries.length < 4) {
+            activeQuery = gl.createQuery();
+            gl.beginQuery(this.timerExt.TIME_ELAPSED_EXT, activeQuery);
+        }
 
         let blendAmount = 0.0;
-
-        if (morph && FORMULAS[morph.fromId] && FORMULAS[morph.toId]) {
+        if (isDoublePass) {
             blendAmount = morph.progress;
             const formulaA = FORMULAS[morph.fromId];
             const formulaB = FORMULAS[morph.toId];
 
-            // Render Formula A into FBO A
+            // Render Formula A into FBO A sub-viewport
             this.renderFormulaPass(formulaA, this.fboA, camera, time, renderW, renderH, isMovingOrModulating);
 
-            // Render Formula B into FBO B
+            // Render Formula B into FBO B sub-viewport
             this.renderFormulaPass(formulaB, this.fboB, camera, time, renderW, renderH, isMovingOrModulating);
         } else {
             const currentFormula = this.state.getActiveFormula();
             this.renderFormulaPass(currentFormula, this.fboA, camera, time, renderW, renderH, isMovingOrModulating);
         }
 
-        // --- DIRECT SCREEN COMPOSITE & BLEND PASS (WITH FXAA ANTI-ALIASING) ---
+        // End GPU Timer Query
+        if (activeQuery) {
+            gl.endQuery(this.timerExt.TIME_ELAPSED_EXT);
+            this.gpuQueries.push({ query: activeQuery });
+        }
+
+        // 5. Screen Composite & FXAA Anti-Aliasing with Sub-Viewport UV scaling
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        gl.viewport(0, 0, canvasW, canvasH);
         gl.useProgram(this.compositeProgram);
         gl.bindVertexArray(this.quadVAO);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.fboTextureA);
-        gl.uniform1i(gl.getUniformLocation(this.compositeProgram, 'u_tex_a'), 0);
+        gl.uniform1i(this.compositeUniforms.u_tex_a, 0);
 
         if (blendAmount > 0.001) {
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, this.fboTextureB);
-            gl.uniform1i(gl.getUniformLocation(this.compositeProgram, 'u_tex_b'), 1);
+            gl.uniform1i(this.compositeUniforms.u_tex_b, 1);
         }
 
-        gl.uniform1f(gl.getUniformLocation(this.compositeProgram, 'u_blend'), blendAmount);
-        gl.uniform2f(gl.getUniformLocation(this.compositeProgram, 'u_tex_size'), renderW, renderH);
+        gl.uniform1f(this.compositeUniforms.u_blend, blendAmount);
+        gl.uniform2f(this.compositeUniforms.u_tex_size, this.fboWidth, this.fboHeight);
+        gl.uniform2f(this.compositeUniforms.u_uv_scale, renderW / this.fboWidth, renderH / this.fboHeight);
+        gl.uniform2f(this.compositeUniforms.u_render_size, renderW, renderH);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
+    getPerformanceMetrics() {
+        return {
+            scale: this.activeScale,
+            gpuMs: this.lastGpuMs,
+            hasGpuTimer: Boolean(this.timerExt)
+        };
     }
 }

@@ -1088,6 +1088,21 @@ export class CockpitUI {
                 }
             }
         }
+        
+        // Throttled HUD performance details (GPU ms & active scale level)
+        if (!this._lastPerfHudUpdate || (performance.now() - this._lastPerfHudUpdate) > 250) {
+            this._lastPerfHudUpdate = performance.now();
+            const hudPerf = document.getElementById('hud-perf-details');
+            if (hudPerf) {
+                const metrics = (typeof this.raymarcher.getPerformanceMetrics === 'function') 
+                    ? this.raymarcher.getPerformanceMetrics() 
+                    : { scale: this.raymarcher.activeScale || 1.0, gpuMs: 0, hasGpuTimer: false };
+                const scaleStr = `${metrics.scale.toFixed(2)}×`;
+                const msStr = (metrics.gpuMs > 0) ? `${metrics.gpuMs.toFixed(1)} ms` : `${(1000 / Math.max(1, fps)).toFixed(1)} ms`;
+                const prefix = (metrics.hasGpuTimer && metrics.gpuMs > 0) ? 'GPU' : 'Render';
+                hudPerf.textContent = `${prefix} ${msStr} · ${scaleStr}`;
+            }
+        }
         const hudScale = document.getElementById('hud-scale');
         if (hudScale) hudScale.textContent = `${this.raymarcher.activeScale.toFixed(2)}x`;
     }

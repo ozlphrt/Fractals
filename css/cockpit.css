@@ -325,6 +325,19 @@ body.zen-mode .studio-ui {
     letter-spacing: 0.06em;
 }
 
+.hud-sep {
+    color: rgba(255, 255, 255, 0.25);
+    font-size: 0.70rem;
+    margin: 0 1px;
+}
+
+.hud-perf-details {
+    color: #38bdf8;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
 /* Bottom Action Dock: Bottom Right Corner */
 .bottom-action-dock {
     position: fixed;
