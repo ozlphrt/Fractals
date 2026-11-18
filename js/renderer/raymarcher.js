@@ -347,11 +347,11 @@ void main() {
     float fovFactor = tan(radians(u_fov * 0.5));
     vec3 rd = normalize(p.x * uu * fovFactor + p.y * vv * fovFactor + ww);
     
-    // Raymarching with sub-step screen dither to eliminate step-alignment contouring
-    float dither = fract(sin(dot(fragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
-    float t = max(0.01, u_near_clip) + dither * (u_hit_epsilon * 0.35);
+    // Raymarching
+    float t = max(0.01, u_near_clip);
+    float tPrev = t;
     float maxDist = 32.0;
-    vec4 trap = vec4(100.0);
+    vec4 trap = vec4(0.0);
     vec4 finalTrap = vec4(0.0);
     int stepCount = 0;
     float glow = 0.0;
@@ -372,18 +372,29 @@ void main() {
         if (d < u_hit_epsilon * (1.0 + t * 0.08)) {
             // Near-clip culling: completely do not draw pieces too close to camera
             if (t < u_near_clip) {
+                tPrev = t;
                 t += max(0.05, abs(d) + 0.02);
                 continue;
             }
             hit = true;
-            // 4-step secant/Newton root refinement: converges t to exact zero-crossing surface boundary
-            for (int ref = 0; ref < 4; ref++) {
-                float rd_d = map(ro + rd * t);
-                t += rd_d;
+            // 5-step bracketed bisection: cuts remaining distance error by 32X
+            // Guaranteed monotonic convergence without noise or penetration artifacts
+            float tA = tPrev;
+            float tB = t;
+            for (int ref = 0; ref < 5; ref++) {
+                float tMid = 0.5 * (tA + tB);
+                float dMid = map(ro + rd * tMid);
+                if (dMid > u_hit_epsilon * 0.35) {
+                    tA = tMid;
+                } else {
+                    tB = tMid;
+                }
             }
+            t = tB;
             mapFractal(ro + rd * t, finalTrap);
             break;
         }
+        tPrev = t;
         t += max(u_hit_epsilon * 0.5, d * 0.88);
     }
     
