@@ -7,6 +7,9 @@ import { AudioEngine } from './audio/analyzer.js';
 import { CameraController } from './camera/controller.js';
 import { Raymarcher } from './renderer/raymarcher.js';
 import { CockpitUI } from './ui/cockpit.js';
+import { GalleryManager } from './gallery/community.js';
+import { FORMULAS } from './formulas/registry.js';
+import { PALETTE_PRESETS } from './state/palettes.js';
 
 class FractalSynthApp {
     constructor() {
@@ -19,6 +22,26 @@ class FractalSynthApp {
         });
         this.raymarcher = new Raymarcher(this.canvas, this.state);
         this.ui = new CockpitUI(this.state, this.modulation, this.audio, this.camera, this.raymarcher);
+
+        // Community Folder & URL Creation Sharing System
+        const self = this;
+        const appAdapter = {
+            formulaRegistry: {
+                get activeFormula() { return self.state.getActiveFormula(); },
+                getFormula: (id) => FORMULAS[id]
+            },
+            params: this.state,
+            materials: {
+                get currentPresetId() {
+                    const idx = self.ui.activeMaterialIndex || 0;
+                    return PALETTE_PRESETS[idx]?.id || 'dark_loam';
+                },
+                applyPreset: (id) => self.ui.applyMaterialPreset(id)
+            },
+            camera: this.camera,
+            setFormula: (id) => this.state.setActiveFormula(id)
+        };
+        this.gallery = new GalleryManager(appAdapter);
 
         this.lastTime = performance.now();
         this.fps = 60;

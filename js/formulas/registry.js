@@ -90,10 +90,13 @@ float mapFractal(vec3 pos, out vec4 trap) {
             break;
         }
     }
-    if (m <= 8.0) orbit.w = float(maxIt);
+    if (m <= 8.0) {
+        orbit.w = float(maxIt);
+        trap = orbit;
+        return 0.0;
+    }
     
     trap = orbit;
-    if (m < 1.0) return 0.0;
     return 0.25 * log(m) * sqrt(m) / max(1e-4, dz);
 }
 `,
@@ -122,7 +125,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
                 m = x * x + y * y + z * z;
                 if (m > 8.0) break;
             }
-            if (m < 1.0) return 0.0;
+            if (m <= 8.0) return 0.0;
             return 0.25 * Math.log(m) * Math.sqrt(m) / Math.max(1e-4, dz);
         }
     },
@@ -472,9 +475,14 @@ float mapFractal(vec3 pos, out vec4 trap) {
         }
     }
     
+    if (mz2 <= 4.0) {
+        oTrap.w = float(maxIt);
+        trap = oTrap;
+        return 0.0;
+    }
+    
     oTrap.w = smoothIter;
     trap = oTrap;
-    if (mz2 < 1.0) return 0.0;
     return 0.25 * sqrt(mz2 / max(md2, 1e-6)) * log(mz2);
 }
 `,
@@ -520,7 +528,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         },
         params: [
             { id: 'apol_scale', name: 'Inversion Scale', min: 0.8, max: 1.8, step: 0.02, default: 1.18, uniform: 'u_apol_scale', type: 'float' },
-            { id: 'apol_core', name: 'Core Voids', min: 0.05, max: 0.6, step: 0.01, default: 0.22, uniform: 'u_apol_core', type: 'float' },
+            { id: 'apol_core', name: 'Core Voids', min: 0.01, max: 0.6, step: 0.01, default: 0.22, uniform: 'u_apol_core', type: 'float' },
             { id: 'apol_radius', name: 'Sculptural Bound', min: 1.0, max: 2.5, step: 0.02, default: 1.55, uniform: 'u_apol_radius', type: 'float' },
             { id: 'apol_rot_x', name: 'Fold Rot X', min: -0.3, max: 0.3, step: 0.01, default: 0.04, uniform: 'u_apol_rot_x', type: 'float' },
             { id: 'apol_rot_y', name: 'Fold Rot Y', min: -0.3, max: 0.3, step: 0.01, default: 0.08, uniform: 'u_apol_rot_y', type: 'float' },
@@ -776,10 +784,13 @@ float mapFractal(vec3 pos, out vec4 trap) {
             break;
         }
     }
-    if (m <= 8.0) orbit.w = float(maxIt);
+    if (m <= 8.0) {
+        orbit.w = float(maxIt);
+        trap = orbit;
+        return 0.0;
+    }
     
     trap = orbit;
-    if (m < 1.0) return 0.0;
     return 0.25 * log(m) * sqrt(m) / max(1e-4, dz);
 }
 `,
@@ -804,7 +815,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
                 m = x * x + y * y + z * z;
                 if (m > 8.0) break;
             }
-            if (m < 1.0) return 0.0;
+            if (m <= 8.0) return 0.0;
             return 0.25 * Math.log(m) * Math.sqrt(m) / Math.max(1e-4, dz);
         }
     },
@@ -1077,9 +1088,14 @@ float mapFractal(vec3 pos, out vec4 trap) {
         }
     }
     
+    if (mz2 <= 4.0) {
+        oTrap.w = float(maxIt);
+        trap = oTrap;
+        return 0.0;
+    }
+    
     oTrap.w = smoothIter;
     trap = oTrap;
-    if (mz2 < 1.0) return 0.0;
     return 0.35 * sqrt(mz2 / max(md2, 1e-6)) * log(mz2);
 }
 `,

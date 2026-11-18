@@ -177,7 +177,7 @@ export class Raymarcher {
                 rawCol = colA;
             }
             
-            vec3 mapped = aces(rawCol);
+            vec3 mapped = aces(rawCol * 0.88);
             mapped = pow(mapped, vec3(1.0 / 2.2));
             // 8-bit gradient dither eliminates color tearing and Mach bands on smooth gradients
             float dither = (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
@@ -291,15 +291,14 @@ float map(vec3 pos) {
     return mapFractal(pos, dummy);
 }
 
-// 4-tap Tetrahedron Normal (Analytic gradient, 33% faster than 6-tap with zero directional bias)
+// 6-tap Central Differences Normal (Symmetric along XYZ, eliminates tetrahedral cross-hatch and diamond banding)
 vec3 calcNormal(vec3 p, float eps) {
-    const vec2 k = vec2(1.0, -1.0);
-    return normalize(
-        k.xyy * map(p + k.xyy * eps) +
-        k.yyx * map(p + k.yyx * eps) +
-        k.yxy * map(p + k.yxy * eps) +
-        k.xxx * map(p + k.xxx * eps)
-    );
+    vec2 e = vec2(eps, 0.0);
+    return normalize(vec3(
+        map(p + e.xyy) - map(p - e.xyy),
+        map(p + e.yxy) - map(p - e.yxy),
+        map(p + e.yyx) - map(p - e.yyx)
+    ));
 }
 
 // Inigo Quilez Cosine Palette
@@ -307,26 +306,26 @@ vec3 cosinePalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
     return a + b * cos(6.28318 * (c * t + d));
 }
 
-// Soft Shadow (optimized 8 steps with dynamic safety, prevents flat silhouette crushing)
+// High-fidelity Soft Shadow
 float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
     float res = 1.0;
     float t = mint;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 14; i++) {
         if (t >= maxt) break;
         float h = map(ro + rd * t);
-        if (h < 0.0005) return 0.12;
+        if (h < 0.0003) return 0.12;
         res = min(res, k * h / t);
-        t += clamp(h, 0.03, 0.40);
+        t += clamp(h, 0.015, 0.35);
     }
     return clamp(res, 0.12, 1.0);
 }
 
-// High-efficiency 3-tap Ambient Occlusion
+// High-efficiency 4-tap Ambient Occlusion
 float calcAO(vec3 p, vec3 n) {
     float occ = 0.0;
     float sca = 1.0;
-    for (int i = 0; i < 3; i++) {
-        float h = 0.015 + 0.14 * float(i) / 2.0;
+    for (int i = 0; i < 4; i++) {
+        float h = 0.01 + 0.12 * float(i) / 3.0;
         float d = map(p + h * n);
         occ += (h - d) * sca;
         sca *= 0.75;
@@ -368,15 +367,18 @@ void main() {
             glow += g * g;
         }
         
-        if (d < u_hit_epsilon * (1.0 + t * 0.04)) {
+        if (d < u_hit_epsilon * (1.0 + t * 0.03)) {
             // Near-clip culling: completely do not draw pieces too close to camera
             if (t < u_near_clip) {
                 t += max(0.05, abs(d) + 0.02);
                 continue;
             }
             hit = true;
+            // Analytic surface convergence:
+            // Snapping to root + single refinement step eliminates stepped terraces & rings
             t += d;
-            finalTrap = trap;
+            float d2 = mapFractal(ro + rd * t, finalTrap);
+            t += d2;
             break;
         }
         t += d * 0.75;
@@ -393,7 +395,7 @@ void main() {
     
     if (hit) {
         vec3 pos = ro + rd * t;
-        vec3 nor = calcNormal(pos, clamp(0.0006 + t * 0.0002, 0.0004, 0.0015));
+        vec3 nor = calcNormal(pos, max(0.001, u_hit_epsilon * 0.9));
         float ao = calcAO(pos, nor);
         
         // Orbit trap selection for coloring
@@ -450,21 +452,29 @@ void main() {
         
         // Sky / Ground Hemispheric Light Fill
         float hemi = clamp(0.5 + 0.5 * nor.y, 0.0, 1.0);
-        vec3 skyCol = vec3(0.35, 0.45, 0.60);
-        vec3 groundCol = vec3(0.18, 0.14, 0.10);
+        vec3 skyCol = vec3(0.24, 0.30, 0.40);
+        vec3 groundCol = vec3(0.12, 0.09, 0.06);
         vec3 ambFill = mix(groundCol, skyCol, hemi);
 
         vec3 lin = vec3(0.0);
-        lin += albedo * sunColor * dif * sha * u_sun_intensity;
+        // Direct Sun Diffuse (scaled, energy-conserved)
+        lin += albedo * sunColor * dif * sha * u_sun_intensity * 0.85;
+        
+        // Specular highlight (PBR Fresnel Blinn-Phong, attenuated by roughness & metallic)
         vec3 specColor = mix(sunColor, albedo, u_metallic);
-        lin += specColor * spe * sha * u_sun_intensity * (0.3 + 0.7 * u_metallic);
-        lin += albedo * ambFill * ao * 0.65;
-        lin += albedo * rimColor * backDif * u_backlight_intensity * ao * 0.6;
-        lin += rimColor * backSpe * u_backlight_intensity * 0.7;
-        lin += rimColor * rimFresnel * clamp(dot(-rd, backDir) * 0.5 + 0.5, 0.0, 1.0) * u_backlight_intensity * 0.8;
+        float specPower = (0.2 + 0.8 * u_metallic) * (1.0 - u_roughness * 0.5);
+        lin += specColor * spe * sha * u_sun_intensity * specPower * 0.65;
+        
+        // Ambient Environmental Fill (strictly attenuated by AO)
+        lin += albedo * ambFill * ao * 0.35;
+        
+        // Backlight Rim Light (controlled silhouette edge accent, not surface washout)
+        lin += albedo * rimColor * backDif * u_backlight_intensity * ao * 0.25;
+        lin += rimColor * backSpe * u_backlight_intensity * (0.3 + 0.7 * u_metallic) * 0.35;
+        lin += rimColor * rimFresnel * clamp(dot(-rd, backDir) * 0.5 + 0.5, 0.0, 1.0) * u_backlight_intensity * 0.30;
         
         if (u_glow_intensity > 0.01) {
-            lin += fre * glowColor * 0.5 * u_glow_intensity;
+            lin += fre * glowColor * 0.35 * u_glow_intensity;
         }
         
         // Distance fog

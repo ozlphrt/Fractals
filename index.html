@@ -23,7 +23,7 @@
     <!-- Minimalist Studio UI -->
     <div class="studio-ui" id="studio-ui">
         
-        <!-- Top Navigation: Formula (Top-Left) and Material (Top-Right) -->
+        <!-- Top Navigation: Formula (Top-Left) and Material + Folder (Top-Right) -->
         <header class="top-nav-bar">
             <!-- 1. Fractal Formula Cycle Pill (Top-Left) -->
             <div class="cycle-pill formula-pill" id="formula-cycle-pill">
@@ -43,22 +43,33 @@
                 <select id="formula-select" style="display: none;"></select>
             </div>
 
-            <!-- 2. Natural Material Cycle Pill (Top-Right) -->
-            <div class="cycle-pill material-pill" id="material-cycle-pill">
-                <button class="cycle-step-btn" id="material-prev-btn" title="Previous Material" aria-label="Previous Material">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                </button>
-                <div class="cycle-content" id="material-cycle-btn" title="Click to Cycle Material">
-                    <div class="cycle-eyebrow">
-                        <span class="cycle-dot dot-material"></span>
-                        <span class="cycle-tag">MATERIAL</span>
+            <!-- Right Controls Group (Material Pill + Folder Button) -->
+            <div class="top-nav-right-group">
+                <!-- 2. Natural Material Cycle Pill -->
+                <div class="cycle-pill material-pill" id="material-cycle-pill">
+                    <button class="cycle-step-btn" id="material-prev-btn" title="Previous Material" aria-label="Previous Material">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    </button>
+                    <div class="cycle-content" id="material-cycle-btn" title="Click to Cycle Material">
+                        <div class="cycle-eyebrow">
+                            <span class="cycle-dot dot-material"></span>
+                            <span class="cycle-tag">MATERIAL</span>
+                        </div>
+                        <span class="cycle-title" id="material-name-display">Dark Loam</span>
                     </div>
-                    <span class="cycle-title" id="material-name-display">Dark Loam</span>
+                    <button class="cycle-step-btn" id="material-next-btn" title="Next Material" aria-label="Next Material">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </button>
+                    <select id="palette-preset-select" style="display: none;"></select>
                 </div>
-                <button class="cycle-step-btn" id="material-next-btn" title="Next Material" aria-label="Next Material">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+
+                <!-- 3. Folder Button (Community Showcase & Creation Sharing) -->
+                <button class="top-folder-btn" id="btn-toggle-gallery" title="Community Folder & Creations" aria-label="Open Creations Folder">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span>Folder</span>
                 </button>
-                <select id="palette-preset-select" style="display: none;"></select>
             </div>
         </header>
 
@@ -277,6 +288,27 @@
             </div>
         </aside>
 
+        <!-- Slide-out Right Drawer: Community Folder & Creations Showcase -->
+        <aside class="side-drawer drawer-right closed" id="gallery-drawer" aria-label="Community Creations Folder">
+            <div class="drawer-header">
+                <div class="drawer-title-row">
+                    <div class="drawer-icon-badge">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    </div>
+                    <div>
+                        <h2 class="drawer-title">Creations Folder</h2>
+                        <span class="drawer-subtitle">Community Showcase & Share</span>
+                    </div>
+                </div>
+                <button class="drawer-close-btn" id="btn-close-gallery" title="Close Drawer" aria-label="Close Folder">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="gallery-drawer-body">
+                <!-- Dynamically populated by GalleryManager -->
+            </div>
+        </aside>
+
     </div>
 
     <!-- Modulation Popover -->
@@ -320,6 +352,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Transient Studio Feedback Toast -->
+    <div class="studio-toast" id="studio-toast" role="status" aria-live="polite"></div>
 
     <!-- Application Script -->
     <script type="module" src="js/main.js"></script>

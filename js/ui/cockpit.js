@@ -440,6 +440,19 @@ export class CockpitUI {
             });
         }
 
+        this.applyMaterialPreset = (id) => {
+            const idx = PALETTE_PRESETS.findIndex(p => p.id === id);
+            if (idx >= 0) {
+                this.activeMaterialIndex = idx;
+                const preset = PALETTE_PRESETS[idx];
+                this.state.setMany(preset.values, true);
+                if (this.elPaletteSelect) this.elPaletteSelect.value = preset.id;
+                const elMat = document.getElementById('material-name-display');
+                if (elMat) elMat.textContent = preset.name;
+                this.raymarcher.resetAccumulation();
+            }
+        };
+
         // Light 1 (Sun) ON/OFF Toggle Pill
         const btnToggleSun = document.getElementById('btn-toggle-light-sun');
         if (btnToggleSun) {

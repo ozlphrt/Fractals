@@ -746,4 +746,41 @@ export class CameraController {
         }
         return wasMoved;
     }
+
+    getState() {
+        return {
+            mode: this.mode,
+            pos: [Number(this.pos[0].toFixed(4)), Number(this.pos[1].toFixed(4)), Number(this.pos[2].toFixed(4))],
+            target: [Number(this.target[0].toFixed(4)), Number(this.target[1].toFixed(4)), Number(this.target[2].toFixed(4))],
+            orbitRadius: Number(this.orbitRadius.toFixed(4)),
+            preset: this.activeCameraPreset,
+            autoRotate: this.autoRotate
+        };
+    }
+
+    setState(s, smooth = true) {
+        if (!s) return;
+        if (s.mode) this.mode = s.mode;
+        if (s.preset) this.activeCameraPreset = s.preset;
+        if (s.autoRotate !== undefined) this.autoRotate = s.autoRotate;
+        if (s.orbitRadius) {
+            this.orbitRadius = s.orbitRadius;
+            this.targetOrbitRadius = s.orbitRadius;
+        }
+        if (s.target) {
+            this.target[0] = s.target[0];
+            this.target[1] = s.target[1];
+            this.target[2] = s.target[2];
+        }
+        if (s.pos) {
+            if (smooth) {
+                this.startSmoothTransition(s.pos, s.target || this.target, 1.5);
+            } else {
+                this.pos[0] = s.pos[0];
+                this.pos[1] = s.pos[1];
+                this.pos[2] = s.pos[2];
+                this.hasMoved = true;
+            }
+        }
+    }
 }
