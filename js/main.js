@@ -21,6 +21,12 @@ class FractalSynthApp {
             this.raymarcher.resetAccumulation();
         });
 
+        // Initialize camera to active formula's dramatic canonical framing
+        const initialFormula = this.state.getActiveFormula();
+        if (initialFormula && initialFormula.defaultCam) {
+            this.camera.resetView(initialFormula.defaultCam.pos, initialFormula.defaultCam.target);
+        }
+
         // Initialize sun azimuth and elevation to align with initial camera viewpoint
         this.updateSunAutoTracking(1.0);
 

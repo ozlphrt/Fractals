@@ -31,7 +31,9 @@ export class CockpitUI {
         this.state.onFormulaChange((formula) => {
             this.renderFormulaParams();
             this.updateHeaderInfo();
-            if (this.camera) this.camera.resetToDefaultZoom();
+            if (this.camera && formula.defaultCam) {
+                this.camera.resetView(formula.defaultCam.pos, formula.defaultCam.target);
+            }
             this.raymarcher.resetAccumulation();
         });
 

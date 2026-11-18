@@ -20,7 +20,7 @@ export const FORMULAS = {
         name: 'Mandelbulb',
         subtitle: 'Spherical 3D Power Fold',
         defaultCam: {
-            pos: [0.0, 0.0, 1.55],
+            pos: [0.0, 0.0, 2.35],
             target: [0.0, 0.0, 0.0]
         },
         params: [
@@ -127,7 +127,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: 'Mandelbox',
         subtitle: 'Brutalist Box & Sphere Inversion Fold',
         defaultCam: {
-            pos: [4.2, 3.2, 4.6],
+            pos: [4.2, 3.2, 4.8],
             target: [0.0, 0.0, 0.0]
         },
         params: [
@@ -142,24 +142,24 @@ float mapFractal(vec3 pos, out vec4 trap) {
             { id: 'mbox_offset_x', name: 'Offset Shift X', min: -1.0, max: 1.0, step: 0.01, default: 0.0, uniform: 'u_mbox_offset_x', type: 'float' },
             { id: 'mbox_offset_y', name: 'Offset Shift Y', min: -1.0, max: 1.0, step: 0.01, default: 0.0, uniform: 'u_mbox_offset_y', type: 'float' },
             { id: 'mbox_offset_z', name: 'Offset Shift Z', min: -1.0, max: 1.0, step: 0.01, default: 0.0, uniform: 'u_mbox_offset_z', type: 'float' },
-            { id: 'mbox_near_clip', name: 'Camera Clearance', min: 0.2, max: 2.5, step: 0.05, default: 0.70, uniform: 'u_mbox_near_clip', type: 'float' }
+            { id: 'mbox_near_clip', name: 'Camera Clearance', min: 0.01, max: 1.0, step: 0.01, default: 0.05, uniform: 'u_mbox_near_clip', type: 'float' }
         ],
         presets: [
             {
                 name: 'Metropolis Citadel',
-                values: { mbox_scale: 2.25, mbox_iterations: 10, mbox_fold_limit: 1.0, mbox_min_radius: 0.5, mbox_fixed_radius: 1.0, mbox_rot_x: 0.0, mbox_rot_y: 0.0, mbox_rot_z: 0.0, mbox_offset_x: 0.0, mbox_offset_y: 0.0, mbox_offset_z: 0.0, mbox_near_clip: 0.70 }
+                values: { mbox_scale: 2.25, mbox_iterations: 10, mbox_fold_limit: 1.0, mbox_min_radius: 0.5, mbox_fixed_radius: 1.0, mbox_rot_x: 0.0, mbox_rot_y: 0.0, mbox_rot_z: 0.0, mbox_offset_x: 0.0, mbox_offset_y: 0.0, mbox_offset_z: 0.0, mbox_near_clip: 0.05 }
             },
             {
                 name: 'Brutalist Flying Buttresses',
-                values: { mbox_scale: 2.75, mbox_iterations: 11, mbox_fold_limit: 1.22, mbox_min_radius: 0.42, mbox_fixed_radius: 1.35, mbox_rot_x: 0.04, mbox_rot_y: 0.08, mbox_rot_z: 0.0, mbox_offset_x: -0.15, mbox_offset_y: 0.0, mbox_offset_z: 0.12, mbox_near_clip: 0.70 }
+                values: { mbox_scale: 2.75, mbox_iterations: 11, mbox_fold_limit: 1.22, mbox_min_radius: 0.42, mbox_fixed_radius: 1.35, mbox_rot_x: 0.04, mbox_rot_y: 0.08, mbox_rot_z: 0.0, mbox_offset_x: -0.15, mbox_offset_y: 0.0, mbox_offset_z: 0.12, mbox_near_clip: 0.05 }
             },
             {
                 name: 'Sub-Zero Crystalline Lattice',
-                values: { mbox_scale: -1.85, mbox_iterations: 10, mbox_fold_limit: 0.82, mbox_min_radius: 0.36, mbox_fixed_radius: 1.18, mbox_rot_x: 0.07, mbox_rot_y: -0.06, mbox_rot_z: 0.05, mbox_offset_x: 0.12, mbox_offset_y: -0.08, mbox_offset_z: 0.14, mbox_near_clip: 0.70 }
+                values: { mbox_scale: -1.85, mbox_iterations: 10, mbox_fold_limit: 0.82, mbox_min_radius: 0.36, mbox_fixed_radius: 1.18, mbox_rot_x: 0.07, mbox_rot_y: -0.06, mbox_rot_z: 0.05, mbox_offset_x: 0.12, mbox_offset_y: -0.08, mbox_offset_z: 0.14, mbox_near_clip: 0.05 }
             },
             {
                 name: 'Monolithic Hyper-Sanctuary',
-                values: { mbox_scale: 2.05, mbox_iterations: 9, mbox_fold_limit: 1.15, mbox_min_radius: 0.58, mbox_fixed_radius: 1.05, mbox_rot_x: -0.05, mbox_rot_y: 0.06, mbox_rot_z: -0.04, mbox_offset_x: 0.05, mbox_offset_y: 0.1, mbox_offset_z: -0.05, mbox_near_clip: 0.70 }
+                values: { mbox_scale: 2.05, mbox_iterations: 9, mbox_fold_limit: 1.15, mbox_min_radius: 0.58, mbox_fixed_radius: 1.05, mbox_rot_x: -0.05, mbox_rot_y: 0.06, mbox_rot_z: -0.04, mbox_offset_x: 0.05, mbox_offset_y: 0.1, mbox_offset_z: -0.05, mbox_near_clip: 0.05 }
             }
         ],
         glsl: `
@@ -286,7 +286,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: 'Kaleidoscopic IFS',
         subtitle: 'Polyhedral Reflection & Fractal Origami',
         defaultCam: {
-            pos: [0.83, 0.68, 0.98],
+            pos: [1.8, 1.5, 2.2],
             target: [0.0, 0.0, 0.0]
         },
         params: [
@@ -412,7 +412,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: '4D Quaternion Julia',
         subtitle: 'Hypercomplex 4D Julia Slice & Liquid Ribbons',
         defaultCam: {
-            pos: [0.0, 0.0, 1.58],
+            pos: [1.3, 0.9, 1.8],
             target: [0.0, 0.0, 0.0]
         },
         params: [
@@ -428,7 +428,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         presets: [
             {
                 name: 'Liquid Hyper-Ribbon',
-                values: { qj_cx: -0.2, qj_cy: 0.6, qj_cz: 0.4, qj_cw: 0.0, qj_slice_w: 0.0, qj_rot_xw: 0.0, qj_rot_yw: 0.0, qj_iterations: 11 }
+                values: { qj_cx: -0.22, qj_cy: 0.55, qj_cz: 0.42, qj_cw: 0.15, qj_slice_w: 0.18, qj_rot_xw: 0.48, qj_rot_yw: -0.38, qj_iterations: 11 }
             },
             {
                 name: 'Seahorse 4D Hyper-Nebula',
@@ -529,7 +529,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: 'Apollonian Gasket',
         subtitle: 'Kleinian 3D Sphere Inversion Packing',
         defaultCam: {
-            pos: [2.2, 1.6, 2.5],
+            pos: [1.7, 1.2, 2.6],
             target: [0.0, 0.0, 0.0]
         },
         params: [
@@ -619,37 +619,38 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: 'Dodecahedron IFS',
         subtitle: 'Golden Ratio 12-Face Sacred Geometry',
         defaultCam: {
-            pos: [0.0, 0.0, 1.55],
+            pos: [1.7, 1.3, 2.5],
             target: [0.0, 0.0, 0.0]
         },
         params: [
-            { id: 'dodec_scale', name: 'Scale Factor', min: 1.5, max: 2.8, step: 0.02, default: 2.15, uniform: 'u_dodec_scale', type: 'float' },
-            { id: 'dodec_offset', name: 'Offset', min: 0.4, max: 1.8, step: 0.02, default: 1.0, uniform: 'u_dodec_offset', type: 'float' },
+            { id: 'dodec_scale', name: 'Scale Factor', min: 1.5, max: 2.8, step: 0.02, default: 2.18, uniform: 'u_dodec_scale', type: 'float' },
+            { id: 'dodec_offset', name: 'Core Offset', min: 0.4, max: 1.8, step: 0.02, default: 1.02, uniform: 'u_dodec_offset', type: 'float' },
+            { id: 'dodec_inversion', name: 'Void Hollow / Inversion', min: 0.0, max: 1.2, step: 0.02, default: 0.48, uniform: 'u_dodec_inversion', type: 'float' },
             { id: 'dodec_phi', name: 'Golden Ratio Mod', min: 1.3, max: 1.9, step: 0.01, default: 1.618, uniform: 'u_dodec_phi', type: 'float' },
-            { id: 'dodec_rot_x', name: 'Fold Rot X', min: -0.3, max: 0.3, step: 0.01, default: 0.05, uniform: 'u_dodec_rot_x', type: 'float' },
+            { id: 'dodec_rot_x', name: 'Fold Rot X', min: -0.3, max: 0.3, step: 0.01, default: 0.04, uniform: 'u_dodec_rot_x', type: 'float' },
             { id: 'dodec_rot_y', name: 'Fold Rot Y', min: -0.3, max: 0.3, step: 0.01, default: 0.08, uniform: 'u_dodec_rot_y', type: 'float' },
-            { id: 'dodec_iterations', name: 'Iterations', min: 4, max: 14, step: 1, default: 10, uniform: 'u_dodec_iterations', type: 'int' }
+            { id: 'dodec_iterations', name: 'Iterations', min: 4, max: 16, step: 1, default: 11, uniform: 'u_dodec_iterations', type: 'int' }
         ],
         presets: [
             {
                 name: 'Keplerian Sacred Stellation',
-                values: { dodec_scale: 2.15, dodec_offset: 1.0, dodec_phi: 1.618, dodec_rot_x: 0.05, dodec_rot_y: 0.08, dodec_iterations: 10 }
+                values: { dodec_scale: 2.18, dodec_offset: 1.02, dodec_inversion: 0.48, dodec_phi: 1.618, dodec_rot_x: 0.04, dodec_rot_y: 0.08, dodec_iterations: 11 }
             },
             {
-                name: 'Golden Ratio Origami Pavilion',
-                values: { dodec_scale: 1.95, dodec_offset: 0.85, dodec_phi: 1.62, dodec_rot_x: 0.0, dodec_rot_y: 0.14, dodec_iterations: 11 }
+                name: 'Golden Alhambra Pavilion',
+                values: { dodec_scale: 2.05, dodec_offset: 0.88, dodec_inversion: 0.62, dodec_phi: 1.625, dodec_rot_x: 0.02, dodec_rot_y: 0.14, dodec_iterations: 12 }
             },
             {
                 name: 'Icosahedral Crystal Lotus',
-                values: { dodec_scale: 2.35, dodec_offset: 1.15, dodec_phi: 1.58, dodec_rot_x: -0.08, dodec_rot_y: -0.06, dodec_iterations: 9 }
+                values: { dodec_scale: 2.38, dodec_offset: 1.18, dodec_inversion: 0.35, dodec_phi: 1.58, dodec_rot_x: -0.06, dodec_rot_y: -0.05, dodec_iterations: 10 }
             },
             {
-                name: 'Celestial Dodeca Sanctuary',
-                values: { dodec_scale: 2.5, dodec_offset: 1.3, dodec_phi: 1.68, dodec_rot_x: 0.12, dodec_rot_y: 0.0, dodec_iterations: 11 }
+                name: 'Celestial Kepler-Poinsot Sanctuary',
+                values: { dodec_scale: 2.48, dodec_offset: 1.25, dodec_inversion: 0.52, dodec_phi: 1.68, dodec_rot_x: 0.10, dodec_rot_y: 0.02, dodec_iterations: 11 }
             }
         ],
         glsl: `
-// Dodecahedron / Icosahedron Golden Ratio IFS DE
+// Dodecahedron / Icosahedron Golden Ratio IFS DE (Sacred Multi-Faceted Coxeter Lotus)
 float mapFractal(vec3 pos, out vec4 trap) {
     vec3 p = pos;
     float scale = u_dodec_scale;
@@ -663,48 +664,90 @@ float mapFractal(vec3 pos, out vec4 trap) {
     vec3 n3 = normalize(vec3(phi, 1.0, 0.0));
     
     mat3 rot = rotX(u_dodec_rot_x) * rotY(u_dodec_rot_y);
+    float inv = u_dodec_inversion;
+    float minR2 = inv * 0.25;
+    float fixedR2 = inv * 1.0;
     
     for (int i = 0; i < 16; i++) {
         if (i >= maxIt) break;
         p = rot * p;
-        p = abs(p);
         
+        // Dihedral Coxeter folding (interlocking gothic crystalline facets)
+        p = abs(p);
+        if (p.x - p.y < 0.0) p.xy = p.yx;
+        if (p.x - p.z < 0.0) p.xz = p.zx;
+        if (p.y - p.z < 0.0) p.yz = p.zy;
+        
+        // Golden ratio 12-face dodecahedral reflection folds
         float d1 = dot(p, n1);
         if (d1 < 0.0) p -= 2.0 * d1 * n1;
-        
         float d2 = dot(p, n2);
         if (d2 < 0.0) p -= 2.0 * d2 * n2;
-        
         float d3 = dot(p, n3);
         if (d3 < 0.0) p -= 2.0 * d3 * n3;
+        
+        // Architectural sphere inversion hollow: carves arched galleries & star filigree
+        if (inv > 0.05) {
+            float r2 = dot(p, p);
+            if (r2 < minR2) {
+                float temp = fixedR2 / minR2;
+                p *= temp;
+                dr *= temp;
+            } else if (r2 < fixedR2) {
+                float temp = fixedR2 / r2;
+                p *= temp;
+                dr *= temp;
+            }
+        }
         
         p = p * scale - vec3(u_dodec_offset) * (scale - 1.0);
         dr = dr * scale;
         
         orbit.x = min(orbit.x, length(p));
-        orbit.y = min(orbit.y, abs(p.x) + abs(p.y));
-        orbit.z = min(orbit.z, abs(p.z));
+        orbit.y = min(orbit.y, abs(p.x * p.y) + abs(p.z));
+        orbit.z = min(orbit.z, abs(dot(p, n1)));
         orbit.w = float(i);
     }
     
     trap = orbit;
-    return 0.7 * (length(p) - 1.0) / max(1e-4, dr);
+    return 0.65 * (length(p) - 1.0) / max(1e-4, dr);
 }
 `,
         cpuEvalDE: (p, state) => {
             let zx = p[0], zy = p[1], zz = p[2];
-            const scale = state.dodec_scale ?? 2.15;
-            const off = state.dodec_offset ?? 1.0;
+            const scale = state.dodec_scale ?? 2.18;
+            const off = state.dodec_offset ?? 1.02;
+            const inv = state.dodec_inversion ?? 0.48;
+            const minR2 = inv * 0.25;
+            const fixedR2 = inv * 1.0;
             const phi = state.dodec_phi ?? 1.618;
             const l = Math.hypot(1.0, phi);
             const n1 = [1.0 / l, 0.0, phi / l];
             const n2 = [0.0, phi / l, 1.0 / l];
             const n3 = [phi / l, 1.0 / l, 0.0];
-            const maxIt = Math.min(10, state.dodec_iterations ?? 10);
+            const rx = state.dodec_rot_x ?? 0.04;
+            const ry = state.dodec_rot_y ?? 0.08;
+            const cx = Math.cos(rx), sx = Math.sin(rx);
+            const cy = Math.cos(ry), sy = Math.sin(ry);
+            const maxIt = Math.min(11, state.dodec_iterations ?? 11);
             let dr = 1.0;
 
             for (let i = 0; i < maxIt; i++) {
+                // rotX
+                const y1 = cx * zy - sx * zz;
+                const z1 = sx * zy + cx * zz;
+                // rotY
+                zx = cy * zx + sy * z1;
+                zz = -sy * zx + cy * z1;
+                zy = y1;
+
+                // Coxeter dihedral folds
                 zx = Math.abs(zx); zy = Math.abs(zy); zz = Math.abs(zz);
+                if (zx - zy < 0.0) { const t = zx; zx = zy; zy = t; }
+                if (zx - zz < 0.0) { const t = zx; zx = zz; zz = t; }
+                if (zy - zz < 0.0) { const t = zy; zy = zz; zz = t; }
+
+                // Golden dodecahedron folds
                 const d1 = zx * n1[0] + zy * n1[1] + zz * n1[2];
                 if (d1 < 0.0) { zx -= 2.0 * d1 * n1[0]; zy -= 2.0 * d1 * n1[1]; zz -= 2.0 * d1 * n1[2]; }
                 const d2 = zx * n2[0] + zy * n2[1] + zz * n2[2];
@@ -712,13 +755,30 @@ float mapFractal(vec3 pos, out vec4 trap) {
                 const d3 = zx * n3[0] + zy * n3[1] + zz * n3[2];
                 if (d3 < 0.0) { zx -= 2.0 * d3 * n3[0]; zy -= 2.0 * d3 * n3[1]; zz -= 2.0 * d3 * n3[2]; }
 
+                // Sphere inversion hollow
+                if (inv > 0.05) {
+                    const r2 = zx * zx + zy * zy + zz * zz;
+                    if (r2 < minR2) {
+                        const temp = fixedR2 / minR2;
+                        zx *= temp; zy *= temp; zz *= temp;
+                        dr *= temp;
+                    } else if (r2 < fixedR2) {
+                        const temp = fixedR2 / r2;
+                        zx *= temp; zy *= temp; zz *= temp;
+                        dr *= temp;
+                    }
+                }
+
                 zx = zx * scale - off * (scale - 1.0);
                 zy = zy * scale - off * (scale - 1.0);
                 zz = zz * scale - off * (scale - 1.0);
                 dr = dr * scale;
+
+                const r = Math.hypot(zx, zy, zz);
+                if (r > 600.0) break;
             }
             const len = Math.hypot(zx, zy, zz);
-            return 0.7 * (len - 1.0) / Math.max(1e-4, dr);
+            return 0.65 * (len - 1.0) / Math.max(1e-4, dr);
         }
     },
 
@@ -727,7 +787,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: '3D Burning Ship',
         subtitle: 'Volcanic Absolute Value Spires',
         defaultCam: {
-            pos: [0.0, 0.25, 1.65],
+            pos: [0.0, 0.8, 2.7],
             target: [0.0, 0.0, 0.0]
         },
         params: [
@@ -825,7 +885,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: 'Jerusalem Cube',
         subtitle: 'Sub-Atomic Borg Megastructure & Cross Cuts',
         defaultCam: {
-            pos: [0.0, 0.0, 1.6],
+            pos: [1.8, 1.4, 2.3],
             target: [0.0, 0.0, 0.0]
         },
         params: [
@@ -928,7 +988,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         name: '4D Quat Mandelbrot',
         subtitle: 'Hypercomplex 4D Mandelbrot Escape-Time Set',
         defaultCam: {
-            pos: [0.0, 0.0, 1.55],
+            pos: [1.4, 1.0, 2.1],
             target: [0.0, 0.0, 0.0]
         },
         params: [
@@ -940,7 +1000,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
         presets: [
             {
                 name: 'Classic 4D Cardioid Core',
-                values: { qm_slice_w: 0.0, qm_rot_xw: 0.0, qm_rot_yw: 0.0, qm_iterations: 13 }
+                values: { qm_slice_w: 0.18, qm_rot_xw: 0.52, qm_rot_yw: -0.38, qm_iterations: 13 }
             },
             {
                 name: 'Satellite Needle Spire',

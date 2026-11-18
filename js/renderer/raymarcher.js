@@ -458,7 +458,7 @@ void main() {
     vec3 rd = normalize(p.x * uu * fovFactor + p.y * vv * fovFactor + ww);
     
     // Raymarching
-    float t = max(0.01, u_near_clip);
+    float t = max(0.02, u_near_clip);
     float maxDist = 14.0;
     vec4 trap = vec4(100.0);
     vec4 finalTrap = vec4(0.0);
@@ -489,19 +489,14 @@ void main() {
             vec3 curPos = ro + rd * t;
             float d = mapFractal(curPos, trap);
             
-            // Fast polynomial volumetric glow (culled in near clearance zone)
-            if (u_glow_intensity > 0.005 && t >= u_near_clip) {
+            // Fast polynomial volumetric glow
+            if (u_glow_intensity > 0.005) {
                 float g = max(0.0, 1.0 - d * 2.5);
                 glow += g * g;
             }
             
             float hitThresh = u_hit_epsilon * (1.0 + t * 0.015);
             if (d < hitThresh) {
-                // Near-clip culling: completely do not draw pieces too close to camera
-                if (t < u_near_clip) {
-                    t += max(0.05, abs(d) + 0.02);
-                    continue;
-                }
                 // Refinement step: eliminate step-size discretization chatter
                 t += d * 0.5;
                 hit = true;
@@ -845,7 +840,7 @@ void main() {
 
         // Near-clip culling: prevents camera close-up wall clipping and interior smears across all formulas
         if (formula.id === 'mandelbox') {
-            set1f('u_near_clip', this.state.get('mbox_near_clip') ?? 0.70);
+            set1f('u_near_clip', this.state.get('mbox_near_clip') ?? 0.05);
         } else {
             // Universal safety near-clip: drives from camera safe clearance to avoid interior wall smears
             const clearance = this.state.get('collision_clearance') ?? 0.02;

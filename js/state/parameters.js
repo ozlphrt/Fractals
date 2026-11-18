@@ -106,6 +106,8 @@ export const COHESIVE_FORMULA_BOUNDS = {
     qj_cz: { min: 0.2, max: 0.55 },
     qj_cw: { min: -0.15, max: 0.15 },
     qj_slice_w: { min: -0.25, max: 0.25 },
+    qj_rot_xw: { min: 0.35, max: 1.25 },
+    qj_rot_yw: { min: -1.15, max: -0.30 },
 
     // Apollonian Gasket: Sculptural bounded geode packing (clean monolithic vaults, zero porous pumice)
     apol_scale: { min: 1.05, max: 1.32 },
@@ -118,6 +120,7 @@ export const COHESIVE_FORMULA_BOUNDS = {
     dodec_scale: { min: 1.85, max: 2.45 },
     dodec_offset: { min: 0.7, max: 1.3 },
     dodec_phi: { min: 1.52, max: 1.72 },
+    dodec_inversion: { min: 0.25, max: 0.75 },
     dodec_rot_x: { min: -0.1, max: 0.1 },
     dodec_rot_y: { min: -0.1, max: 0.1 },
 
@@ -134,8 +137,8 @@ export const COHESIVE_FORMULA_BOUNDS = {
 
     // 4D Quaternion Mandelbrot: Escape-time cardioid core
     qm_slice_w: { min: -0.25, max: 0.25 },
-    qm_rot_xw: { min: -0.8, max: 0.8 },
-    qm_rot_yw: { min: -0.8, max: 0.8 }
+    qm_rot_xw: { min: 0.35, max: 1.25 },
+    qm_rot_yw: { min: -1.15, max: -0.30 }
 };
 
 export class StateManager {
