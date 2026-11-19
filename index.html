@@ -10,7 +10,7 @@
     <meta name="color-scheme" content="dark">
     <title>3D Fractal Synth — Studio</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌌</text></svg>">
-    <link rel="stylesheet" href="css/cockpit.css?v=1.0.3">
+    <link rel="stylesheet" href="css/cockpit.css?v=1.0.4">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -74,6 +74,8 @@
                 <button type="button" class="keyframe-add" id="keyframe-add" aria-label="Add Keyframe" aria-keyshortcuts="K">Add Keyframe <kbd>K</kbd></button>
                 <button class="flat-action-btn" id="keyframe-play" disabled>Play Loop</button>
                 <button class="flat-action-btn" id="keyframe-export" title="Download every formula and tab as one JavaScript module" disabled>Export All JS</button>
+                <button class="flat-action-btn" id="keyframe-import" title="Import user-keyframes.js module">Import JS</button>
+                <input type="file" id="keyframe-file-input" accept=".js,application/javascript" style="display:none;">
                 <label class="keyframe-shuffle"><input type="checkbox" id="keyframe-shuffle"> Shuffle</label>
                 <span id="keyframe-status" aria-live="polite">0 keyframes</span>
                 <div class="keyframe-editor" role="group" aria-label="Edit keyframes">
@@ -444,6 +446,6 @@
     <p id="graphics-status" class="graphics-status" role="status" hidden></p>
 
     <!-- Application Script -->
-    <script type="module" src="js/main.js?v=1.0.3"></script>
+    <script type="module" src="js/main.js?v=1.0.4"></script>
 </body>
 </html>

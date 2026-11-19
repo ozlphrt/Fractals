@@ -952,6 +952,17 @@ export class CockpitUI {
         save.addEventListener('click', () => actions.save(Number(select.value), fieldDraft));
         remove.addEventListener('click', () => actions.remove(Number(select.value)));
         exportButton.addEventListener('click', actions.export);
+        const importButton = document.getElementById('keyframe-import');
+        const importFileInput = document.getElementById('keyframe-file-input');
+        if (importButton && importFileInput) {
+            importButton.addEventListener('click', () => importFileInput.click());
+            importFileInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    actions.import(e.target.files[0]);
+                    e.target.value = '';
+                }
+            });
+        }
         this.syncKeyframeDice = enabled => {};
         for (const event of ['click', 'input']) {
             this.elSettingsDrawer.querySelector('.drawer-body').addEventListener(event, e => {
@@ -1067,6 +1078,7 @@ export class CockpitUI {
         const switchFormulaByIndex = (direction) => {
             this.deformCount = 0;
             this.formulaDwellTime = 0.0;
+            if (this.app) this.app.formulaDwellTime = 0.0;
             const currentActive = this.state.formulaMorph ? this.state.formulaMorph.toId : this.state.activeFormulaId;
             const currentIdx = FORMULA_CYCLE_ORDER.indexOf(currentActive);
             const baseIdx = currentIdx >= 0 ? currentIdx : 0;
@@ -1078,6 +1090,9 @@ export class CockpitUI {
             if (elFormulaDisplay) elFormulaDisplay.textContent = getFormulaLabel(nextId);
             const elFormulaName = document.getElementById('hud-formula-name');
             if (elFormulaName) elFormulaName.textContent = getFormulaLabel(nextId);
+            if (this.isAutoDeforming && this.app?.playCurrentFormulaKeyframes) {
+                this.app.playCurrentFormulaKeyframes();
+            }
         };
         this.switchFormulaByIndex = switchFormulaByIndex;
 
@@ -1096,58 +1111,44 @@ export class CockpitUI {
 
                 deformBtn.classList.add('active');
                 deformBtn.setAttribute('aria-pressed', 'true');
-                deformBtn.title = 'Continuous Auto-Deform: Active (Click to Pause)';
+                deformBtn.title = 'Continuous Auto-Play: Active (Click to Pause)';
 
-                // First shape morph right at start is swift (~3.2s) so viewers are instantly captivated;
-                // Subsequent continuous shape morphs run smoothly and majestically at 5.0s
-                const duration = isStartup ? 3.2 : 5.0;
-
-                this.state.smoothDeformRandom(duration, 
-                    null,
-                    () => {
-                        // Morph completed!
-                        if (!this.isAutoDeforming) {
-                            deformBtn.classList.remove('active');
-                            deformBtn.setAttribute('aria-pressed', 'false');
-                            deformBtn.title = 'Continuous Auto-Deform: Paused (Click to Start)';
-                            return;
+                // Prefer playing user-defined keyframes!
+                const playedKeyframes = this.app?.playCurrentFormulaKeyframes ? this.app.playCurrentFormulaKeyframes() : false;
+                if (!playedKeyframes) {
+                    const duration = isStartup ? 3.2 : 5.0;
+                    this.state.smoothDeformRandom(duration, 
+                        null,
+                        () => {
+                            if (!this.isAutoDeforming) return;
+                            this.formulaDwellTime += duration;
+                            if (this.formulaDwellTime >= 17.5) {
+                                this.formulaDwellTime = 0.0;
+                                switchFormulaByIndex(1);
+                            } else {
+                                runAutoDeformCycle(false);
+                            }
                         }
-
-                        this.deformCount++;
-                        this.formulaDwellTime += duration;
-
-                        // Keep on current formula for 15-20 seconds (17.5s target) before cycling to the next formula
-                        if (this.formulaDwellTime >= 17.5) {
-                            this.formulaDwellTime = 0.0;
-                            this.deformCount = 0;
-                            switchFormulaByIndex(1);
-                        }
-
-                        // CONTINUOUS: Immediately trigger next random shape with ZERO wait!
-                        // No pausing or freezing on completed shapes
-                        if (this.isAutoDeforming) {
-                            runAutoDeformCycle(false);
-                        }
-                    }
-                );
+                    );
+                }
             };
 
             deformBtn.addEventListener('click', () => {
-                if (this.stopKeyframePlayback) this.stopKeyframePlayback();
-
                 this.isAutoDeforming = !this.isAutoDeforming;
 
                 if (this.isAutoDeforming) {
                     this.deformCount = 0;
                     this.formulaDwellTime = 0.0;
+                    if (this.app) this.app.formulaDwellTime = 0.0;
                     deformBtn.classList.add('active');
                     deformBtn.setAttribute('aria-pressed', 'true');
-                    deformBtn.title = 'Continuous Auto-Deform: Active (Click to Pause)';
+                    deformBtn.title = 'Continuous Auto-Play: Active (Click to Pause)';
                     runAutoDeformCycle(false);
                 } else {
                     deformBtn.classList.remove('active');
                     deformBtn.setAttribute('aria-pressed', 'false');
-                    deformBtn.title = 'Continuous Auto-Deform: Paused (Click to Start)';
+                    deformBtn.title = 'Continuous Auto-Play: Paused (Click to Start)';
+                    if (this.app?.stopKeyframes) this.app.stopKeyframes();
                     if (this.autoDeformTimer) {
                         clearTimeout(this.autoDeformTimer);
                         this.autoDeformTimer = null;
@@ -1166,9 +1167,10 @@ export class CockpitUI {
                 this.isAutoDeforming = true;
                 this.deformCount = 0;
                 this.formulaDwellTime = 0.0;
+                if (this.app) this.app.formulaDwellTime = 0.0;
                 deformBtn.classList.add('active');
                 deformBtn.setAttribute('aria-pressed', 'true');
-                deformBtn.title = 'Continuous Auto-Deform: Active (Click to Pause)';
+                deformBtn.title = 'Continuous Auto-Play: Active (Click to Pause)';
                 runAutoDeformCycle(false);
             };
 
@@ -1176,7 +1178,8 @@ export class CockpitUI {
                 this.isAutoDeforming = false;
                 deformBtn.classList.remove('active');
                 deformBtn.setAttribute('aria-pressed', 'false');
-                deformBtn.title = 'Continuous Auto-Deform: Paused (Click to Start)';
+                deformBtn.title = 'Continuous Auto-Play: Paused (Click to Start)';
+                if (this.app?.stopKeyframes) this.app.stopKeyframes();
                 if (this.autoDeformTimer) {
                     clearTimeout(this.autoDeformTimer);
                     this.autoDeformTimer = null;
@@ -1193,7 +1196,7 @@ export class CockpitUI {
             // Start morphing almost immediately on boot (50ms) to captivate the viewer right away
             deformBtn.classList.add('active');
             deformBtn.setAttribute('aria-pressed', 'true');
-            deformBtn.title = 'Continuous Auto-Deform: Active (Click to Pause)';
+            deformBtn.title = 'Continuous Auto-Play: Active (Click to Pause)';
             setTimeout(() => {
                 if (this.isAutoDeforming) {
                     runAutoDeformCycle(true);

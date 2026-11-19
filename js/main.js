@@ -13,7 +13,7 @@ import { PALETTE_PRESETS } from './state/palettes.js';
 import { KeyframeLoop, keyframeSignature, keyframesForTrack, mergeKeyframeSources, playableKeyframeTab, resolveKeyframe, serializeKeyframes } from './state/keyframes.js';
 import { USER_KEYFRAMES } from './state/user-keyframes.js';
 
-const KEYFRAME_STORAGE = 'fractal-studio-keyframes-v2';
+const KEYFRAME_STORAGE = 'fractal-studio-keyframes-v3';
 const DEFAULT_KEYFRAME_TAB = 'tab-settings-quick';
 
 const parameterMetadata = new Map(
@@ -41,6 +41,7 @@ class FractalSynthApp {
         this.raymarcher = new Raymarcher(this.canvas, this.state);
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) this.camera.autoRotate = false;
         this.ui = new CockpitUI(this.state, this.modulation, this.audio, this.camera, this.raymarcher);
+        this.ui.app = this;
         this.keyframes = new KeyframeLoop(parameterMetadata);
         this.loadKeyframes();
         this.ui.setupKeyframes({
@@ -70,6 +71,7 @@ class FractalSynthApp {
                 }
             },
             export: () => this.exportKeyframes(),
+            import: file => this.importKeyframes(file),
             stop: () => this.stopKeyframes(),
             tabChange: () => {
                 this.stopKeyframes();
@@ -165,11 +167,35 @@ class FractalSynthApp {
         this.playKeyframes(this.ui.shouldShuffleKeyframes(), false);
     }
 
+    playCurrentFormulaKeyframes() {
+        const { formulaId, tabId } = this.getKeyframeScope();
+        const frames = keyframesForTrack(this.userKeyframes, formulaId, tabId);
+        if (frames.length < 2) return false;
+        const entry = this.captureKeyframe();
+        this.keyframes.stop();
+        this.keyframes.frames = frames;
+        if (!this.keyframes.start(entry, {
+            shuffle: false,
+            interludes: false,
+            resolve: frame => resolveKeyframe(frame, entry),
+            makeInterlude: null
+        })) return false;
+        this.state.activeParamMorph = null;
+        this.state.formulaMorph = null;
+        this.trackedSun = null;
+        this.refreshKeyframeTrack();
+        return true;
+    }
+
     getKeyframeScope() {
-        return {
-            formulaId: this.state.formulaMorph?.toId ?? this.state.activeFormulaId,
-            tabId: this.ui.getKeyframeTab() ?? DEFAULT_KEYFRAME_TAB
-        };
+        const formulaId = this.state.formulaMorph?.toId ?? this.state.activeFormulaId;
+        const currentTab = this.ui.getKeyframeTab() ?? DEFAULT_KEYFRAME_TAB;
+        const currentFrames = keyframesForTrack(this.userKeyframes, formulaId, currentTab);
+        if (currentFrames.length > 0) {
+            return { formulaId, tabId: currentTab };
+        }
+        const fallbackTab = playableKeyframeTab(this.userKeyframes, formulaId, 'tab-settings-geo') ?? 'tab-settings-geo';
+        return { formulaId, tabId: fallbackTab };
     }
 
     refreshKeyframeTrack() {
@@ -212,6 +238,7 @@ class FractalSynthApp {
         this.dismissedKeyframes = new Map();
         try {
             localStorage.removeItem('fractal-studio-keyframes-v1');
+            localStorage.removeItem('fractal-studio-keyframes-v2');
             const saved = JSON.parse(localStorage.getItem(KEYFRAME_STORAGE));
             if (Array.isArray(saved)) savedFrames = saved;
             else if (saved) {
@@ -236,7 +263,7 @@ class FractalSynthApp {
             }
             return {
                 formulaId: normalized.formula,
-                tabId: tabIds.has(frame.tabId) ? frame.tabId : DEFAULT_KEYFRAME_TAB,
+                tabId: tabIds.has(frame.tabId) ? frame.tabId : 'tab-settings-geo',
                 camera: normalized.camera,
                 values,
                 ...(Array.isArray(frame.omitted) && {
@@ -280,6 +307,74 @@ class FractalSynthApp {
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         this.ui.showToast(`Exported ${count} keyframe${count === 1 ? '' : 's'} from all tracks to user-keyframes.js.`);
+    }
+
+    async importKeyframes(file) {
+        try {
+            const text = await file.text();
+            let rawFrames = null;
+            const match = text.match(/export\s+const\s+USER_KEYFRAMES\s*=\s*(\[[\s\S]*\])\s*;?/);
+            if (match) {
+                try {
+                    rawFrames = JSON.parse(match[1]);
+                } catch {
+                    const blob = new Blob([text], { type: 'text/javascript' });
+                    const url = URL.createObjectURL(blob);
+                    const mod = await import(url);
+                    rawFrames = mod.USER_KEYFRAMES;
+                    URL.revokeObjectURL(url);
+                }
+            } else {
+                const blob = new Blob([text], { type: 'text/javascript' });
+                const url = URL.createObjectURL(blob);
+                const mod = await import(url);
+                rawFrames = mod.USER_KEYFRAMES;
+                URL.revokeObjectURL(url);
+            }
+            if (!Array.isArray(rawFrames) || rawFrames.length === 0) {
+                this.ui.showToast('No valid keyframes found in file.');
+                return;
+            }
+            const defaults = this.state.getValues();
+            const tabIds = new Set(Array.from(this.ui.elSettingsDrawer.querySelectorAll('.tab-pane'), pane => pane.id));
+            const normalizeKeyframe = frame => {
+                const normalized = normalizeScene({ formula: frame?.formulaId, camera: frame?.camera });
+                if (!normalized?.camera?.pos || !normalized.camera.target || !normalized.camera.up) return null;
+                const values = { ...defaults };
+                for (const [id, param] of parameterMetadata) {
+                    const value = frame.values?.[id];
+                    if (Number.isFinite(value)) {
+                        const clamped = Math.max(param.min, Math.min(param.max, value));
+                        values[id] = param.type === 'int' ? Math.round(clamped) : clamped;
+                    }
+                }
+                return {
+                    formulaId: normalized.formula,
+                    tabId: tabIds.has(frame.tabId) ? frame.tabId : 'tab-settings-geo',
+                    camera: normalized.camera,
+                    values,
+                    ...(Array.isArray(frame.omitted) && {
+                        omitted: frame.omitted.filter(field => Array.isArray(field) && (
+                            (field.length === 1 && parameterMetadata.has(field[0])) ||
+                            (field.length === 2 && ['pos', 'target', 'up'].includes(field[0]) && [0, 1, 2].includes(field[1]))
+                        ))
+                    })
+                };
+            };
+            const valid = rawFrames.map(normalizeKeyframe).filter(Boolean);
+            if (valid.length === 0) {
+                this.ui.showToast('Could not normalize keyframes in file.');
+                return;
+            }
+            this.userKeyframes = valid;
+            this.dismissedKeyframes.clear();
+            this.saveKeyframes();
+            this.refreshKeyframeTrack();
+            this.ui.showToast(`Imported ${valid.length} keyframes successfully.`);
+        } catch (err) {
+            console.error('Import error:', err);
+            this.ui.showToast('Failed to import keyframes: ' + err.message);
+        }
     }
 
     makeRandomKeyframe(from, to, camera) {
@@ -452,6 +547,15 @@ class FractalSynthApp {
             if (keyframeSample) {
                 this.applyKeyframeSample(keyframeSample);
                 if (keyframeSample.finished) this.stopKeyframes();
+            }
+
+            // Step continuous formula cycling across user keyframes (15-20s dwell)
+            if (this.ui?.isAutoDeforming && this.keyframes.playing) {
+                this.formulaDwellTime = (this.formulaDwellTime || 0) + dt;
+                if (this.formulaDwellTime >= 17.5) {
+                    this.formulaDwellTime = 0.0;
+                    this.ui.switchFormulaByIndex?.(1);
+                }
             }
             const isFormulaMorphing = !keyframeSample && this.state.updateFormulaMorph(dt);
 
