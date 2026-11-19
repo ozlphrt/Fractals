@@ -44,17 +44,17 @@
                 </svg>
             </button>
             <!-- Simplified Settings Button (Gear) -->
-            <button class="dock-btn" id="btn-toggle-settings" title="Settings Menu" aria-label="Settings">
+            <button class="dock-btn" id="btn-toggle-settings" aria-expanded="false" aria-controls="settings-drawer" title="Settings Menu" aria-label="Settings">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </button>
             <!-- Simplified Dice Auto-Deform Button -->
-            <button class="dock-btn dock-dice-btn active" id="deform-dice-btn" title="Toggle Auto-Deform ON/OFF" aria-label="Auto Deform">
+            <button class="dock-btn dock-dice-btn" id="deform-dice-btn" title="Play keyframes with dice variations" aria-label="Keyframe Dice" aria-pressed="false">
                 <span class="btn-icon">🎲</span>
             </button>
         </div>
 
         <!-- Unified Studio Settings Drawer (Toggled by Settings Button) -->
-        <aside class="side-drawer drawer-left closed" id="settings-drawer">
+        <aside class="side-drawer drawer-left closed" id="settings-drawer" aria-label="Studio settings" inert>
             <!-- Mobile Sheet Grab Handle -->
             <div class="drawer-grab-handle"></div>
 
@@ -69,23 +69,39 @@
                 <button class="d-tab-btn" data-tab="tab-settings-anim">Morph</button>
             </div>
 
+            <div class="keyframe-transport" role="group" aria-label="Keyframe playback">
+                <button type="button" class="keyframe-add" id="keyframe-add" aria-label="Add Keyframe" aria-keyshortcuts="K">Add Keyframe <kbd>K</kbd></button>
+                <button class="flat-action-btn" id="keyframe-play" disabled>Play Loop</button>
+                <button class="flat-action-btn" id="keyframe-export" title="Download every formula and tab as one JavaScript module" disabled>Export All JS</button>
+                <label class="keyframe-shuffle"><input type="checkbox" id="keyframe-shuffle"> Shuffle</label>
+                <span id="keyframe-status" aria-live="polite">0 keyframes</span>
+                <div class="keyframe-editor" role="group" aria-label="Edit keyframes">
+                    <select id="keyframe-select" aria-label="Keyframe to edit" disabled>
+                        <option value="">No keyframes</option>
+                    </select>
+                    <button class="flat-action-btn" id="keyframe-edit" title="Load selected keyframe into the studio" disabled>Edit</button>
+                    <button class="flat-action-btn" id="keyframe-save" title="Overwrite the selected keyframe with the current scene" disabled>Save</button>
+                    <button class="flat-action-btn" id="keyframe-remove" title="Delete the selected keyframe" disabled>Delete</button>
+                </div>
+            </div>
+
             <div class="drawer-body">
                 <!-- Tab: Quick Controls (Formula, Camera, Material, Folder) -->
                 <div class="tab-pane active" id="tab-settings-quick">
                     <div class="drawer-group">
-                        <label class="group-label">Fractal Formula</label>
+
                         <div class="quick-control-card">
                             <div class="cycle-pill formula-pill quick-pill" id="formula-cycle-pill">
                                 <button class="cycle-step-btn" id="formula-prev-btn" title="Previous Formula" aria-label="Previous Formula">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
                                 </button>
-                                <div class="cycle-content" id="formula-cycle-btn" title="Click to Cycle Formula">
-                                    <div class="cycle-eyebrow">
+                                <button type="button" class="cycle-content" id="formula-cycle-btn" title="Click to Cycle Formula">
+                                    <span class="cycle-eyebrow">
                                         <span class="cycle-dot dot-formula"></span>
                                         <span class="cycle-tag">FORMULA</span>
-                                    </div>
-                                    <span class="cycle-title" id="formula-name-display">Mandelbulb</span>
-                                </div>
+                                    </span>
+                                    <span class="cycle-title" id="formula-name-display">1. Mandelbulb</span>
+                                </button>
                                 <button class="cycle-step-btn" id="formula-next-btn" title="Next Formula" aria-label="Next Formula">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                                 </button>
@@ -94,19 +110,19 @@
                     </div>
 
                     <div class="drawer-group">
-                        <label class="group-label">Camera Motion & Preset</label>
+
                         <div class="quick-control-card">
                             <div class="cycle-pill camera-pill quick-pill" id="camera-cycle-pill">
                                 <button class="cycle-step-btn" id="camera-prev-btn" title="Previous Camera Preset" aria-label="Previous Camera Preset">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
                                 </button>
-                                <div class="cycle-content" id="camera-cycle-btn" title="Click to Cycle Camera Preset">
-                                    <div class="cycle-eyebrow">
+                                <button type="button" class="cycle-content" id="camera-cycle-btn" title="Click to Cycle Camera Preset">
+                                    <span class="cycle-eyebrow">
                                         <span class="cycle-dot dot-camera"></span>
                                         <span class="cycle-tag">CAMERA</span>
-                                    </div>
+                                    </span>
                                     <span class="cycle-title" id="camera-name-display">Turntable</span>
-                                </div>
+                                </button>
                                 <button class="cycle-step-btn" id="camera-next-btn" title="Next Camera Preset" aria-label="Next Camera Preset">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                                 </button>
@@ -115,19 +131,19 @@
                     </div>
 
                     <div class="drawer-group">
-                        <label class="group-label">Surface Material & Palette</label>
+
                         <div class="quick-control-card">
                             <div class="cycle-pill material-pill quick-pill" id="material-cycle-pill">
                                 <button class="cycle-step-btn" id="material-prev-btn" title="Previous Material" aria-label="Previous Material">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
                                 </button>
-                                <div class="cycle-content" id="material-cycle-btn" title="Click to Cycle Material">
-                                    <div class="cycle-eyebrow">
+                                <button type="button" class="cycle-content" id="material-cycle-btn" title="Click to Cycle Material">
+                                    <span class="cycle-eyebrow">
                                         <span class="cycle-dot dot-material"></span>
                                         <span class="cycle-tag">MATERIAL</span>
-                                    </div>
+                                    </span>
                                     <span class="cycle-title" id="material-name-display">Dark Loam</span>
-                                </div>
+                                </button>
                                 <button class="cycle-step-btn" id="material-next-btn" title="Next Material" aria-label="Next Material">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                                 </button>
@@ -136,8 +152,8 @@
                     </div>
 
                     <div class="drawer-group">
-                        <label class="group-label">Community & Saved Presets</label>
-                        <button class="gallery-action-btn primary quick-folder-btn" id="btn-toggle-gallery" title="Community Folder & Creations" aria-label="Open Creations Folder">
+
+                        <button class="gallery-action-btn primary quick-folder-btn" id="btn-toggle-gallery" aria-expanded="false" aria-controls="gallery-drawer" title="Community Folder & Creations" aria-label="Open Creations Folder">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                             </svg>
@@ -148,6 +164,15 @@
 
                 <!-- Tab: Geometry Sliders -->
                 <div class="tab-pane" id="tab-settings-geo">
+                    <details class="drawer-group camera-pose-panel" id="camera-pose-panel">
+                        <summary class="camera-pose-heading">Camera Pose</summary>
+                        <div class="keyframe-slider-actions camera-pose-actions" id="camera-pose-actions" role="group" aria-label="Whole camera pose keyframe controls" hidden>
+                            <button type="button" class="keyframe-slider-button" id="camera-pose-previous" aria-label="Copy previous camera pose" title="Copy previous camera pose">P</button>
+                            <button type="button" class="keyframe-slider-button" id="camera-pose-next" aria-label="Copy next camera pose" title="Copy next camera pose">N</button>
+                            <button type="button" class="keyframe-slider-button" id="camera-pose-delete" aria-label="Delete all camera pose values">Delete</button>
+                        </div>
+                        <div class="sliders-stack" id="camera-pose-sliders"></div>
+                    </details>
                     <div class="drawer-group">
                         <div class="group-header-row">
                             <div>
@@ -333,7 +358,7 @@
         </aside>
 
         <!-- Slide-out Right Drawer: Community Folder & Creations Showcase -->
-        <aside class="side-drawer drawer-right closed" id="gallery-drawer" aria-label="Community Creations Folder">
+        <aside class="side-drawer drawer-right closed" id="gallery-drawer" aria-label="Community Creations Folder" inert>
             <div class="drawer-header">
                 <div class="drawer-title-row">
                     <div class="drawer-icon-badge">
@@ -399,6 +424,7 @@
 
     <!-- Transient Studio Feedback Toast -->
     <div class="studio-toast" id="studio-toast" role="status" aria-live="polite"></div>
+    <p id="graphics-status" class="graphics-status" role="status" hidden></p>
 
     <!-- Application Script -->
     <script type="module" src="js/main.js"></script>

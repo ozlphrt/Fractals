@@ -1,10 +1,11 @@
 // js/renderer/raymarcher.js
 // WebGL2 Metamorphic Raymarching Engine:
-// - Modular per-formula shaders with instant pre-compilation (zero runtime lag, zero ANGLE stalls)
+// - Per-formula shaders with progressive idle-time compilation
 // - Seamless dual-FBO metamorphic cross-morph with quintic ease and FXAA anti-aliasing
 // - Soft shadows, Iteration-based AO, 4-Channel Orbit Traps, Inigo Quilez Cosine Palette, Volumetric Step Glow, Fog
 
 import { FORMULAS } from '../formulas/registry.js';
+import { RenderQuality } from './quality.js';
 
 export class Raymarcher {
     constructor(canvas, stateManager) {
@@ -35,15 +36,8 @@ export class Raymarcher {
         this.programs = new Map();
         this.uniformLocationsMap = new Map();
 
-        // Resolution management: Discrete scale levels (high fidelity, zero crawling)
-        this.scaleLevels = [1.0, 0.90, 0.82];
-        this.scaleIndex = 0;
+        this.quality = new RenderQuality();
         this.activeScale = 1.0;
-        this.frameTimeHistory = [];
-        this.lastScaleChangeTime = performance.now();
-        this.overBudgetDuration = 0;
-        this.underBudgetDuration = 0;
-        this.stillFrames = 0;
 
         // GPU Timer query extension (EXT_disjoint_timer_query_webgl2)
         this.timerExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
@@ -64,12 +58,47 @@ export class Raymarcher {
 
         this.initQuad();
         this.initCompositeShader();
-        this.precompileAllFormulas();
+        this.initializeFormulaPrograms();
 
-        // Listen for formula changes
-        this.state.onFormulaChange(() => {
-            this.resetAccumulation();
+        canvas.addEventListener('webglcontextlost', event => {
+            event.preventDefault();
+            this.contextLost = true;
+            this.cancelWarmup?.();
+            this.setStatus('Graphics context lost. Waiting for the browser to restore it.');
         });
+        canvas.addEventListener('webglcontextrestored', () => {
+            this.contextLost = false;
+            this.programs.clear();
+            this.uniformLocationsMap.clear();
+            this.failedPrograms.clear();
+            this.gpuQueries = [];
+            this.lastGpuMs = 0;
+            this.fboA = this.fboB = this.fboTextureA = this.fboTextureB = null;
+            this.fboWidth = this.fboHeight = 0;
+            this.colorBufferExt = gl.getExtension('EXT_color_buffer_float');
+            this.internalFormat = this.colorBufferExt ? gl.RGBA16F : gl.RGBA8;
+            this.texType = this.colorBufferExt ? gl.FLOAT : gl.UNSIGNED_BYTE;
+            this.timerExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+            try {
+                this.initQuad();
+                this.initCompositeShader();
+                this.initializeFormulaPrograms();
+                this.setStatus('');
+            } catch (error) {
+                this.contextLost = true;
+                this.setStatus(error.message);
+            }
+        });
+
+    }
+
+    setStatus(message) {
+        if (this.statusMessage === message) return;
+        this.statusMessage = message;
+        const status = document.getElementById('graphics-status');
+        if (!status) return;
+        status.textContent = message;
+        status.hidden = !message;
     }
 
     initQuad() {
@@ -257,6 +286,8 @@ export class Raymarcher {
         gl.attachShader(program, vs);
         gl.attachShader(program, fs);
         gl.linkProgram(program);
+        gl.deleteShader(vs);
+        gl.deleteShader(fs);
         if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
             const info = gl.getProgramInfoLog(program);
             gl.deleteProgram(program);
@@ -311,6 +342,7 @@ uniform float u_rim_color_r, u_rim_color_g, u_rim_color_b;
 uniform float u_glow_intensity;
 uniform float u_glow_color_r, u_glow_color_g, u_glow_color_b;
 uniform float u_fog_density;
+uniform float u_sky_detail;
 uniform float u_near_clip;
 
 // Rotation utilities
@@ -692,14 +724,14 @@ void main() {
     vec3 skyTop = vec3(0.006, 0.014, 0.038);
     vec3 skyBottom = vec3(0.002, 0.004, 0.012);
     vec3 skyBg = mix(skyBottom, skyTop, clamp(rd.y * 0.5 + 0.5, 0.0, 1.0));
-    vec3 col = skyBg + getMilkyWay(rd) + getStarField(rd) + getComet(rd, u_time);
+    vec3 col = skyBg;
     
     if (hit) {
         vec3 pos = ro + rd * t;
         // Macroscopic curvature normal: filters out chaotic sub-pixel micro-grit and noise
         float normEps = max(0.0028, t * 0.0012);
         vec3 nor = calcNormal(pos, normEps);
-        float ao = calcAO(pos, nor);
+        float ao = u_ao_strength > 0.001 ? calcAO(pos, nor) : 1.0;
         
         // Orbit trap selection for coloring
         float trapVal = 0.0;
@@ -733,7 +765,7 @@ void main() {
         
         // Main Sun Light - fully continuous shadow and diffuse, acne-free offset
         float dif = clamp(dot(nor, sunDir), 0.0, 1.0);
-        float sha = (dif > 0.001) ? softShadow(pos + nor * max(0.02, normEps * 5.0), sunDir, 0.035, 5.0, u_shadow_softness) : 0.0;
+        float sha = (dif > 0.001 && u_sun_intensity > 0.001) ? softShadow(pos + nor * max(0.02, normEps * 5.0), sunDir, 0.035, 5.0, u_shadow_softness) : 0.0;
         
         // Specular highlight (smooth filtered Blinn-Phong)
         vec3 hal = normalize(sunDir - rd);
@@ -781,6 +813,8 @@ void main() {
         // Distance fog into sky atmosphere
         float fog = 1.0 - exp(-t * u_fog_density * 0.5);
         col = mix(lin, skyBg, fog);
+    } else if (u_sky_detail > 0.001) {
+        col += u_sky_detail * (getMilkyWay(rd) + getStarField(rd) + getComet(rd, u_time));
     }
     
     // Add volumetric edge glow
@@ -795,6 +829,7 @@ void main() {
         if (this.programs.has(formula.id)) {
             return this.programs.get(formula.id);
         }
+        if (this.failedPrograms.has(formula.id)) return null;
 
         const gl = this.gl;
         const vsSource = `#version 300 es
@@ -813,15 +848,27 @@ void main() {
             this.cacheUniformLocations(formula, prog);
             return prog;
         } catch (e) {
+            this.failedPrograms.add(formula.id);
             console.error(`Failed to compile fractal shader for ${formula.id}:`, e);
             return null;
         }
     }
 
-    precompileAllFormulas() {
-        for (const formula of Object.values(FORMULAS)) {
-            this.getProgramForFormula(formula);
-        }
+    initializeFormulaPrograms() {
+        this.failedPrograms = new Set();
+        const initial = this.state.getActiveFormula();
+        if (!this.getProgramForFormula(initial)) throw new Error('The initial fractal shader could not start.');
+
+        const pending = Object.values(FORMULAS).filter(formula => formula !== initial);
+        if (!window.requestIdleCallback) return;
+        let callback;
+        const warmNext = () => {
+            if (this.contextLost || !pending.length) return;
+            this.getProgramForFormula(pending.shift());
+            if (pending.length) callback = window.requestIdleCallback(warmNext);
+        };
+        callback = window.requestIdleCallback(warmNext);
+        this.cancelWarmup = () => window.cancelIdleCallback(callback);
     }
 
     cacheUniformLocations(formula, prog) {
@@ -843,7 +890,7 @@ void main() {
             'u_backlight_intensity', 'u_backlight_elevation',
             'u_rim_color_r', 'u_rim_color_g', 'u_rim_color_b',
             'u_glow_intensity', 'u_glow_color_r', 'u_glow_color_g', 'u_glow_color_b',
-            'u_fog_density', 'u_near_clip'
+            'u_fog_density', 'u_sky_detail', 'u_near_clip'
         ];
 
         for (const u of standardUniforms) {
@@ -881,6 +928,7 @@ void main() {
         this.fboA = gl.createFramebuffer();
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.fboA);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.fboTextureA, 0);
+        const firstComplete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
 
         // FBO B (for smooth cross-morphing)
         this.fboTextureB = gl.createTexture();
@@ -894,19 +942,22 @@ void main() {
         this.fboB = gl.createFramebuffer();
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.fboB);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.fboTextureB, 0);
+        const secondComplete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    }
-
-    resetAccumulation() {
-        this.stillFrames = 0;
+        this.framebuffersReady = firstComplete && secondComplete;
+        if (!this.framebuffersReady && this.internalFormat !== gl.RGBA8) {
+            this.internalFormat = gl.RGBA8;
+            this.texType = gl.UNSIGNED_BYTE;
+            this.fboWidth = this.fboHeight = 0;
+            this.updateFBOs(width, height);
+        }
     }
 
     computeSafeBoundingRadius(formula, values = {}) {
         if (!formula) return 6.5;
+        if (formula.boundRadius) return formula.boundRadius;
         switch (formula.id) {
-            case 'mandelbox':
-                return 2.2;
             case 'burning_ship': {
                 const asym = typeof values.bs_asym === 'number' ? values.bs_asym : (formula.params.find(p => p.id === 'bs_asym')?.default ?? 0.0);
                 return Math.max(3.2, 1.85 + asym * 0.95) * 1.35 + 0.35;
@@ -932,8 +983,9 @@ void main() {
         }
     }
 
-    renderFormulaPass(formula, targetFBO, camera, time, renderW, renderH, isMoving = false) {
+    renderFormulaPass(formula, targetFBO, camera, time, renderW, renderH, isMoving, values) {
         const gl = this.gl;
+        const getValue = id => values[id];
         const prog = this.getProgramForFormula(formula);
         if (!prog) return;
 
@@ -959,76 +1011,68 @@ void main() {
         gl.uniform3fv(uniformMap.get('u_cam_pos'), camera.pos);
         gl.uniform3fv(uniformMap.get('u_cam_target'), camera.target);
         gl.uniform3fv(uniformMap.get('u_cam_up'), camera.getUpVector());
-        gl.uniform1f(uniformMap.get('u_fov'), this.state.get('fov'));
+        gl.uniform1f(uniformMap.get('u_fov'), getValue('fov'));
         gl.uniform2f(uniformMap.get('u_subpixel_jitter'), 0.0, 0.0);
 
         // Bounding sphere radius culling (eliminates 40%-60% of sky raymarch steps)
-        const boundRadius = this.computeSafeBoundingRadius(formula, this.state.values);
+        const boundRadius = this.computeSafeBoundingRadius(formula, values);
         set1f('u_bound_radius', boundRadius);
 
         // Dynamic shadow & AO tap allocation based on movement
         set1i('u_shadow_steps', isMoving ? 8 : 16);
         set1i('u_ao_taps', isMoving ? 2 : 4);
 
-        // Adaptive max ray steps: guaranteed sufficient step budget while maintaining 60 FPS
-        const userSteps = this.state.get('max_steps') ?? 140;
+        // Keep moving scenes within a lower ray-step budget.
+        const userSteps = getValue('max_steps') ?? 140;
         const activeSteps = isMoving ? Math.min(105, Math.round(userSteps * 0.72)) : Math.min(150, userSteps);
         set1i('u_max_steps', activeSteps);
-        const rawEps = this.state.get('hit_epsilon');
+        const rawEps = getValue('hit_epsilon');
         const hitEps = (typeof rawEps === 'number' && rawEps <= 0.006) ? rawEps : 0.0012;
         set1f('u_hit_epsilon', hitEps);
-        set1i('u_trap_mode', this.state.get('trap_mode'));
-        set1f('u_color_cycle', this.state.get('color_cycle'));
-        set1f('u_color_phase', this.state.get('color_phase'));
-        set1f('u_pal_a_r', this.state.get('pal_a_r') ?? 0.65);
-        set1f('u_pal_a_g', this.state.get('pal_a_g') ?? 0.42);
-        set1f('u_pal_a_b', this.state.get('pal_a_b') ?? 0.28);
-        set1f('u_pal_b_r', this.state.get('pal_b_r') ?? 0.38);
-        set1f('u_pal_b_g', this.state.get('pal_b_g') ?? 0.26);
-        set1f('u_pal_b_b', this.state.get('pal_b_b') ?? 0.18);
-        set1f('u_pal_c_r', this.state.get('pal_c_r') ?? 1.0);
-        set1f('u_pal_c_g', this.state.get('pal_c_g') ?? 1.0);
-        set1f('u_pal_c_b', this.state.get('pal_c_b') ?? 1.0);
-        set1f('u_pal_d_r', this.state.get('pal_d_r') ?? 0.0);
-        set1f('u_pal_d_g', this.state.get('pal_d_g') ?? 0.12);
-        set1f('u_pal_d_b', this.state.get('pal_d_b') ?? 0.25);
-        set1f('u_roughness', this.state.get('roughness') ?? 0.35);
-        set1f('u_metallic', this.state.get('metallic') ?? 0.25);
-        set1f('u_sun_azimuth', this.state.get('sun_azimuth') ?? 0.76);
-        set1f('u_sun_elevation', this.state.get('sun_elevation') ?? 0.9);
-        set1f('u_sun_intensity', this.state.get('sun_intensity') ?? 1.60);
-        set1f('u_sun_color_r', this.state.get('sun_color_r') ?? 1.0);
-        set1f('u_sun_color_g', this.state.get('sun_color_g') ?? 0.92);
-        set1f('u_sun_color_b', this.state.get('sun_color_b') ?? 0.80);
-        set1f('u_sun_color_b', this.state.get('sun_color_b') ?? 0.80);
-        set1f('u_shadow_softness', this.state.get('shadow_softness') ?? 12.0);
-        set1f('u_shadow_softness', this.state.get('shadow_softness') ?? 12.0);
-        set1f('u_ao_strength', this.state.get('ao_strength') ?? 0.7);
-        set1f('u_backlight_intensity', this.state.get('backlight_intensity') ?? 1.2);
-        set1f('u_backlight_elevation', this.state.get('backlight_elevation') ?? -0.3);
-        set1f('u_rim_color_r', this.state.get('rim_color_r') ?? 0.45);
-        set1f('u_rim_color_g', this.state.get('rim_color_g') ?? 0.65);
-        set1f('u_rim_color_b', this.state.get('rim_color_b') ?? 0.90);
-        set1f('u_glow_intensity', this.state.get('glow_intensity') ?? 0.05);
-        set1f('u_glow_color_r', this.state.get('glow_color_r') ?? 0.06);
-        set1f('u_glow_color_g', this.state.get('glow_color_g') ?? 0.8);
-        set1f('u_glow_color_b', this.state.get('glow_color_b') ?? 1.0);
-        set1f('u_fog_density', this.state.get('fog_density') ?? 0.15);
+        set1i('u_trap_mode', getValue('trap_mode'));
+        set1f('u_color_cycle', getValue('color_cycle'));
+        set1f('u_color_phase', getValue('color_phase'));
+        set1f('u_pal_a_r', getValue('pal_a_r') ?? 0.65);
+        set1f('u_pal_a_g', getValue('pal_a_g') ?? 0.42);
+        set1f('u_pal_a_b', getValue('pal_a_b') ?? 0.28);
+        set1f('u_pal_b_r', getValue('pal_b_r') ?? 0.38);
+        set1f('u_pal_b_g', getValue('pal_b_g') ?? 0.26);
+        set1f('u_pal_b_b', getValue('pal_b_b') ?? 0.18);
+        set1f('u_pal_c_r', getValue('pal_c_r') ?? 1.0);
+        set1f('u_pal_c_g', getValue('pal_c_g') ?? 1.0);
+        set1f('u_pal_c_b', getValue('pal_c_b') ?? 1.0);
+        set1f('u_pal_d_r', getValue('pal_d_r') ?? 0.0);
+        set1f('u_pal_d_g', getValue('pal_d_g') ?? 0.12);
+        set1f('u_pal_d_b', getValue('pal_d_b') ?? 0.25);
+        set1f('u_roughness', getValue('roughness') ?? 0.35);
+        set1f('u_metallic', getValue('metallic') ?? 0.25);
+        set1f('u_sun_azimuth', getValue('sun_azimuth') ?? 0.76);
+        set1f('u_sun_elevation', getValue('sun_elevation') ?? 0.9);
+        set1f('u_sun_intensity', getValue('sun_intensity') ?? 1.60);
+        set1f('u_sun_color_r', getValue('sun_color_r') ?? 1.0);
+        set1f('u_sun_color_g', getValue('sun_color_g') ?? 0.92);
+        set1f('u_sun_color_b', getValue('sun_color_b') ?? 0.80);
+        set1f('u_shadow_softness', getValue('shadow_softness') ?? 12.0);
+        set1f('u_ao_strength', getValue('ao_strength') ?? 0.7);
+        set1f('u_backlight_intensity', getValue('backlight_intensity') ?? 1.2);
+        set1f('u_backlight_elevation', getValue('backlight_elevation') ?? -0.3);
+        set1f('u_rim_color_r', getValue('rim_color_r') ?? 0.45);
+        set1f('u_rim_color_g', getValue('rim_color_g') ?? 0.65);
+        set1f('u_rim_color_b', getValue('rim_color_b') ?? 0.90);
+        set1f('u_glow_intensity', getValue('glow_intensity') ?? 0.05);
+        set1f('u_glow_color_r', getValue('glow_color_r') ?? 0.06);
+        set1f('u_glow_color_g', getValue('glow_color_g') ?? 0.8);
+        set1f('u_glow_color_b', getValue('glow_color_b') ?? 1.0);
+        set1f('u_fog_density', getValue('fog_density') ?? 0.15);
+        set1f('u_sky_detail', getValue('sky_detail') ?? 1.0);
 
         // Near-clip culling: prevents camera close-up wall clipping and interior smears across all formulas
-        if (formula.id === 'mandelbox') {
-            set1f('u_near_clip', this.state.get('mbox_near_clip') ?? 0.05);
-        } else {
-            // Universal safety near-clip: drives from camera safe clearance to avoid interior wall smears
-            const clearance = this.state.get('collision_clearance') ?? 0.02;
-            const boundR = this.computeSafeBoundingRadius(formula, this.state.values) * 0.35;
-            const safeNear = Math.max(0.015, clearance * boundR);
-            set1f('u_near_clip', safeNear);
-        }
+        const clearance = getValue('collision_clearance') ?? 0.02;
+        set1f('u_near_clip', Math.max(0.015, clearance * boundRadius * 0.35));
 
         // Upload Active Formula Math Uniforms
         for (const p of formula.params) {
-            const val = this.state.get(p.id) ?? p.default;
+            const val = getValue(p.id) ?? p.default;
             if (p.type === 'int') {
                 set1i(p.uniform, Math.round(val));
             } else {
@@ -1039,8 +1083,9 @@ void main() {
         gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
 
-    render(camera, time, isMovingOrModulating = false, currentFps = 60) {
+    render(camera, time, isMovingOrModulating = false, currentFps = 60, values = this.state.values, frameMs = 1000 / Math.max(1, currentFps), keyframePlayback = false) {
         const gl = this.gl;
+        if (this.contextLost || gl.isContextLost()) return;
 
         // 1. Process GPU Timer Queries (disjoint-safe)
         if (this.timerExt) {
@@ -1063,60 +1108,28 @@ void main() {
             }
         }
 
-        // 2. Discrete Frame-Budget Resolution Governor (Rolling 30 frames with hysteresis)
-        const frameMs = 1000 / Math.max(1, currentFps);
-        this.frameTimeHistory.push(frameMs);
-        if (this.frameTimeHistory.length > 30) this.frameTimeHistory.shift();
-
-        const avgFrameMs = this.frameTimeHistory.reduce((a, b) => a + b, 0) / this.frameTimeHistory.length;
-        const nowMs = performance.now();
-        const deltaGovernor = this._lastGovernorTime ? (nowMs - this._lastGovernorTime) : 16;
-        this._lastGovernorTime = nowMs;
-        const timeSinceLastScaleChange = nowMs - this.lastScaleChangeTime;
-
         const morph = this.state.formulaMorph;
         const isDoublePass = Boolean(morph && FORMULAS[morph.fromId] && FORMULAS[morph.toId]);
-
-        let targetIndex = this.scaleIndex;
-        // Step down fast if frame budget exceeds 19.5ms (> 350ms duration)
-        if (avgFrameMs > 19.5) {
-            this.overBudgetDuration += deltaGovernor;
-            this.underBudgetDuration = 0;
-            if (this.overBudgetDuration > 350 && timeSinceLastScaleChange > 400) {
-                targetIndex = Math.min(this.scaleLevels.length - 1, this.scaleIndex + 1);
-                this.overBudgetDuration = 0;
-                this.lastScaleChangeTime = nowMs;
-            }
-        } else if (avgFrameMs < 14.0 && !isDoublePass && !isMovingOrModulating) {
-            // Step up cautiously if ample headroom (< 14.0ms for > 1500ms)
-            this.underBudgetDuration += deltaGovernor;
-            this.overBudgetDuration = 0;
-            if (this.underBudgetDuration > 1500 && timeSinceLastScaleChange > 1500) {
-                targetIndex = Math.max(0, this.scaleIndex - 1);
-                this.underBudgetDuration = 0;
-                this.lastScaleChangeTime = nowMs;
-            }
-        } else {
-            this.overBudgetDuration = 0;
-            this.underBudgetDuration = 0;
-        }
-
-        this.scaleIndex = targetIndex;
-        let effectiveIndex = this.scaleIndex;
-        // Dual-pass cross-morphing requires 1 step lower scale to maintain 60 FPS
-        if (isDoublePass && effectiveIndex === 0) {
-            effectiveIndex = 1;
-        }
-        this.activeScale = this.scaleLevels[effectiveIndex];
+        this.activeScale = this.quality.update(frameMs, this.lastGpuMs, isDoublePass || keyframePlayback);
 
         // 3. Keep Framebuffers statically sized to canvas (Zero per-frame reallocation!)
         const canvasW = this.canvas.width;
         const canvasH = this.canvas.height;
         this.updateFBOs(canvasW, canvasH);
+        if (!this.framebuffersReady) {
+            this.setStatus('Graphics buffers could not be created. Try a smaller window.');
+            return;
+        }
+        const formulas = isDoublePass ? [FORMULAS[morph.fromId], FORMULAS[morph.toId]] : [this.state.getActiveFormula()];
+        if (!formulas.every(formula => this.getProgramForFormula(formula))) {
+            this.setStatus('This formula could not render. Choose another formula in Settings.');
+            return;
+        }
+        this.setStatus('');
 
         // Sub-viewport resolution
-        const renderW = Math.max(64, Math.round(canvasW * this.activeScale));
-        const renderH = Math.max(64, Math.round(canvasH * this.activeScale));
+        const renderW = Math.max(1, Math.round(canvasW * this.activeScale));
+        const renderH = Math.max(1, Math.round(canvasH * this.activeScale));
 
         // 4. Begin GPU Timer Query for raymarch pass
         let activeQuery = null;
@@ -1132,13 +1145,15 @@ void main() {
             const formulaB = FORMULAS[morph.toId];
 
             // Render Formula A into FBO A sub-viewport
-            this.renderFormulaPass(formulaA, this.fboA, camera, time, renderW, renderH, isMovingOrModulating);
+            const valuesA = morph.discreteFrom ? { ...values, ...morph.discreteFrom } : values;
+            this.renderFormulaPass(formulaA, this.fboA, camera, time, renderW, renderH, isMovingOrModulating, valuesA);
 
             // Render Formula B into FBO B sub-viewport
-            this.renderFormulaPass(formulaB, this.fboB, camera, time, renderW, renderH, isMovingOrModulating);
+            const valuesB = morph.discreteTo ? { ...values, ...morph.discreteTo } : values;
+            this.renderFormulaPass(formulaB, this.fboB, camera, time, renderW, renderH, isMovingOrModulating, valuesB);
         } else {
             const currentFormula = this.state.getActiveFormula();
-            this.renderFormulaPass(currentFormula, this.fboA, camera, time, renderW, renderH, isMovingOrModulating);
+            this.renderFormulaPass(currentFormula, this.fboA, camera, time, renderW, renderH, isMovingOrModulating, values);
         }
 
         // End GPU Timer Query

@@ -79,14 +79,14 @@ export class CameraController {
 
         // Auto-Rotation Turntable (Gentle, majestic, slow multi-axis drift in all directions)
         this.autoRotate = true;
-        this.autoRotateSpeed = 0.012; // Slowed down 3X for serene, majestic drift
-        this.autoRotatePitchSpeed = 0.005; // Slowed down 3.2X
+        this.autoRotateSpeed = 0.006;
+        this.autoRotatePitchSpeed = 0.0025;
 
         // Cinematic Camera Presets ('turntable' | 'action' | 'flyby' | 'follow' | 'dynamic' | 'hero')
         this.activeCameraPreset = 'turntable';
         this.presetTime = 0.0;
         this.presetBlendProgress = 1.0;
-        this.presetBlendDuration = 2.5; // 2.5 seconds seamless spherical cinematic crossfade
+        this.presetBlendDuration = 5.0;
         this.transitionStartPos = [0.0, 0.0, 1.2];
         this.transitionStartTarget = [0.0, 0.0, 0.0];
 
@@ -337,8 +337,8 @@ export class CameraController {
             applyCameraPreset(dt) {
                 // Canonical authored distance for the active formula (dramatic, immersive framing)
                 const baseR = this.idealDistance || 1.6;
-                const zoomScale = this.isZoomOverridden ? (this.orbitRadius / baseR) : 1.0;
-                const R = baseR * zoomScale;
+                const manualRadius = this.isZoomOverridden ? this.orbitRadius : null;
+                const R = manualRadius ?? baseR;
 
                 // Keep target centered strictly on origin [0, 0, 0] across all presets
                 // Eliminates the issue where fractals were shoved to the right hand side of the screen
@@ -469,11 +469,25 @@ export class CameraController {
                 this.target[1] += (goalTy - this.target[1]) * lerpSpeed;
                 this.target[2] += (goalTz - this.target[2]) * lerpSpeed;
 
-                this.orbitRadius = Math.hypot(this.pos[0] - this.target[0], this.pos[1] - this.target[1], this.pos[2] - this.target[2]);
-                if (this.isZoomOverridden) {
-                    this.targetOrbitRadius = this.orbitRadius;
+                const offset = this.pos.map((value, index) => value - this.target[index]);
+                const distance = Math.hypot(...offset);
+                if (manualRadius !== null && distance > 1e-6) {
+                    const scale = manualRadius / distance;
+                    this.pos = offset.map((value, index) => this.target[index] + value * scale);
                 }
+                this.orbitRadius = manualRadius ?? distance;
                 this.hasMoved = true;
+            }
+
+            zoomFromWheel(delta, deltaMode = 0) {
+                if (!this.isZoomOverridden) {
+                    this.targetOrbitRadius = this.orbitRadius;
+                    this.setZoomOverridden(true);
+                }
+                const pixels = delta * (deltaMode === 1 ? 16 : deltaMode === 2 ? this.canvas.clientHeight : 1);
+                const clampedDelta = Math.max(-120, Math.min(120, pixels));
+                const zoomFactor = Math.exp(clampedDelta * this.zoomSensitivity);
+                this.targetOrbitRadius = Math.max(0.04, Math.min(60, this.targetOrbitRadius * zoomFactor));
             }
 
             setupInputListeners() {
@@ -548,20 +562,10 @@ export class CameraController {
 
                 // Heavy Inertial Wheel Zoom (Buttery smooth exponential glide with physical mass feeling)
                 this.canvas.addEventListener('wheel', (e) => {
+                    if (!e.deltaY) return;
                     e.preventDefault();
                     if (this.mode === 'orbit') {
-                        this.setZoomOverridden(true);
-                        // Clamp delta to prevent platform-specific mousewheel surges
-                        const clampedDelta = Math.max(-120, Math.min(120, e.deltaY));
-
-                        // Keep target synced if external systems changed orbitRadius
-                        if (Math.abs(this.targetOrbitRadius - this.orbitRadius) > 3.0) {
-                            this.targetOrbitRadius = this.orbitRadius;
-                        }
-
-                        // Weighted exponential distance scaling
-                        const zoomFactor = Math.exp(clampedDelta * this.zoomSensitivity);
-                        this.targetOrbitRadius = Math.max(0.04, Math.min(60.0, this.targetOrbitRadius * zoomFactor));
+                        this.zoomFromWheel(e.deltaY, e.deltaMode);
                     } else {
                         this.speedMultiplier = Math.max(0.1, Math.min(10.0, this.speedMultiplier * (e.deltaY < 0 ? 1.15 : 0.87)));
                     }
@@ -775,8 +779,6 @@ export class CameraController {
                 } else if (id === 'mandelbulb') {
                     const jMix = values.mb_julia_mix ?? 0.0;
                     return 1.45 + 0.15 * jMix; // Mandelbulb expands to ~1.45 - 1.55
-                } else if (id === 'mandelbox') {
-                    return 2.0; // Normalized Mandelbox citadel fits inside 2.0
                 } else if (id === 'kifs') {
                     const ox = values.kifs_offset_x ?? 1.0;
                     const oy = values.kifs_offset_y ?? 1.0;
@@ -855,7 +857,7 @@ export class CameraController {
                 if (Math.abs(diff) < 0.0002 && targetOffset < 0.0002) return;
 
                 // Smooth critically damped exponential ease
-                const lerpSpeed = 1.0 - Math.exp(-4.5 * dt);
+                const lerpSpeed = 1.0 - Math.exp(-1.8 * dt);
                 this.orbitRadius += diff * lerpSpeed;
                 this.targetOrbitRadius = this.orbitRadius;
 
@@ -1008,8 +1010,8 @@ export class CameraController {
                                 // Continuous multi-axis auto-rotation in all directions (slow, majestic)
                                 this.rotateOrbit(this.autoRotateSpeed * dt, this.autoRotatePitchSpeed * dt * 0.4);
                             }
-                        } else {
-                            this.presetTime += dt;
+                        } else if (this.autoRotate || this.presetBlendProgress < 1.0) {
+                            this.presetTime += dt * 0.5;
                             this.applyCameraPreset(dt);
                         }
                     }
@@ -1049,35 +1051,34 @@ export class CameraController {
                         mode: this.mode,
                         pos: [Number(this.pos[0].toFixed(4)), Number(this.pos[1].toFixed(4)), Number(this.pos[2].toFixed(4))],
                         target: [Number(this.target[0].toFixed(4)), Number(this.target[1].toFixed(4)), Number(this.target[2].toFixed(4))],
+                        up: [...this.up],
                         orbitRadius: Number(this.orbitRadius.toFixed(4)),
                         preset: this.activeCameraPreset,
-                        autoRotate: this.autoRotate
+                        autoRotate: this.autoRotate,
+                        zoomOverridden: this.isZoomOverridden
                     };
                 }
 
-                setState(s, smooth = true) {
+                setState(s) {
                     if (!s) return;
-                    if (s.mode) this.mode = s.mode;
+                    if (s.pos) this.pos = [...s.pos];
+                    if (s.target) this.target = [...s.target];
+                    if (s.up && Math.hypot(...s.up) > 0.001) this.up = normalizeVec(s.up);
+                    if (s.mode) this.setMode(s.mode);
                     if (s.preset) this.activeCameraPreset = s.preset;
                     if (s.autoRotate !== undefined) this.autoRotate = s.autoRotate;
-                    if (s.orbitRadius) {
-                        this.orbitRadius = s.orbitRadius;
-                        this.targetOrbitRadius = s.orbitRadius;
+                    if (this.mode === 'flight') {
+                        const [dx, dy, dz] = this.target.map((value, index) => value - this.pos[index]);
+                        this.yaw = Math.atan2(dx, -dz);
+                        this.pitch = Math.atan2(dy, Math.hypot(dx, dz));
                     }
-                    if (s.target) {
-                        this.target[0] = s.target[0];
-                        this.target[1] = s.target[1];
-                        this.target[2] = s.target[2];
-                    }
-                    if (s.pos) {
-                        if (smooth) {
-                            this.startSmoothTransition(s.pos, s.target || this.target, 1.5);
-                        } else {
-                            this.pos[0] = s.pos[0];
-                            this.pos[1] = s.pos[1];
-                            this.pos[2] = s.pos[2];
-                            this.hasMoved = true;
-                        }
-                    }
+                    this.orbitRadius = s.orbitRadius ?? Math.max(0.01, Math.hypot(...this.pos.map((value, index) => value - this.target[index])));
+                    this.targetOrbitRadius = this.orbitRadius;
+                    this.angularVelYaw = 0;
+                    this.angularVelPitch = 0;
+                    this.presetTime = 0;
+                    this.presetBlendProgress = 1;
+                    this.setZoomOverridden(s.zoomOverridden ?? Boolean(s.pos));
+                    this.hasMoved = true;
                 }
             }

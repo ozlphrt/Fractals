@@ -4,7 +4,9 @@
  * and persistent local creations storage.
  */
 
-import { FORMULA_IDS } from '../formulas/registry.js';
+import { FORMULAS, FORMULA_IDS, getFormulaLabel } from '../formulas/registry.js';
+import { GLOBAL_PARAMS } from '../state/parameters.js';
+import { PALETTE_PRESETS } from '../state/palettes.js';
 
 export const CURATED_COMMUNITY_CREATIONS = [
     {
@@ -105,34 +107,6 @@ export const CURATED_COMMUNITY_CREATIONS = [
         tags: ['Sacred Geometry', 'Limestone', 'Jerusalem']
     },
     {
-        id: 'curated-05',
-        title: 'Dark Loam Brutalist Citadel',
-        author: '@architect_m',
-        formula: FORMULA_IDS.MANDELBOX,
-        material: 'dark_loam',
-        params: {
-            mbox_scale: 2.25,
-            mbox_iterations: 10,
-            mbox_fold_limit: 1.0,
-            mbox_min_radius: 0.5,
-            mbox_fixed_radius: 1.0,
-            mbox_rot_x: 0.0,
-            mbox_rot_y: 0.0,
-            mbox_rot_z: 0.0,
-            mbox_offset_x: 0.0,
-            mbox_offset_y: 0.0,
-            mbox_offset_z: 0.0,
-            glow_intensity: 0.1
-        },
-        camera: {
-            pos: [3.8, 2.6, 4.2],
-            target: [0.0, 0.0, 0.0],
-            preset: 'flyby',
-            orbitRadius: 6.2
-        },
-        tags: ['Mandelbox', 'Brutalist', 'Loam']
-    },
-    {
         id: 'curated-06',
         title: 'Glacial Calcite Geode',
         author: '@kleinian_sphere',
@@ -206,12 +180,12 @@ export const CURATED_COMMUNITY_CREATIONS = [
         title: 'Celestial Gasket Spheres',
         author: '@sphere_weaver',
         formula: FORMULA_IDS.APOLLONIAN,
-        material: 'obsidian_gold',
+        material: 'dark_loam',
         params: {
             apol_radius: 1.55,
             apol_scale: 1.45,
-            apol_fold: 0.85,
-            apol_rot: 0.35,
+            apol_core: 0.22,
+            apol_rot_x: 0.10,
             apol_iterations: 12,
             glow_intensity: 0.15
         },
@@ -228,7 +202,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
         title: 'Bioluminescent Anemone',
         author: '@ocean_depths',
         formula: FORMULA_IDS.JULIABULB,
-        material: 'deep_bioluminescence',
+        material: 'glacial_permafrost',
         params: {
             jb_power: 6.0,
             jb_cx: -0.45,
@@ -251,7 +225,7 @@ export const CURATED_COMMUNITY_CREATIONS = [
         title: 'Obsidian Nebula Reliquary',
         author: '@kali_sculptor',
         formula: FORMULA_IDS.KALISET,
-        material: 'obsidian_gold',
+        material: 'dark_loam',
         params: {
             kb_scale: -2.05,
             kb_fold: 1.0,
@@ -301,12 +275,58 @@ export const CURATED_COMMUNITY_CREATIONS = [
 
 const LOCAL_STORAGE_KEY = 'fractals_community_saved_v1';
 
+const CAMERA_PRESETS = ['turntable', 'action', 'flyby', 'follow', 'dynamic', 'hero'];
+const MATERIAL_IDS = new Set(PALETTE_PRESETS.map(preset => preset.id));
+
+function sceneParameters(formula) {
+    return [...formula.params, ...GLOBAL_PARAMS];
+}
+
+export function normalizeScene(scene) {
+    if (!scene || (scene.version !== undefined && scene.version !== 2)) return null;
+    if (!Object.hasOwn(FORMULAS, scene.formula)) return null;
+    const params = {};
+    for (const param of sceneParameters(FORMULAS[scene.formula])) {
+        const value = scene.params?.[param.id];
+        if (!Number.isFinite(value)) continue;
+        const bounded = Math.max(param.min, Math.min(param.max, value));
+        params[param.id] = param.type === 'int' ? Math.round(bounded) : bounded;
+    }
+    const camera = {};
+    const source = scene.camera;
+    for (const key of ['pos', 'target', 'up']) {
+        const vector = source?.[key];
+        if (Array.isArray(vector) && vector.length === 3 && vector.every(value => Number.isFinite(value) && Math.abs(value) <= 10000)) {
+            camera[key] = vector.slice();
+        }
+    }
+    if (source?.mode === 'orbit' || source?.mode === 'flight') camera.mode = source.mode;
+    if (CAMERA_PRESETS.includes(source?.preset)) camera.preset = source.preset;
+    if (typeof source?.autoRotate === 'boolean') camera.autoRotate = source.autoRotate;
+    if (typeof source?.zoomOverridden === 'boolean') camera.zoomOverridden = source.zoomOverridden;
+    if (Number.isFinite(source?.orbitRadius) && source.orbitRadius > 0 && source.orbitRadius <= 10000) camera.orbitRadius = source.orbitRadius;
+    return {
+        title: typeof scene.title === 'string' ? scene.title : 'Fractal',
+        author: typeof scene.author === 'string' ? scene.author : 'User',
+        formula: scene.formula,
+        material: MATERIAL_IDS.has(scene.material) ? scene.material : null,
+        params,
+        camera: Object.keys(camera).length ? camera : null
+    };
+}
+
+function escapeHtml(value) {
+    const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(value ?? '').replace(/[&<>"']/g, char => entities[char]);
+}
+
 export class GalleryManager {
     constructor(app) {
         this.app = app;
         this.drawer = document.getElementById('gallery-drawer');
         this.toggleBtn = document.getElementById('btn-toggle-gallery');
         this.closeBtn = document.getElementById('btn-close-gallery');
+        this.settingsToggle = document.getElementById('btn-toggle-settings');
         this.activeTab = 'showcase'; // 'showcase' | 'saved'
 
         this.init();
@@ -319,12 +339,10 @@ export class GalleryManager {
         if (this.closeBtn) {
             this.closeBtn.addEventListener('click', () => this.close());
         }
+        this.drawer?.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && !event.defaultPrevented) this.close();
+        });
 
-        // Check for shared URL hash on initial load
-        this.checkSharedUrl();
-
-        // Render drawer contents
-        this.render();
     }
 
     toggle() {
@@ -339,14 +357,26 @@ export class GalleryManager {
 
     open() {
         if (!this.drawer) return;
+        this.reopenSettings = this.settingsToggle?.getAttribute('aria-expanded') === 'true';
+        if (this.reopenSettings) this.settingsToggle.click();
+        this.drawer.inert = false;
         this.drawer.classList.remove('closed');
+        this.toggleBtn?.setAttribute('aria-expanded', 'true');
         if (this.toggleBtn) this.toggleBtn.classList.add('active');
         this.render();
+        this.closeBtn?.focus();
     }
 
     close() {
         if (!this.drawer) return;
+        if (this.reopenSettings && this.settingsToggle?.getAttribute('aria-expanded') === 'false') {
+            this.settingsToggle.click();
+        }
+        this.reopenSettings = false;
+        if (this.drawer.contains(document.activeElement)) this.toggleBtn?.focus();
+        this.drawer.inert = true;
         this.drawer.classList.add('closed');
+        this.toggleBtn?.setAttribute('aria-expanded', 'false');
         if (this.toggleBtn) this.toggleBtn.classList.remove('active');
     }
 
@@ -354,11 +384,11 @@ export class GalleryManager {
     getCurrentSceneData(name = 'My Fractal Creation') {
         const formulaId = this.app.formulaRegistry?.activeFormula?.id || FORMULA_IDS.MANDELBULB;
         const currentVals = this.app.params?.getValues() || {};
-        const activeFormulaParams = this.app.formulaRegistry?.activeFormula?.params || [];
+        const definitions = sceneParameters(FORMULAS[formulaId]);
         
         // Pick only parameters relevant to this formula
         const formulaParams = {};
-        for (const p of activeFormulaParams) {
+        for (const p of definitions) {
             if (currentVals[p.id] !== undefined) {
                 formulaParams[p.id] = currentVals[p.id];
             }
@@ -369,6 +399,7 @@ export class GalleryManager {
         const cameraState = this.app.camera?.getState ? this.app.camera.getState() : null;
 
         return {
+            version: 2,
             title: name,
             author: 'You',
             formula: formulaId,
@@ -427,7 +458,7 @@ export class GalleryManager {
         
         const list = this.getSavedScenes();
         list.unshift(scene);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
+        if (!this.writeSavedScenes(list)) return;
 
         this.showToast(`Saved "${scene.title}" to My Creations!`);
         this.activeTab = 'saved';
@@ -437,7 +468,8 @@ export class GalleryManager {
     getSavedScenes() {
         try {
             const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-            return raw ? JSON.parse(raw) : [];
+            const saved = raw ? JSON.parse(raw) : [];
+            return Array.isArray(saved) ? saved.filter(item => item && typeof item.id === 'string') : [];
         } catch (e) {
             return [];
         }
@@ -445,43 +477,52 @@ export class GalleryManager {
 
     deleteSavedScene(id) {
         const list = this.getSavedScenes().filter(s => s.id !== id);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
+        if (!this.writeSavedScenes(list)) return;
         this.showToast('Creation removed.');
         this.render();
     }
 
+    writeSavedScenes(scenes) {
+        try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(scenes));
+            return true;
+        } catch {
+            this.showToast('Could not update saved creations. Browser storage may be unavailable or full.');
+            return false;
+        }
+    }
+
     // Loads a scene smoothly into the engine
     loadScene(scene, showToastMessage = true) {
-        if (!scene || !scene.formula) return;
+        scene = normalizeScene(scene);
+        if (!scene) return false;
+        this.app.prepareSceneLoad?.();
 
         // 1. Switch formula if different (immediate load to cleanly activate required DE shader)
         if (this.app.setFormula && scene.formula !== this.app.formulaRegistry?.activeFormula?.id) {
             this.app.setFormula(scene.formula, true);
         }
 
-        // 2. Apply parameters smoothly (preserving 0.05 glow baseline)
-        if (scene.params) {
-            const paramsToApply = { glow_intensity: 0.05, ...scene.params };
-            if (this.app.params?.morphToValues) {
-                this.app.params.morphToValues(paramsToApply, 1.2);
-            } else if (this.app.params?.setMany) {
-                this.app.params.setMany(paramsToApply, true);
-            }
-        }
-
-        // 3. Apply material preset
+        // Apply the preset first so authored scene values take precedence.
         if (scene.material && this.app.materials?.applyPreset) {
             this.app.materials.applyPreset(scene.material);
         }
 
+        if (scene.params) {
+            const paramsToApply = { glow_intensity: 0.05, ...scene.params };
+            this.app.params?.setMany(paramsToApply, true);
+        }
+
         // 4. Set camera state smoothly
         if (scene.camera && this.app.camera?.setState) {
-            this.app.camera.setState(scene.camera, true);
+            this.app.camera.setState(scene.camera);
+            this.app.syncCamera?.();
         }
 
         if (showToastMessage) {
             this.showToast(`Loaded: ${scene.title || 'Scene'}`);
         }
+        return true;
     }
 
     checkSharedUrl() {
@@ -489,12 +530,10 @@ export class GalleryManager {
         if (hash && hash.startsWith('#c=')) {
             const b64 = hash.slice(3);
             const scene = this.decodeScene(b64);
-            if (scene) {
-                // Wait for engine initialization
-                setTimeout(() => {
-                    this.loadScene(scene, false);
-                    this.showToast(`🚀 Loaded shared creation: "${scene.title || 'Fractal'}" by ${scene.author || 'User'}`);
-                }, 400);
+            if (this.loadScene(scene, false)) {
+                this.showToast(`Loaded shared creation: "${scene.title || 'Fractal'}"`);
+            } else {
+                this.showToast('This creation link could not be loaded.');
             }
         }
     }
@@ -521,7 +560,7 @@ export class GalleryManager {
         const bodyContainer = this.drawer.querySelector('.gallery-drawer-body');
         if (!bodyContainer) return;
 
-        const savedScenes = this.getSavedScenes();
+        const savedScenes = this.getSavedScenes().filter(scene => normalizeScene(scene));
         const displayList = this.activeTab === 'showcase' ? CURATED_COMMUNITY_CREATIONS : savedScenes;
 
         let html = `
@@ -567,26 +606,28 @@ export class GalleryManager {
             `;
         } else {
             for (const item of displayList) {
-                const formulaName = this.app.formulaRegistry?.getFormula(item.formula)?.name || item.formula;
-                const matName = (item.material || '').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                const formulaName = getFormulaLabel(item.formula);
+                const matName = PALETTE_PRESETS.find(preset => preset.id === item.material)?.name || '';
+                const id = escapeHtml(item.id);
+                const title = escapeHtml(item.title);
 
                 html += `
-                    <div class="gallery-row" data-id="${item.id}">
-                        <div class="gallery-row-main btn-load" data-id="${item.id}" title="Click to load: ${item.title}">
-                            <span class="gallery-row-badge">${formulaName}</span>
-                            <span class="gallery-row-title">${item.title}</span>
-                            <span class="gallery-row-sub">· ${matName}</span>
+                    <div class="gallery-row" data-id="${id}">
+                        <div class="gallery-row-main btn-load" data-id="${id}" title="Click to load: ${title}">
+                            <span class="gallery-row-badge">${escapeHtml(formulaName)}</span>
+                            <span class="gallery-row-title">${title}</span>
+                            <span class="gallery-row-sub">· ${escapeHtml(matName)}</span>
                         </div>
                         <div class="gallery-row-actions">
-                            <button class="btn-row-action btn-load" data-id="${item.id}" title="Load creation">
+                            <button class="btn-row-action btn-load" data-id="${id}" title="Load creation">
                                 <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                                 <span>Load</span>
                             </button>
-                            <button class="btn-row-icon btn-share" data-id="${item.id}" title="Copy Share Link">
+                            <button class="btn-row-icon btn-share" data-id="${id}" title="Copy Share Link">
                                 <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                             </button>
                             ${this.activeTab === 'saved' ? `
-                                <button class="btn-row-icon btn-delete" data-id="${item.id}" title="Delete Creation">
+                                <button class="btn-row-icon btn-delete" data-id="${id}" title="Delete Creation">
                                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                 </button>
                             ` : ''}

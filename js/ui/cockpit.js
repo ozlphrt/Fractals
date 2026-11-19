@@ -2,7 +2,7 @@
 // Pro Studio UI Controller:
 // Floating top bar, retractable side drawers with tabbed workflows, floating transport island
 
-import { FORMULAS, FORMULA_IDS } from '../formulas/registry.js';
+import { FORMULAS, FORMULA_CYCLE_ORDER, getFormulaLabel } from '../formulas/registry.js';
 import { GLOBAL_PARAMS } from '../state/parameters.js';
 import { PALETTE_PRESETS } from '../state/palettes.js';
 import { MOD_SOURCE, LFO_WAVE, AUDIO_BAND } from '../modulation/engine.js';
@@ -17,6 +17,8 @@ export class CockpitUI {
 
         this.activeModParamId = null;
         this.sliderEls = new Map();
+        this.keyframeSliders = new Map();
+        this.cameraPoseSliders = [];
         this.ghostPips = new Map();
 
         this.initDOMElements();
@@ -33,7 +35,6 @@ export class CockpitUI {
             this.updateHeaderInfo();
             // Never hard-reset camera on formula change!
             // updateAutoZoom already glides the camera distance smoothly without jumps or resetting presets
-            this.raymarcher.resetAccumulation();
         });
 
         this.state.onFormulaMorph((morph) => {
@@ -41,17 +42,24 @@ export class CockpitUI {
             const targetFormula = FORMULAS[morph.toId];
             if (targetFormula) {
                 const elFormulaDisplay = document.getElementById('formula-name-display');
-                if (elFormulaDisplay) elFormulaDisplay.textContent = targetFormula.name;
+                if (elFormulaDisplay) elFormulaDisplay.textContent = getFormulaLabel(morph.toId);
                 const elFormulaName = document.getElementById('hud-formula-name');
-                if (elFormulaName) elFormulaName.textContent = targetFormula.name;
+                if (elFormulaName) elFormulaName.textContent = getFormulaLabel(morph.toId);
                 const elFormulaSub = document.getElementById('hud-formula-sub');
                 if (elFormulaSub) elFormulaSub.textContent = targetFormula.subtitle;
             }
-            this.raymarcher.resetAccumulation();
         });
     }
 
     initDOMElements() {
+        this.eqMeters = [
+            ['bass', document.getElementById('eq-bar-bass')],
+            ['lowMid', document.getElementById('eq-bar-lowmid')],
+            ['highMid', document.getElementById('eq-bar-highmid')],
+            ['treble', document.getElementById('eq-bar-treble')]
+        ];
+        this.elHudScale = document.getElementById('hud-scale');
+        this.nextTelemetryUpdate = 0;
         this.elSettingsDrawer = document.getElementById('settings-drawer');
         this.elFormulaSelect = document.getElementById('formula-select');
         this.elFormulaParamsContainer = document.getElementById('formula-params-container');
@@ -71,10 +79,10 @@ export class CockpitUI {
         // Populate Formula Select with concise titles for top bar
         if (this.elFormulaSelect) {
             this.elFormulaSelect.innerHTML = '';
-            for (const [id, f] of Object.entries(FORMULAS)) {
+            for (const id of FORMULA_CYCLE_ORDER) {
                 const opt = document.createElement('option');
                 opt.value = id;
-                opt.textContent = f.name;
+                opt.textContent = getFormulaLabel(id);
                 this.elFormulaSelect.appendChild(opt);
             }
             this.elFormulaSelect.value = this.state.activeFormulaId;
@@ -103,11 +111,11 @@ export class CockpitUI {
     updateHeaderInfo() {
         const formula = this.state.getActiveFormula();
         const elFormulaName = document.getElementById('hud-formula-name');
-        if (elFormulaName) elFormulaName.textContent = formula.name;
+        if (elFormulaName) elFormulaName.textContent = getFormulaLabel(formula.id);
         const elFormulaSub = document.getElementById('hud-formula-sub');
         if (elFormulaSub) elFormulaSub.textContent = formula.subtitle;
         const elFormulaDisplay = document.getElementById('formula-name-display');
-        if (elFormulaDisplay) elFormulaDisplay.textContent = formula.name;
+        if (elFormulaDisplay) elFormulaDisplay.textContent = getFormulaLabel(formula.id);
         if (this.elFormulaSelect) {
             this.elFormulaSelect.value = this.state.activeFormulaId;
         }
@@ -128,10 +136,7 @@ export class CockpitUI {
                 btn.classList.add('active');
 
                 // Smoothly morph parameters gradually over 1.3 seconds
-                this.state.morphToValues(p.values, 1.3,
-                    () => this.raymarcher.resetAccumulation(),
-                    () => this.raymarcher.resetAccumulation()
-                );
+                this.state.morphToValues(p.values, 1.3);
             });
             this.elPresetsGrid.appendChild(btn);
         });
@@ -207,22 +212,17 @@ export class CockpitUI {
         slider.addEventListener('input', (e) => {
             const v = (p.type === 'int') ? parseInt(e.target.value, 10) : parseFloat(e.target.value);
             if (p.id === 'sun_azimuth' || p.id === 'sun_elevation') {
-                this.isUserAdjustingSun = true;
-                this.lastSunUserInteractionTime = performance.now();
+                this.state.setMany({ sun_follow_camera: 0 });
             }
             this.state.set(p.id, v, false);
             valSpan.textContent = formatValue(v);
-            this.raymarcher.resetAccumulation();
         });
 
         slider.addEventListener('change', (e) => {
             const v = (p.type === 'int') ? parseInt(e.target.value, 10) : parseFloat(e.target.value);
-            if (p.id === 'sun_azimuth' || p.id === 'sun_elevation') {
-                this.isUserAdjustingSun = false;
-                this.lastSunUserInteractionTime = performance.now();
-            }
             this.state.set(p.id, v, true);
         });
+        this.attachKeyframeSlider([p.id], p.name, slider, trackWrap, rightInfo);
 
         row.appendChild(info);
         row.appendChild(trackWrap);
@@ -279,12 +279,10 @@ export class CockpitUI {
                 this.state.set(p.id, p.min, true);
                 slider.value = p.min;
                 valSpan.textContent = (p.type === 'int') ? p.min : p.min.toFixed(2);
-                this.raymarcher.resetAccumulation();
             } else if (curVal > p.max) {
                 this.state.set(p.id, p.max, true);
                 slider.value = p.max;
                 valSpan.textContent = (p.type === 'int') ? p.max : p.max.toFixed(2);
-                this.raymarcher.resetAccumulation();
             }
         };
 
@@ -388,7 +386,6 @@ export class CockpitUI {
                 this.state.set(param.id, v, false);
                 valSpan.textContent = v.toFixed(2);
                 updateSwatch();
-                this.raymarcher.resetAccumulation();
             });
 
             slider.addEventListener('change', (e) => {
@@ -406,6 +403,7 @@ export class CockpitUI {
             chRow.appendChild(badge);
             chRow.appendChild(trackWrap);
             chRow.appendChild(valSpan);
+            this.attachKeyframeSlider([param.id], param.name, slider, trackWrap, chRow);
             channelsGrid.appendChild(chRow);
 
             this.sliderEls.set(param.id, { slider, valSpan, modBtn: null, ghostPip, param });
@@ -440,9 +438,24 @@ export class CockpitUI {
                 this.elCamParamsContainer.appendChild(this.createSliderRow(p));
             }
         }
+        this.renderCameraPoseSliders();
 
         // 2. Structured Light 1: Key Directional Sun
         if (this.elLightSunContainer) {
+            const followCamera = document.createElement('button');
+            followCamera.type = 'button';
+            followCamera.className = 'toggle-action-btn';
+            followCamera.textContent = 'Follow camera';
+            const syncFollowCamera = value => {
+                followCamera.classList.toggle('active', Boolean(value));
+                followCamera.setAttribute('aria-pressed', String(Boolean(value)));
+            };
+            syncFollowCamera(this.state.get('sun_follow_camera'));
+            this.state.subscribe('sun_follow_camera', syncFollowCamera);
+            followCamera.addEventListener('click', () => {
+                this.state.setMany({ sun_follow_camera: this.state.get('sun_follow_camera') ? 0 : 1 }, true);
+            });
+            this.elLightSunContainer.appendChild(followCamera);
             const pSunInt = GLOBAL_PARAMS.find(p => p.id === 'sun_intensity');
             if (pSunInt) this.elLightSunContainer.appendChild(this.createSliderRow(pSunInt, true));
             
@@ -602,6 +615,325 @@ export class CockpitUI {
         }
     }
 
+    attachKeyframeSlider(field, label, slider, track, controls) {
+        const key = field.join(':');
+        const group = document.createElement('span');
+        group.className = 'keyframe-slider-actions';
+        group.hidden = true;
+        const entry = { field, label, slider, group, marks: [] };
+        for (const [letter, direction] of [['P', 'Previous'], ['N', 'Next']]) {
+            const button = document.createElement('button');
+            const dot = document.createElement('button');
+            button.type = dot.type = 'button';
+            button.className = 'keyframe-slider-button';
+            dot.className = `keyframe-dot keyframe-dot-${letter.toLowerCase()}`;
+            dot.hidden = true;
+            button.textContent = letter;
+            const mark = { button, dot, direction };
+            const apply = () => {
+                if (!Number.isFinite(mark.value)) return;
+                const value = mark.value;
+                this.stopKeyframePlayback?.();
+                const step = slider.step;
+                slider.step = 'any';
+                slider.value = value;
+                slider.dispatchEvent(new Event('input', { bubbles: true }));
+                if (field.length === 1) this.state.setMany({ [field[0]]: value }, true);
+                slider.step = step;
+            };
+            button.addEventListener('click', apply);
+            dot.addEventListener('click', apply);
+            group.append(button);
+            track.append(dot);
+            entry.marks.push(mark);
+        }
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'keyframe-slider-button';
+        remove.addEventListener('click', () => this.toggleKeyframeField?.(field));
+        group.append(remove);
+        controls.append(group);
+        entry.remove = remove;
+        this.keyframeSliders.set(key, entry);
+        slider.addEventListener('input', () => this.recordKeyframeField?.(field, slider.valueAsNumber));
+    }
+
+    renderCameraPoseSliders() {
+        this.cameraPosePanel = document.getElementById('camera-pose-panel');
+        const container = document.getElementById('camera-pose-sliders');
+        if (!container) return;
+        for (const [key, title] of [['pos', 'Position'], ['target', 'Target'], ['up', 'Up direction']]) {
+            for (const [axis, dimension] of ['X', 'Y', 'Z'].entries()) {
+                const row = document.createElement('div');
+                row.className = 'slider-row';
+                const info = document.createElement('div');
+                info.className = 'slider-info';
+                const label = document.createElement('label');
+                const name = `${title} ${dimension}`;
+                label.textContent = name;
+                const controls = document.createElement('div');
+                controls.className = 'slider-right-info';
+                const valueLabel = document.createElement('span');
+                valueLabel.className = 'val-badge';
+                controls.append(valueLabel);
+                info.append(label, controls);
+                const track = document.createElement('div');
+                track.className = 'track-wrap';
+                const slider = document.createElement('input');
+                slider.id = `camera-pose-${key}-${axis}`;
+                label.htmlFor = slider.id;
+                slider.type = 'range';
+                const limit = key === 'up' ? 1 : 12;
+                slider.min = -limit;
+                slider.max = limit;
+                slider.step = '0.0001';
+                track.append(slider);
+                slider.addEventListener('input', () => {
+                    const current = key === 'up' ? this.camera.getUpVector() : this.camera[key];
+                    const vector = [...current];
+                    vector[axis] = slider.valueAsNumber;
+                    this.camera.setState({ up: [...this.camera.getUpVector()], [key]: vector, mode: 'orbit', autoRotate: false, zoomOverridden: true });
+                    this.syncAutoRotate?.();
+                    this.syncCameraPoseSliders();
+                });
+                this.attachKeyframeSlider([key, axis], name, slider, track, controls);
+                this.cameraPoseSliders.push({ key, axis, slider, valueLabel });
+                row.append(info, track);
+                container.append(row);
+            }
+        }
+        this.syncCameraPoseSliders();
+    }
+
+    syncCameraPoseSliders() {
+        const up = this.camera.getUpVector();
+        for (const { key, axis, slider, valueLabel } of this.cameraPoseSliders) {
+            const value = (key === 'up' ? up : this.camera[key])[axis];
+            if (value < Number(slider.min)) slider.min = Math.floor(value);
+            if (value > Number(slider.max)) slider.max = Math.ceil(value);
+            slider.value = value;
+            valueLabel.textContent = value.toFixed(3);
+        }
+    }
+
+    setupKeyframes(actions) {
+        const play = document.getElementById('keyframe-play');
+        const remove = document.getElementById('keyframe-remove');
+        const edit = document.getElementById('keyframe-edit');
+        const save = document.getElementById('keyframe-save');
+        const select = document.getElementById('keyframe-select');
+        const exportButton = document.getElementById('keyframe-export');
+        const shuffle = document.getElementById('keyframe-shuffle');
+        const status = document.getElementById('keyframe-status');
+        const poseActions = document.getElementById('camera-pose-actions');
+        const previousPose = document.getElementById('camera-pose-previous');
+        const nextPose = document.getElementById('camera-pose-next');
+        const deletePose = document.getElementById('camera-pose-delete');
+        const poseFields = this.cameraPoseSliders.map(({ key, axis }) => [key, axis]);
+        let selectedFrame;
+        let fieldDraft;
+        let activeFrames;
+        let canEditFields;
+        const omittedIndex = (frame, [key, axis]) => frame?.omitted?.findIndex(field => field[0] === key && field[1] === axis) ?? -1;
+        const readField = (frame, field) => {
+            if (!frame || omittedIndex(frame, field) >= 0) return undefined;
+            const [key, axis] = field;
+            return axis === undefined ? frame.values[key] : frame.camera[key]?.[axis];
+        };
+        const getNeighbor = offset => {
+            const count = activeFrames?.length ?? 0;
+            return count > 1 ? activeFrames[(select.selectedIndex + count + offset) % count] : null;
+        };
+        this.refreshKeyframeSliderMarks = () => {
+            const previous = getNeighbor(-1);
+            const next = getNeighbor(1);
+            const allPoseOmitted = poseFields.every(field => omittedIndex(fieldDraft ?? selectedFrame, field) >= 0);
+            poseActions.hidden = !selectedFrame;
+            previousPose.disabled = !canEditFields || !poseFields.some(field => Number.isFinite(readField(previous, field)));
+            nextPose.disabled = !canEditFields || !poseFields.some(field => Number.isFinite(readField(next, field)));
+            deletePose.disabled = !canEditFields || !selectedFrame;
+            deletePose.textContent = allPoseOmitted ? 'Restore' : 'Delete';
+            deletePose.setAttribute('aria-label', `${deletePose.textContent} all camera pose values`);
+            for (const [key, entry] of this.keyframeSliders) {
+                if (!entry.slider.isConnected) {
+                    this.keyframeSliders.delete(key);
+                    continue;
+                }
+                const { field, label, slider, group, marks, remove } = entry;
+                group.hidden = !selectedFrame;
+                const omitted = omittedIndex(fieldDraft ?? selectedFrame, field) >= 0;
+                remove.textContent = omitted ? 'Restore' : 'Delete';
+                remove.setAttribute('aria-label', `${remove.textContent} ${label} in this keyframe`);
+                remove.disabled = !canEditFields;
+                const neighbors = [readField(previous, field), readField(next, field)];
+                if (field.length > 1) {
+                    for (const value of neighbors) {
+                        if (value < Number(slider.min)) slider.min = Math.floor(value);
+                        if (value > Number(slider.max)) slider.max = Math.ceil(value);
+                    }
+                }
+                for (const [slot, mark] of marks.entries()) {
+                    const value = neighbors[slot];
+                    const visible = Number.isFinite(value);
+                    mark.value = visible ? Math.max(Number(slider.min), Math.min(Number(slider.max), value)) : undefined;
+                    mark.dot.hidden = !visible;
+                    mark.button.disabled = mark.dot.disabled = !visible || !canEditFields;
+                    const description = `${mark.direction} keyframe ${label}${visible ? `: ${Number(value.toFixed(4))}` : ' (no saved value)'}`;
+                    for (const control of [mark.dot, mark.button]) {
+                        control.title = description;
+                        control.setAttribute('aria-label', description);
+                    }
+                    if (visible) {
+                        const fraction = (mark.value - Number(slider.min)) / (Number(slider.max) - Number(slider.min));
+                        mark.dot.style.left = `calc(${100 * fraction}% + ${6 - 12 * fraction}px)`;
+                    }
+                }
+            }
+        };
+        const updateSelection = () => {
+            const frame = activeFrames?.[select.selectedIndex];
+            if (frame !== selectedFrame) {
+                selectedFrame = frame;
+                fieldDraft = null;
+            }
+            this.refreshKeyframeSliderMarks();
+        };
+        const getDraft = () => {
+            fieldDraft ??= structuredClone(selectedFrame);
+            fieldDraft.omitted ??= [];
+            save.disabled = false;
+            return fieldDraft;
+        };
+        const copyPose = offset => {
+            const neighbor = getNeighbor(offset);
+            if (!canEditFields || !selectedFrame || !neighbor) return;
+            const draft = getDraft();
+            const camera = {
+                pos: [...this.camera.pos],
+                target: [...this.camera.target],
+                up: [...this.camera.getUpVector()]
+            };
+            for (const field of poseFields) {
+                const value = readField(neighbor, field);
+                if (!Number.isFinite(value)) continue;
+                const [key, axis] = field;
+                camera[key][axis] = draft.camera[key][axis] = value;
+                const omitted = omittedIndex(draft, field);
+                if (omitted >= 0) draft.omitted.splice(omitted, 1);
+            }
+            draft.camera.orbitRadius = Math.hypot(...draft.camera.pos.map((value, axis) => value - draft.camera.target[axis]));
+            this.camera.setState({ ...camera, mode: 'orbit', autoRotate: false, zoomOverridden: true });
+            this.syncAutoRotate?.();
+            this.syncCameraPoseSliders();
+            this.refreshKeyframeSliderMarks();
+        };
+        previousPose.addEventListener('click', () => copyPose(-1));
+        nextPose.addEventListener('click', () => copyPose(1));
+        deletePose.addEventListener('click', () => {
+            if (!canEditFields || !selectedFrame) return;
+            const draft = getDraft();
+            const restore = poseFields.every(field => omittedIndex(draft, field) >= 0);
+            draft.omitted = draft.omitted.filter(field => !poseFields.some(([key, axis]) => key === field[0] && axis === field[1]));
+            if (!restore) draft.omitted.push(...poseFields);
+            this.refreshKeyframeSliderMarks();
+        });
+        this.recordKeyframeField = (field, value) => {
+            if (!canEditFields || !selectedFrame || !Number.isFinite(value)) return;
+            const [key, axis] = field;
+            const draft = getDraft();
+            const omitted = omittedIndex(draft, field);
+            if (axis === undefined) draft.values[key] = value;
+            else draft.camera[key][axis] = value;
+            if (omitted >= 0) {
+                draft.omitted.splice(omitted, 1);
+                this.refreshKeyframeSliderMarks();
+            }
+        };
+        this.toggleKeyframeField = field => {
+            if (!canEditFields || !selectedFrame) return;
+            const draft = getDraft();
+            const omitted = omittedIndex(draft, field);
+            if (omitted >= 0) draft.omitted.splice(omitted, 1);
+            else draft.omitted.push(field);
+            this.refreshKeyframeSliderMarks();
+        };
+        let selectedTrack;
+        let optionCount;
+        const addButton = document.getElementById('keyframe-add');
+        addButton.addEventListener('click', actions.add);
+        window.addEventListener('keydown', event => {
+            if (event.defaultPrevented || event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey ||
+                event.key.toLowerCase() !== 'k' || event.target.closest?.('input, select, textarea, [contenteditable]')) return;
+            if (addButton.disabled) return;
+            event.preventDefault();
+            actions.add();
+        });
+        this.getKeyframeTab = () => this.elSettingsDrawer.querySelector('.tab-pane.active')?.id;
+        this.selectKeyframeTab = tabId => {
+            Array.from(this.elSettingsDrawer.querySelectorAll('.d-tab-btn'))
+                .find(button => button.dataset.tab === tabId)?.click();
+        };
+        this.shouldShuffleKeyframes = () => shuffle.checked;
+        this.elSettingsDrawer.querySelector('.drawer-tabs').addEventListener('click', event => {
+            if (event.target.closest('.d-tab-btn')) actions.tabChange();
+        });
+        play.addEventListener('click', () => actions.toggle(shuffle.checked));
+        this.stopKeyframePlayback = actions.stop;
+        select.addEventListener('change', () => {
+            updateSelection();
+            actions.edit(Number(select.value), false);
+        });
+        edit.addEventListener('click', () => actions.edit(Number(select.value)));
+        save.addEventListener('click', () => actions.save(Number(select.value), fieldDraft));
+        remove.addEventListener('click', () => actions.remove(Number(select.value)));
+        exportButton.addEventListener('click', actions.export);
+        const dice = document.getElementById('deform-dice-btn');
+        dice.addEventListener('click', actions.dice);
+        this.syncKeyframeDice = enabled => {
+            dice.classList.toggle('active', enabled);
+            dice.setAttribute('aria-pressed', String(enabled));
+            dice.title = enabled ? 'Stop keyframe dice playback' : 'Play this formula’s keyframes with dice variations';
+        };
+        for (const event of ['click', 'input']) {
+            this.elSettingsDrawer.querySelector('.drawer-body').addEventListener(event, e => {
+                if (!e.target.closest('button, input, select')) return;
+                const value = e.target.value;
+                actions.stop();
+                if (e.type === 'input') e.target.value = value;
+            }, true);
+        }
+        this.syncKeyframes = ({ frames, playing, previewing, index, sequence }, total, track) => {
+            const count = frames.length;
+            activeFrames = frames;
+            if (selectedTrack !== track || optionCount !== count) {
+                const selected = selectedTrack === track ? select.selectedIndex : 0;
+                const options = count
+                    ? Array.from({ length: count }, (_, index) => new Option(`Keyframe ${index + 1}`, String(index)))
+                    : [new Option('No keyframes', '')];
+                select.replaceChildren(...options);
+                select.selectedIndex = Math.max(0, Math.min(selected, options.length - 1));
+                selectedTrack = track;
+                optionCount = count;
+            }
+            canEditFields = !playing || previewing;
+            updateSelection();
+            const current = sequence?.[index];
+            const text = previewing ? 'Moving to keyframe…' : playing
+                ? (index < 0 ? 'Starting loop…' : current?.userIndex === undefined ? 'Random keyframe' : `Keyframe ${current.userIndex + 1} of ${count}`)
+                : `${count} keyframe${count === 1 ? '' : 's'}`;
+            if (status.textContent !== text) status.textContent = text;
+            play.disabled = !playing && count < 2;
+            select.disabled = (playing && !previewing) || count === 0;
+            for (const control of [edit, remove]) control.disabled = playing || count === 0;
+            save.disabled = count === 0 || (playing && (!previewing || !fieldDraft));
+            exportButton.disabled = total === 0;
+            shuffle.disabled = playing;
+            const label = previewing ? 'Stop Preview' : playing ? 'Stop Loop' : 'Play Loop';
+            if (play.textContent !== label) play.textContent = label;
+            addButton.disabled = playing;
+        };
+    }
+
     setupEventListeners() {
         // Manual Zoom Override Reset Camera Button
         const btnResetZoom = document.getElementById('btn-reset-zoom');
@@ -611,7 +943,6 @@ export class CockpitUI {
                 if (this.camera) {
                     this.camera.resetToDefaultZoom();
                 }
-                this.raymarcher.resetAccumulation();
             });
         }
 
@@ -633,19 +964,29 @@ export class CockpitUI {
         if (btnToggleSettings && this.elSettingsDrawer) {
             btnToggleSettings.addEventListener('click', () => {
                 const isClosed = this.elSettingsDrawer.classList.toggle('closed');
+                this.elSettingsDrawer.inert = isClosed;
+                btnToggleSettings.setAttribute('aria-expanded', String(!isClosed));
                 btnToggleSettings.classList.toggle('active', !isClosed);
+            });
+            this.elSettingsDrawer.addEventListener('keydown', event => {
+                if (event.key !== 'Escape' || event.defaultPrevented) return;
+                btnToggleSettings.click();
+                btnToggleSettings.focus();
             });
         }
 
         // Tab Switching inside Drawers
         document.querySelectorAll('.drawer-tabs').forEach(tabBar => {
             tabBar.querySelectorAll('.d-tab-btn').forEach(btn => {
+                btn.setAttribute('aria-controls', btn.dataset.tab);
+                btn.setAttribute('aria-pressed', String(btn.classList.contains('active')));
                 btn.addEventListener('click', () => {
                     const drawer = btn.closest('.side-drawer');
-                    drawer.querySelectorAll('.d-tab-btn').forEach(b => b.classList.remove('active'));
+                    drawer.querySelectorAll('.d-tab-btn').forEach(button => {
+                        button.classList.toggle('active', button === btn);
+                        button.setAttribute('aria-pressed', String(button === btn));
+                    });
                     drawer.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-                    btn.classList.add('active');
-                    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
                     const targetPane = document.getElementById(btn.dataset.tab);
                     if (targetPane) targetPane.classList.add('active');
                 });
@@ -655,28 +996,11 @@ export class CockpitUI {
         // Formula Switcher
         if (this.elFormulaSelect) {
             this.elFormulaSelect.addEventListener('change', (e) => {
-                this.deformCount = 0;
                 this.state.startFormulaMorph(e.target.value, 1.6);
             });
         }
 
-        // 1. Fractal Formula Stepper & Cycler (Curated Contrast-Maximized Sequence)
-        const FORMULA_CYCLE_ORDER = [
-            FORMULA_IDS.MANDELBULB,       // Organic Spherical Power Fold
-            FORMULA_IDS.KALISET,          // Bio-Mechanical Nebula Crystal
-            FORMULA_IDS.MANDELBOX,        // Brutalist Box & Sphere Inversion Fold
-            FORMULA_IDS.JULIABULB,        // Hyper-Organic Coral & Anemone
-            FORMULA_IDS.JERUSALEM,        // Sub-Atomic Cybernetic Cross Cuts
-            FORMULA_IDS.PSEUDO_KLEINIAN,  // Infinite Gothic Nave & Relic Colonnade
-            FORMULA_IDS.QUAT_JULIA,       // 4D Liquid Hyper-Ribbons
-            FORMULA_IDS.KIFS,             // Polyhedral Reflection & Fractal Origami
-            FORMULA_IDS.APOLLONIAN,       // Kleinian 3D Sphere Inversion Packing
-            FORMULA_IDS.BURNING_SHIP      // Volcanic Absolute Value Spires
-        ].filter(id => FORMULAS[id]);
-
         const switchFormulaByIndex = (direction) => {
-            this.deformCount = 0;
-            this.formulaDwellTime = 0.0;
             const currentActive = this.state.formulaMorph ? this.state.formulaMorph.toId : this.state.activeFormulaId;
             const currentIdx = FORMULA_CYCLE_ORDER.indexOf(currentActive);
             const baseIdx = currentIdx >= 0 ? currentIdx : 0;
@@ -684,7 +1008,6 @@ export class CockpitUI {
             const nextId = FORMULA_CYCLE_ORDER[nextIdx];
             this.state.startFormulaMorph(nextId, 1.6);
             if (this.elFormulaSelect) this.elFormulaSelect.value = nextId;
-            this.raymarcher.resetAccumulation();
         };
         this.switchFormulaByIndex = switchFormulaByIndex;
 
@@ -705,7 +1028,6 @@ export class CockpitUI {
             const nextPreset = CAMERA_PRESETS[nextIdx];
             this.camera.setCameraPreset(nextPreset);
             this.syncActiveCameraPreset(nextPreset);
-            this.raymarcher.resetAccumulation();
         };
 
         const cPrev = document.getElementById('camera-prev-btn');
@@ -725,7 +1047,7 @@ export class CockpitUI {
             'pal_d_r', 'pal_d_g', 'pal_d_b',
             'metallic', 'roughness'
         ];
-        const applyPureMaterialValues = (preset) => {
+        const applyPureMaterialValues = (preset, recordHistory = true) => {
             if (!preset || !preset.values) return;
             const cleanValues = {};
             for (const k of ALLOWED_MATERIAL_KEYS) {
@@ -733,7 +1055,7 @@ export class CockpitUI {
                     cleanValues[k] = preset.values[k];
                 }
             }
-            this.state.setMany(cleanValues, true);
+            this.state.setMany(cleanValues, recordHistory);
         };
 
         this.activeMaterialIndex = 0;
@@ -745,7 +1067,6 @@ export class CockpitUI {
                 if (this.elPaletteSelect) this.elPaletteSelect.value = preset.id;
                 const elMat = document.getElementById('material-name-display');
                 if (elMat) elMat.textContent = preset.name;
-                this.raymarcher.resetAccumulation();
             }
         };
 
@@ -764,21 +1085,19 @@ export class CockpitUI {
                     applyPureMaterialValues(preset);
                     const elMat = document.getElementById('material-name-display');
                     if (elMat) elMat.textContent = preset.name;
-                    this.raymarcher.resetAccumulation();
                 }
             });
         }
 
-        this.applyMaterialPreset = (id) => {
+        this.applyMaterialPreset = (id, recordHistory = true) => {
             const idx = PALETTE_PRESETS.findIndex(p => p.id === id);
             if (idx >= 0) {
                 this.activeMaterialIndex = idx;
                 const preset = PALETTE_PRESETS[idx];
-                applyPureMaterialValues(preset);
+                applyPureMaterialValues(preset, recordHistory);
                 if (this.elPaletteSelect) this.elPaletteSelect.value = preset.id;
                 const elMat = document.getElementById('material-name-display');
                 if (elMat) elMat.textContent = preset.name;
-                this.raymarcher.resetAccumulation();
             }
         };
 
@@ -869,16 +1188,20 @@ export class CockpitUI {
                 const preset = btn.dataset.preset;
                 this.camera.setCameraPreset(preset);
                 this.syncActiveCameraPreset(preset);
-                this.raymarcher.resetAccumulation();
             });
         });
 
         // Auto-Rotate Button
         const btnAutoRotate = document.getElementById('auto-rotate-btn');
         if (btnAutoRotate) {
+            this.syncAutoRotate = () => {
+                btnAutoRotate.classList.toggle('active', this.camera.autoRotate);
+                btnAutoRotate.setAttribute('aria-pressed', String(this.camera.autoRotate));
+            };
+            this.syncAutoRotate();
             btnAutoRotate.addEventListener('click', () => {
                 this.camera.autoRotate = !this.camera.autoRotate;
-                btnAutoRotate.classList.toggle('active', this.camera.autoRotate);
+                this.syncAutoRotate();
             });
         }
 
@@ -890,7 +1213,6 @@ export class CockpitUI {
                 this.camera.resetView(defCam.pos, defCam.target);
                 this.camera.setCameraPreset('turntable');
                 camPresetBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === 'turntable'));
-                this.raymarcher.resetAccumulation();
             });
         }
 
@@ -916,96 +1238,14 @@ export class CockpitUI {
             morphSlider.addEventListener('input', (e) => {
                 const t = parseFloat(e.target.value);
                 this.state.setMorphProgress(t);
-                this.raymarcher.resetAccumulation();
             });
         }
 
         // Continuous Auto-Deform Toggle State & Timer (ON BY DEFAULT)
-        this.isAutoDeforming = true;
-        this.autoDeformTimer = null;
-        this.deformCount = 0;
-        this.formulaDwellTime = 0.0;
-
-        // Deform Randomizer Toggle (ON/OFF - Continuous uninterrupted metamorphosis)
-        const deformBtn = document.getElementById('deform-dice-btn');
-        if (deformBtn) {
-            const runAutoDeformCycle = (isStartup = false) => {
-                if (!this.isAutoDeforming) return;
-
-                deformBtn.classList.add('active');
-                deformBtn.title = 'Auto-Deform: Active (Click to Pause)';
-
-                // First shape morph right at start is swift (~3.2s) so viewers are instantly captivated;
-                // Subsequent continuous shape morphs run smoothly and majestically at 5.0s
-                const duration = isStartup ? 3.2 : 5.0;
-
-                this.state.smoothDeformRandom(duration, 
-                    (progress) => {
-                        this.raymarcher.resetAccumulation();
-                    },
-                    () => {
-                        // Morph completed!
-                        if (!this.isAutoDeforming) {
-                            deformBtn.classList.remove('active');
-                            deformBtn.title = 'Auto-Deform: Paused (Click to Start)';
-                            return;
-                        }
-
-                        this.deformCount++;
-                        this.formulaDwellTime += duration;
-
-                        // Keep on current formula for 16-20 seconds before transitioning to the next formula
-                        if (this.formulaDwellTime >= 17.5) {
-                            this.formulaDwellTime = 0.0;
-                            this.deformCount = 0;
-                            switchFormulaByIndex(1);
-                        }
-
-                        // CONTINUOUS: Immediately trigger next random shape with ZERO wait!
-                        // No pausing or freezing on completed shapes
-                        if (this.isAutoDeforming) {
-                            runAutoDeformCycle(false);
-                        }
-                    }
-                );
-            };
-
-            deformBtn.addEventListener('click', () => {
-                this.isAutoDeforming = !this.isAutoDeforming;
-
-                if (this.isAutoDeforming) {
-                    this.deformCount = 0;
-                    deformBtn.classList.add('active');
-                    deformBtn.title = 'Auto-Deform: Active (Click to Pause)';
-                    runAutoDeformCycle(false);
-                } else {
-                    deformBtn.classList.remove('active');
-                    deformBtn.title = 'Auto-Deform: Paused (Click to Start)';
-                    if (this.autoDeformTimer) {
-                        clearTimeout(this.autoDeformTimer);
-                        this.autoDeformTimer = null;
-                    }
-                    if (this.state.morphAnim) {
-                        this.state.morphAnim = null;
-                    }
-                }
-            });
-
-            // Start morphing almost immediately on boot (50ms) to captivate the viewer right away
-            deformBtn.classList.add('active');
-            deformBtn.title = 'Auto-Deform: Active (Click to Pause)';
-            setTimeout(() => {
-                if (this.isAutoDeforming) {
-                    runAutoDeformCycle(true);
-                }
-            }, 50);
-        }
-
         const btnUndo = document.getElementById('undo-btn');
         if (btnUndo) {
             btnUndo.addEventListener('click', () => {
                 this.state.undo();
-                this.raymarcher.resetAccumulation();
             });
         }
 
@@ -1013,7 +1253,6 @@ export class CockpitUI {
         if (btnRedo) {
             btnRedo.addEventListener('click', () => {
                 this.state.redo();
-                this.raymarcher.resetAccumulation();
             });
         }
 
@@ -1021,17 +1260,19 @@ export class CockpitUI {
         const synthBtn = document.getElementById('audio-synth-btn');
         const micBtn = document.getElementById('audio-mic-btn');
         const fileInput = document.getElementById('audio-file-input');
+        const syncAudioButtons = () => {
+            synthBtn?.classList.toggle('active', this.audio.sourceType === 'synth');
+            micBtn?.classList.toggle('active', this.audio.sourceType === 'mic');
+        };
 
         if (synthBtn) {
             synthBtn.addEventListener('click', () => {
                 if (this.audio.sourceType === 'synth' && this.audio.isPlaying) {
                     this.audio.stopCurrentSource();
-                    synthBtn.classList.remove('active');
                 } else {
                     this.audio.startSynthBeat();
-                    synthBtn.classList.add('active');
-                    micBtn?.classList.remove('active');
                 }
+                syncAudioButtons();
             });
         }
 
@@ -1039,25 +1280,22 @@ export class CockpitUI {
             micBtn.addEventListener('click', async () => {
                 if (this.audio.sourceType === 'mic' && this.audio.isPlaying) {
                     this.audio.stopCurrentSource();
-                    micBtn.classList.remove('active');
                 } else {
-                    const ok = await this.audio.startMicrophone();
-                    if (ok) {
-                        micBtn.classList.add('active');
-                        synthBtn?.classList.remove('active');
-                    }
+                    const started = this.audio.startMicrophone();
+                    syncAudioButtons();
+                    await started;
                 }
+                syncAudioButtons();
             });
         }
 
         if (fileInput) {
             fileInput.addEventListener('change', async (e) => {
                 if (e.target.files && e.target.files[0]) {
-                    const ok = await this.audio.loadAudioFile(e.target.files[0]);
-                    if (ok) {
-                        synthBtn?.classList.remove('active');
-                        micBtn?.classList.remove('active');
-                    }
+                    const started = this.audio.loadAudioFile(e.target.files[0]);
+                    syncAudioButtons();
+                    await started;
+                    syncAudioButtons();
                 }
             });
         }
@@ -1124,7 +1362,7 @@ export class CockpitUI {
         }, 3200);
     }
 
-    updateFrame(modulatedValues, audioBands, fps, de, flightSpeed) {
+    updateFrame(modulatedValues, audioBands, fps, now, keyframeValues) {
         // Ghost pips on sliders
         for (const [paramId, val] of Object.entries(modulatedValues)) {
             const entry = this.sliderEls.get(paramId);
@@ -1135,16 +1373,27 @@ export class CockpitUI {
             }
         }
 
+        if (now < this.nextTelemetryUpdate) return;
+        this.nextTelemetryUpdate = now + 100;
+
+        if (!this.elSettingsDrawer.classList.contains('closed')) {
+            if (this.cameraPosePanel?.open && this.cameraPosePanel.closest('.tab-pane.active')) {
+                this.syncCameraPoseSliders();
+            }
+            if (keyframeValues) {
+                for (const [id, entry] of this.sliderEls) {
+                    if (entry.slider.closest('.tab-pane.active') && Number.isFinite(keyframeValues[id])) {
+                        this.syncSliderUI(id, keyframeValues[id]);
+                    }
+                }
+            }
+        }
+
         // Mini Audio EQ
         if (audioBands) {
-            const setMeter = (id, val) => {
-                const el = document.getElementById(id);
-                if (el) el.style.height = `${Math.min(100, Math.max(10, val * 100))}%`;
-            };
-            setMeter('eq-bar-bass', audioBands.bass);
-            setMeter('eq-bar-lowmid', audioBands.lowMid);
-            setMeter('eq-bar-highmid', audioBands.highMid);
-            setMeter('eq-bar-treble', audioBands.treble);
+            for (const [band, element] of this.eqMeters) {
+                if (element) element.style.height = `${Math.min(100, Math.max(10, audioBands[band] * 100))}%`;
+            }
         }
 
         // Bottom-left FPS HUD (throttled to avoid layout thrashing)
@@ -1168,7 +1417,6 @@ export class CockpitUI {
             }
         }
         
-        const hudScale = document.getElementById('hud-scale');
-        if (hudScale) hudScale.textContent = `${this.raymarcher.activeScale.toFixed(2)}x`;
+        if (this.elHudScale) this.elHudScale.textContent = `${this.raymarcher.activeScale.toFixed(2)}x`;
     }
 }

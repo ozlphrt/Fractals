@@ -12,6 +12,8 @@ export class AudioEngine {
         this.dataArray = null;
         this.freqData = null;
         this.sourceNode = null;
+        this.microphoneStream = null;
+        this.sourceRequest = 0;
         
         this.bands = {
             bass: 0,
@@ -52,11 +54,14 @@ export class AudioEngine {
     }
 
     stopCurrentSource() {
+        this.sourceRequest++;
+        this.microphoneStream?.getTracks().forEach(track => track.stop());
+        this.microphoneStream = null;
         if (this.sourceNode) {
             try {
-                this.sourceNode.stop();
-                this.sourceNode.disconnect();
+                this.sourceNode.stop?.();
             } catch (e) {}
+            this.sourceNode.disconnect();
             this.sourceNode = null;
         }
         if (this.synthTimer) {
@@ -176,8 +181,14 @@ export class AudioEngine {
     async startMicrophone() {
         this.initContext();
         this.stopCurrentSource();
+        const request = this.sourceRequest;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            if (request !== this.sourceRequest) {
+                stream.getTracks().forEach(track => track.stop());
+                return false;
+            }
+            this.microphoneStream = stream;
             this.sourceType = 'mic';
             this.isPlaying = true;
             this.sourceNode = this.ctx.createMediaStreamSource(stream);
@@ -185,9 +196,9 @@ export class AudioEngine {
             // Mic is NOT connected to destination to avoid feedback loops!
             return true;
         } catch (err) {
+            if (request !== this.sourceRequest) return false;
             console.warn('Microphone permission denied or unavailable:', err);
-            this.sourceType = 'none';
-            this.isPlaying = false;
+            this.stopCurrentSource();
             return false;
         }
     }
@@ -196,9 +207,11 @@ export class AudioEngine {
     async loadAudioFile(file) {
         this.initContext();
         this.stopCurrentSource();
+        const request = this.sourceRequest;
         try {
             const arrayBuffer = await file.arrayBuffer();
             const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+            if (request !== this.sourceRequest) return false;
             this.sourceNode = this.ctx.createBufferSource();
             this.sourceNode.buffer = audioBuffer;
             this.sourceNode.loop = true;
@@ -209,6 +222,8 @@ export class AudioEngine {
             this.isPlaying = true;
             return true;
         } catch (err) {
+            if (request !== this.sourceRequest) return false;
+            this.stopCurrentSource();
             console.error('Failed to decode audio file:', err);
             return false;
         }

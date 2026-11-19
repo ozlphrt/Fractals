@@ -1,19 +1,59 @@
 // js/formulas/registry.js
-// Definitions for the 5 dedicated fractal engines:
+// Fractal engine definitions
 // GLSL Distance Estimator snippet + Uniform definitions + CPU DE Mirror (for lag-free camera flight proximity) + Presets
+
+import { MENGER, TETRA } from './recursive-solids.js';
 
 export const FORMULA_IDS = {
     QUAT_JULIA: 'quat_julia',
     MANDELBULB: 'mandelbulb',
-    MANDELBOX: 'mandelbox',
     KIFS: 'kifs',
     APOLLONIAN: 'apollonian',
     BURNING_SHIP: 'burning_ship',
     JERUSALEM: 'jerusalem',
     JULIABULB: 'juliabulb',
     KALISET: 'kalibox',
-    PSEUDO_KLEINIAN: 'pseudo_kleinian'
+    PSEUDO_KLEINIAN: 'pseudo_kleinian',
+    HELIX_BULB: 'helix_bulb',
+    TWIST_CUBE: 'twist_cube',
+    RIBBON_JULIA: 'ribbon_julia',
+    PEARL_GASKET: 'pearl_gasket',
+    WIND_SHIP: 'wind_ship',
+    VAULT_CUBE: 'vault_cube',
+    LACE_GASKET: 'lace_gasket',
+    CATHEDRAL: 'cathedral',
+    QUARTZ_JULIA: 'quartz_julia',
+    MENGER: MENGER.id,
+    TETRA: TETRA.id
 };
+
+export const FORMULA_CYCLE_ORDER = [
+    FORMULA_IDS.MANDELBULB,
+    FORMULA_IDS.KALISET,
+    FORMULA_IDS.JULIABULB,
+    FORMULA_IDS.JERUSALEM,
+    FORMULA_IDS.PSEUDO_KLEINIAN,
+    FORMULA_IDS.QUAT_JULIA,
+    FORMULA_IDS.KIFS,
+    FORMULA_IDS.APOLLONIAN,
+    FORMULA_IDS.BURNING_SHIP,
+    FORMULA_IDS.HELIX_BULB,
+    FORMULA_IDS.TWIST_CUBE,
+    FORMULA_IDS.RIBBON_JULIA,
+    FORMULA_IDS.PEARL_GASKET,
+    FORMULA_IDS.WIND_SHIP,
+    FORMULA_IDS.VAULT_CUBE,
+    FORMULA_IDS.LACE_GASKET,
+    FORMULA_IDS.CATHEDRAL,
+    FORMULA_IDS.QUARTZ_JULIA,
+    FORMULA_IDS.MENGER,
+    FORMULA_IDS.TETRA
+];
+
+export function getFormulaLabel(id) {
+    const index = FORMULA_CYCLE_ORDER.indexOf(id);
+    return index === -1 ? id : `${index + 1}. ${FORMULAS[id].name}`;
+}
 
 export const FORMULAS = {
     [FORMULA_IDS.MANDELBULB]: {
@@ -123,168 +163,9 @@ float mapFractal(vec3 pos, out vec4 trap) {
         }
     },
 
-    [FORMULA_IDS.MANDELBOX]: {
-        id: FORMULA_IDS.MANDELBOX,
-        name: 'Mandelbox',
-        subtitle: 'Brutalist Box & Sphere Inversion Fold',
-        defaultCam: {
-            pos: [1.8, 1.4, 2.2],
-            target: [0.0, 0.0, 0.0]
-        },
-        params: [
-            { id: 'mbox_scale', name: 'Scale', min: -3.5, max: 3.5, step: 0.02, default: 2.2, uniform: 'u_mbox_scale', type: 'float' },
-            { id: 'mbox_iterations', name: 'Iterations', min: 4, max: 16, step: 1, default: 9, uniform: 'u_mbox_iterations', type: 'int' },
-            { id: 'mbox_fold_limit', name: 'Box Fold Limit', min: 0.2, max: 2.0, step: 0.02, default: 1.0, uniform: 'u_mbox_fold_limit', type: 'float' },
-            { id: 'mbox_min_radius', name: 'Min Radius', min: 0.05, max: 1.0, step: 0.01, default: 0.5, uniform: 'u_mbox_min_radius', type: 'float' },
-            { id: 'mbox_fixed_radius', name: 'Fixed Radius', min: 0.5, max: 2.5, step: 0.02, default: 1.0, uniform: 'u_mbox_fixed_radius', type: 'float' },
-            { id: 'mbox_rot_x', name: 'Step Rot X', min: -0.5, max: 0.5, step: 0.01, default: 0.0, uniform: 'u_mbox_rot_x', type: 'float' },
-            { id: 'mbox_rot_y', name: 'Step Rot Y', min: -0.5, max: 0.5, step: 0.01, default: 0.0, uniform: 'u_mbox_rot_y', type: 'float' },
-            { id: 'mbox_rot_z', name: 'Step Rot Z', min: -0.5, max: 0.5, step: 0.01, default: 0.0, uniform: 'u_mbox_rot_z', type: 'float' },
-            { id: 'mbox_offset_x', name: 'Offset Shift X', min: -1.0, max: 1.0, step: 0.01, default: 0.0, uniform: 'u_mbox_offset_x', type: 'float' },
-            { id: 'mbox_offset_y', name: 'Offset Shift Y', min: -1.0, max: 1.0, step: 0.01, default: 0.0, uniform: 'u_mbox_offset_y', type: 'float' },
-            { id: 'mbox_offset_z', name: 'Offset Shift Z', min: -1.0, max: 1.0, step: 0.01, default: 0.0, uniform: 'u_mbox_offset_z', type: 'float' },
-            { id: 'mbox_near_clip', name: 'Camera Clearance', min: 0.01, max: 1.0, step: 0.01, default: 0.05, uniform: 'u_mbox_near_clip', type: 'float' }
-        ],
-        presets: [
-            {
-                name: 'Metropolis Citadel',
-                values: { mbox_scale: 2.25, mbox_iterations: 10, mbox_fold_limit: 1.0, mbox_min_radius: 0.5, mbox_fixed_radius: 1.0, mbox_rot_x: 0.0, mbox_rot_y: 0.0, mbox_rot_z: 0.0, mbox_offset_x: 0.0, mbox_offset_y: 0.0, mbox_offset_z: 0.0, mbox_near_clip: 0.05 }
-            },
-            {
-                name: 'Brutalist Flying Buttresses',
-                values: { mbox_scale: 2.75, mbox_iterations: 11, mbox_fold_limit: 1.22, mbox_min_radius: 0.42, mbox_fixed_radius: 1.35, mbox_rot_x: 0.04, mbox_rot_y: 0.08, mbox_rot_z: 0.0, mbox_offset_x: -0.15, mbox_offset_y: 0.0, mbox_offset_z: 0.12, mbox_near_clip: 0.05 }
-            },
-            {
-                name: 'Sub-Zero Crystalline Lattice',
-                values: { mbox_scale: -1.85, mbox_iterations: 10, mbox_fold_limit: 0.82, mbox_min_radius: 0.36, mbox_fixed_radius: 1.18, mbox_rot_x: 0.07, mbox_rot_y: -0.06, mbox_rot_z: 0.05, mbox_offset_x: 0.12, mbox_offset_y: -0.08, mbox_offset_z: 0.14, mbox_near_clip: 0.05 }
-            },
-            {
-                name: 'Monolithic Hyper-Sanctuary',
-                values: { mbox_scale: 2.05, mbox_iterations: 9, mbox_fold_limit: 1.15, mbox_min_radius: 0.58, mbox_fixed_radius: 1.05, mbox_rot_x: -0.05, mbox_rot_y: 0.06, mbox_rot_z: -0.04, mbox_offset_x: 0.05, mbox_offset_y: 0.1, mbox_offset_z: -0.05, mbox_near_clip: 0.05 }
-            }
-        ],
-        glsl: `
-// Canonical Robust Mandelbox DE (Normalized to unified scale, fits within radius 2.0)
-float mapFractal(vec3 pos, out vec4 trap) {
-    const float MBOX_WORLD_SCALE = 5.0;
-    vec3 p = pos * MBOX_WORLD_SCALE;
-    vec3 offset = p + vec3(u_mbox_offset_x, u_mbox_offset_y, u_mbox_offset_z);
-    vec3 z = offset;
-    float dr = 1.0;
-    vec4 orbit = vec4(100.0);
-    
-    mat3 rotStep = rotX(u_mbox_rot_x) * rotY(u_mbox_rot_y) * rotZ(u_mbox_rot_z);
-    
-    float minR2 = u_mbox_min_radius * u_mbox_min_radius;
-    float fixedR2 = u_mbox_fixed_radius * u_mbox_fixed_radius;
-    float foldLimit = u_mbox_fold_limit;
-    float scale = u_mbox_scale;
-    float absScale = abs(scale);
-    int maxIt = min(14, int(u_mbox_iterations));
-    
-    for (int n = 0; n < 16; n++) {
-        if (n >= maxIt) break;
-        
-        // Box fold (clamp fold)
-        z = clamp(z, -foldLimit, foldLimit) * 2.0 - z;
-        
-        // Sphere fold
-        float r2 = dot(z, z);
-        if (r2 < minR2) {
-            float temp = fixedR2 / minR2;
-            z *= temp;
-            dr *= temp;
-        } else if (r2 < fixedR2) {
-            float temp = fixedR2 / r2;
-            z *= temp;
-            dr *= temp;
-        }
-        
-        z = rotStep * z;
-        z = scale * z + offset;
-        dr = dr * absScale + 1.0;
-        
-        float r = length(z);
-        if (r > 600.0) break;
-        
-        orbit.x = min(orbit.x, r);
-        orbit.y = min(orbit.y, abs(z.x * z.y));
-        orbit.z = min(orbit.z, abs(z.z));
-        orbit.w = float(n);
-    }
-    
-    trap = orbit;
-    float r = length(z);
-    return (0.65 * r / max(1e-4, abs(dr))) / MBOX_WORLD_SCALE;
-}
-`,
-        cpuEvalDE: (p, state) => {
-            const MBOX_WORLD_SCALE = 5.0;
-            const scale = state.mbox_scale ?? 2.3;
-            const foldLimit = state.mbox_foldLimit ?? state.mbox_fold_limit ?? 1.0;
-            const minR = state.mbox_min_radius ?? 0.5;
-            const fixR = state.mbox_fixed_radius ?? 1.0;
-            const minR2 = minR * minR;
-            const fixR2 = fixR * fixR;
-            const maxIt = Math.min(14, state.mbox_iterations ?? 11);
-
-            const rx = state.mbox_rot_x ?? 0.0;
-            const ry = state.mbox_rot_y ?? 0.0;
-            const rz = state.mbox_rot_z ?? 0.0;
-            const cx = Math.cos(rx), sx = Math.sin(rx);
-            const cy = Math.cos(ry), sy = Math.sin(ry);
-            const cz = Math.cos(rz), sz = Math.sin(rz);
-
-            let zx = p[0] * MBOX_WORLD_SCALE + (state.mbox_offset_x ?? 0);
-            let zy = p[1] * MBOX_WORLD_SCALE + (state.mbox_offset_y ?? 0);
-            let zz = p[2] * MBOX_WORLD_SCALE + (state.mbox_offset_z ?? 0);
-            const ox = zx, oy = zy, oz = zz;
-            let dr = 1.0;
-
-            for (let i = 0; i < maxIt; i++) {
-                // box fold
-                zx = Math.max(-foldLimit, Math.min(foldLimit, zx)) * 2 - zx;
-                zy = Math.max(-foldLimit, Math.min(foldLimit, zy)) * 2 - zy;
-                zz = Math.max(-foldLimit, Math.min(foldLimit, zz)) * 2 - zz;
-
-                // sphere fold
-                const r2 = zx * zx + zy * zy + zz * zz;
-                if (r2 < minR2) {
-                    const temp = fixR2 / minR2;
-                    zx *= temp; zy *= temp; zz *= temp;
-                    dr *= temp;
-                } else if (r2 < fixR2) {
-                    const temp = fixR2 / r2;
-                    zx *= temp; zy *= temp; zz *= temp;
-                    dr *= temp;
-                }
-
-                // Rotations matching GLSL rotX * rotY * rotZ
-                if (Math.abs(rx) > 1e-5 || Math.abs(ry) > 1e-5 || Math.abs(rz) > 1e-5) {
-                    const y1 = cx * zy - sx * zz;
-                    const z1 = sx * zy + cx * zz;
-                    const x2 = cy * zx + sy * z1;
-                    const z2 = -sy * zx + cy * z1;
-                    zx = cz * x2 - sz * y1;
-                    zy = sz * x2 + cz * y1;
-                    zz = z2;
-                }
-
-                zx = scale * zx + ox;
-                zy = scale * zy + oy;
-                zz = scale * zz + oz;
-                dr = dr * Math.abs(scale) + 1.0;
-                const r = Math.sqrt(zx * zx + zy * zy + zz * zz);
-                if (r > 500.0) break;
-            }
-            const r = Math.sqrt(zx * zx + zy * zy + zz * zz);
-            return (0.65 * r / Math.max(1e-4, Math.abs(dr))) / MBOX_WORLD_SCALE;
-        }
-    },
-
     [FORMULA_IDS.KIFS]: {
         id: FORMULA_IDS.KIFS,
-        name: 'Kaleidoscopic IFS',
+        name: 'Kaleidoscope',
         subtitle: 'Polyhedral Reflection & Fractal Origami',
         defaultCam: {
             pos: [1.8, 1.5, 2.2],
@@ -410,7 +291,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
 
     [FORMULA_IDS.QUAT_JULIA]: {
         id: FORMULA_IDS.QUAT_JULIA,
-        name: '4D Quaternion Julia',
+        name: 'Julia 4D',
         subtitle: 'Hypercomplex 4D Julia Slice & Liquid Ribbons',
         defaultCam: {
             pos: [1.3, 0.9, 1.8],
@@ -433,7 +314,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
             },
             {
                 name: 'Seahorse 4D Hyper-Nebula',
-                values: { qj_cx: -0.38, qj_cy: -0.28, qj_cz: 0.38, qj_cw: 0.22, qj_slice_w: 0.26, qj_rot_xw: 0.52, qj_rot_yw: -0.35, qj_iterations: 13 }
+                values: { qj_cx: -0.38, qj_cy: -0.28, qj_cz: 0.38, qj_cw: 0.22, qj_slice_w: 0.26, qj_rot_xw: 0.52, qj_rot_yw: -0.35, qj_iterations: 10 }
             },
             {
                 name: 'Alien Crystalline Dendrite',
@@ -441,7 +322,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
             },
             {
                 name: 'Hypercomplex Torus Ring',
-                values: { qj_cx: -0.12, qj_cy: 0.18, qj_cz: 0.56, qj_cw: 0.14, qj_slice_w: 0.42, qj_rot_xw: -0.85, qj_rot_yw: 0.62, qj_iterations: 12 }
+                values: { qj_cx: -0.12, qj_cy: 0.18, qj_cz: 0.56, qj_cw: 0.14, qj_slice_w: 0.42, qj_rot_xw: -0.85, qj_rot_yw: 0.62, qj_iterations: 9 }
             }
         ],
         glsl: `
@@ -527,7 +408,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
 
     [FORMULA_IDS.APOLLONIAN]: {
         id: FORMULA_IDS.APOLLONIAN,
-        name: 'Apollonian Gasket',
+        name: 'Gasket',
         subtitle: 'Kleinian 3D Sphere Inversion Packing',
         defaultCam: {
             pos: [1.7, 1.2, 2.6],
@@ -617,7 +498,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
 
     [FORMULA_IDS.BURNING_SHIP]: {
         id: FORMULA_IDS.BURNING_SHIP,
-        name: '3D Burning Ship',
+        name: 'Burning Ship',
         subtitle: 'Volcanic Absolute Value Spires',
         defaultCam: {
             pos: [0.0, 0.8, 2.7],
@@ -715,7 +596,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
 
     [FORMULA_IDS.JERUSALEM]: {
         id: FORMULA_IDS.JERUSALEM,
-        name: 'Jerusalem Cube',
+        name: 'Cube',
         subtitle: 'Sub-Atomic Borg Megastructure & Cross Cuts',
         defaultCam: {
             pos: [1.8, 1.4, 2.3],
@@ -914,7 +795,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
 
     [FORMULA_IDS.KALISET]: {
         id: FORMULA_IDS.KALISET,
-        name: 'Kaliset / Kalibox',
+        name: 'Kaliset',
         subtitle: 'Inverted Bio-Mechanical Crystal Nebula',
         defaultCam: {
             pos: [2.2, 1.8, 2.6],
@@ -1047,7 +928,7 @@ float mapFractal(vec3 pos, out vec4 trap) {
 
     [FORMULA_IDS.PSEUDO_KLEINIAN]: {
         id: FORMULA_IDS.PSEUDO_KLEINIAN,
-        name: 'Pseudo-Kleinian',
+        name: 'Kleinian',
         subtitle: 'Infinite Gothic Nave & Monolithic Colonnade Relic',
         defaultCam: {
             pos: [0.0, 0.45, 2.6],
@@ -1152,3 +1033,97 @@ float mapFractal(vec3 pos, out vec4 trap) {
         }
     }
 };
+
+// The CPU and shader use the same inverse warp and conservative distance correction.
+// Each variant has independent parameter IDs, so loading or editing it leaves its source intact.
+function addWarpedFormula({ id, sourceId, name, subtitle, axis, scale, twist, wave, radius, presetIndex = 0 }) {
+    const source = FORMULAS[sourceId];
+    const uniforms = new Map();
+    const axes = { x: [1, 2, 0], y: [2, 0, 1], z: [0, 1, 2] }[axis];
+    const swizzle = axes.map(index => 'xyz'[index]).join('');
+    const seed = source.presets[presetIndex].values;
+    const params = source.params.map(param => {
+        const uniform = `u_${id}_${param.id}`;
+        uniforms.set(param.uniform, uniform);
+        return { ...param, id: `${id}_${param.id}`, uniform, sourceParamId: param.id, default: seed[param.id] ?? param.default };
+    });
+    const twistId = `${id}_twist`;
+    const waveId = `${id}_wave`;
+    params.push(
+        { id: twistId, name: 'Twist', min: -1.2, max: 1.2, step: 0.02, default: twist, uniform: `u_${twistId}`, type: 'float' },
+        { id: waveId, name: 'Bend', min: -0.55, max: 0.55, step: 0.01, default: wave, uniform: `u_${waveId}`, type: 'float' }
+    );
+    const [sx, sy, sz] = scale;
+    const maxScale = Math.max(...scale);
+    const target = source.defaultCam.target;
+    FORMULAS[id] = {
+        id,
+        name,
+        subtitle,
+        boundRadius: radius,
+        defaultCam: {
+            pos: source.defaultCam.pos.map((value, index) => target[index] + (value - target[index]) * 1.18),
+            target: [...target]
+        },
+        params,
+        presets: source.presets.map(preset => ({
+            ...preset,
+            values: {
+                ...Object.fromEntries(Object.entries(preset.values).map(([key, value]) => [`${id}_${key}`, value])),
+                [twistId]: twist,
+                [waveId]: wave
+            }
+        })),
+        glsl: `${source.glsl.replace(/\bu_\w+\b/g, uniform => uniforms.get(uniform) ?? uniform)
+            .replace('float mapFractal(', 'float mapSourceFractal(')}
+
+float mapFractal(vec3 pos, out vec4 trap) {
+    vec3 q = pos.${swizzle} * vec3(${scale.map(value => value.toFixed(2)).join(', ')});
+    float angle = q.z * u_${twistId};
+    float c = cos(angle), s = sin(angle);
+    vec3 warped = vec3(
+        q.x * c - q.y * s + u_${waveId} * sin(2.0 * q.z),
+        q.x * s + q.y * c,
+        q.z
+    );
+    vec3 sourcePos;
+    sourcePos.${swizzle} = warped;
+    float correction = ${maxScale.toFixed(2)} * (1.0 + abs(u_${twistId}) * length(q.xy) + 2.0 * abs(u_${waveId}));
+    return mapSourceFractal(sourcePos, trap) / correction;
+}
+`,
+        cpuEvalDE(position, values) {
+            const twistValue = values[twistId] ?? twist;
+            const waveValue = values[waveId] ?? wave;
+            const x = position[axes[0]] * sx;
+            const y = position[axes[1]] * sy;
+            const z = position[axes[2]] * sz;
+            const angle = z * twistValue;
+            const cosine = Math.cos(angle);
+            const sine = Math.sin(angle);
+            const sourcePosition = [];
+            sourcePosition[axes[0]] = x * cosine - y * sine + waveValue * Math.sin(2 * z);
+            sourcePosition[axes[1]] = x * sine + y * cosine;
+            sourcePosition[axes[2]] = z;
+            const sourceValues = {};
+            for (const param of source.params) {
+                sourceValues[param.id] = values[`${id}_${param.id}`] ?? seed[param.id] ?? param.default;
+            }
+            const correction = maxScale * (1 + Math.abs(twistValue) * Math.hypot(x, y) + 2 * Math.abs(waveValue));
+            return source.cpuEvalDE(sourcePosition, sourceValues) / correction;
+        }
+    };
+}
+
+addWarpedFormula({ id: FORMULA_IDS.HELIX_BULB, sourceId: FORMULA_IDS.MANDELBULB, name: 'Helix Bulb', subtitle: 'Spiraling lobes', axis: 'y', scale: [1.15, 1.12, 0.83], twist: 0.95, wave: 0.08, radius: 6, presetIndex: 1 });
+addWarpedFormula({ id: FORMULA_IDS.TWIST_CUBE, sourceId: FORMULA_IDS.JERUSALEM, name: 'Twist Cube', subtitle: 'Spiraling cutouts and terraces', axis: 'y', scale: [1.12, 1.12, 0.81], twist: 0.68, wave: 0.14, radius: 8 });
+addWarpedFormula({ id: FORMULA_IDS.RIBBON_JULIA, sourceId: FORMULA_IDS.QUAT_JULIA, name: 'Ribbon Julia', subtitle: 'Swept and stretched 4D folds', axis: 'x', scale: [1.16, 1.22, 0.75], twist: -0.62, wave: 0.37, radius: 6, presetIndex: 1 });
+addWarpedFormula({ id: FORMULA_IDS.PEARL_GASKET, sourceId: FORMULA_IDS.APOLLONIAN, name: 'Pearl Gasket', subtitle: 'Curved chains of hollow spheres', axis: 'y', scale: [0.96, 1.24, 0.77], twist: 0.52, wave: -0.42, radius: 8, presetIndex: 1 });
+addWarpedFormula({ id: FORMULA_IDS.WIND_SHIP, sourceId: FORMULA_IDS.BURNING_SHIP, name: 'Wind Ship', subtitle: 'Swept ridges and leaning spires', axis: 'z', scale: [0.83, 1.20, 0.96], twist: -0.73, wave: 0.41, radius: 8, presetIndex: 1 });
+addWarpedFormula({ id: FORMULA_IDS.VAULT_CUBE, sourceId: FORMULA_IDS.JERUSALEM, name: 'Vault Cube', subtitle: 'Low, curved terraces and deep cutouts', axis: 'x', scale: [1.65, 1.12, 0.9], twist: -0.12, wave: 0.36, radius: 8, presetIndex: 3 });
+addWarpedFormula({ id: FORMULA_IDS.LACE_GASKET, sourceId: FORMULA_IDS.APOLLONIAN, name: 'Lace Gasket', subtitle: 'Open spherical cavities along a curved shell', axis: 'x', scale: [1.44, 0.82, 1.06], twist: -0.26, wave: 0.32, radius: 8, presetIndex: 3 });
+addWarpedFormula({ id: FORMULA_IDS.CATHEDRAL, sourceId: FORMULA_IDS.PSEUDO_KLEINIAN, name: 'Cathedral', subtitle: 'Tall folded arches and leaning columns', axis: 'y', scale: [1.12, 1.22, 0.77], twist: 0.21, wave: 0.32, radius: 8, presetIndex: 0 });
+addWarpedFormula({ id: FORMULA_IDS.QUARTZ_JULIA, sourceId: FORMULA_IDS.QUAT_JULIA, name: 'Quartz Julia', subtitle: 'Stretched crystalline folds in a 4D slice', axis: 'z', scale: [1.47, 1.1, 0.78], twist: 0.32, wave: -0.2, radius: 6, presetIndex: 2 });
+
+FORMULAS[MENGER.id] = MENGER;
+FORMULAS[TETRA.id] = TETRA;

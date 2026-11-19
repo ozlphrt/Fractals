@@ -9,11 +9,12 @@ export const GLOBAL_PARAMS = [
     // Raymarcher Quality
     { id: 'max_steps', name: 'Max Ray Steps', min: 170, max: 1000, step: 10, default: 200, uniform: 'u_max_steps', type: 'int', group: 'render' },
     { id: 'hit_epsilon', name: 'Hit Threshold', min: 0.0005, max: 0.008, step: 0.0005, default: 0.0015, uniform: 'u_hit_epsilon', type: 'float', group: 'render' },
+    { id: 'sky_detail', name: 'Background Detail', min: 0, max: 1, step: 0.05, default: 1, uniform: 'u_sky_detail', type: 'float', group: 'shading' },
     // Camera & Proximity Flight
     { id: 'fov', name: 'Field of View', min: 30, max: 100, step: 1, default: 60, uniform: 'u_fov', type: 'float', group: 'camera' },
     { id: 'collision_enabled', name: 'Collision Avoidance', min: 0, max: 1, step: 1, default: 1, type: 'int', group: 'camera', enumNames: ['Disabled', 'Enabled'] },
     { id: 'collision_clearance', name: 'Safety Clearance', min: 0.005, max: 0.10, step: 0.005, default: 0.02, type: 'float', group: 'camera' },
-    
+
     // Shading & Cosine Palette (Inigo Quilez natural earth/mineral formula)
     { id: 'trap_mode', name: 'Orbit Trap Source', min: 0, max: 3, step: 1, default: 0, uniform: 'u_trap_mode', type: 'int', group: 'shading', enumNames: ['Origin Dist', 'Coord Planes', 'Spherical/Axis', 'Iteration Count'] },
     { id: 'color_cycle', name: 'Color Frequency', min: 0.1, max: 3.0, step: 0.05, default: 0.45, uniform: 'u_color_cycle', type: 'float', group: 'shading' },
@@ -34,11 +35,12 @@ export const GLOBAL_PARAMS = [
     { id: 'pal_d_r', name: 'Phase Red', min: 0.0, max: 1.0, step: 0.01, default: 0.05, uniform: 'u_pal_d_r', type: 'float', group: 'shading' },
     { id: 'pal_d_g', name: 'Phase Green', min: 0.0, max: 1.0, step: 0.01, default: 0.10, uniform: 'u_pal_d_g', type: 'float', group: 'shading' },
     { id: 'pal_d_b', name: 'Phase Blue', min: 0.0, max: 1.0, step: 0.01, default: 0.15, uniform: 'u_pal_d_b', type: 'float', group: 'shading' },
-    
+
     // Lighting Studio
     // Light 1: Key Directional Sun
     { id: 'sun_intensity', name: 'Sun Intensity', min: 0.0, max: 3.0, step: 0.05, default: 1.60, uniform: 'u_sun_intensity', type: 'float', group: 'light_sun' },
     { id: 'sun_azimuth', name: 'Azimuth (Heading)', min: -3.14, max: 3.14, step: 0.05, default: 0.76, uniform: 'u_sun_azimuth', type: 'float', group: 'light_sun' },
+    { id: 'sun_follow_camera', name: 'Follow camera', min: 0, max: 1, step: 1, default: 1, type: 'int', group: 'light_sun' },
     { id: 'sun_elevation', name: 'Elevation (Pitch)', min: 0.1, max: 1.5, step: 0.05, default: 0.90, uniform: 'u_sun_elevation', type: 'float', group: 'light_sun' },
     { id: 'sun_color_r', name: 'Sun Red', min: 0.0, max: 1.0, step: 0.02, default: 0.96, uniform: 'u_sun_color_r', type: 'float', group: 'light_sun' },
     { id: 'sun_color_g', name: 'Sun Green', min: 0.0, max: 1.0, step: 0.02, default: 0.90, uniform: 'u_sun_color_g', type: 'float', group: 'light_sun' },
@@ -76,19 +78,6 @@ export const COHESIVE_FORMULA_BOUNDS = {
     mb_julia_cz: { min: -0.35, max: 0.35 },
     mb_rot_x: { min: -0.35, max: 0.35 },
     mb_rot_y: { min: -0.35, max: 0.35 },
-
-    // Mandelbox: Maintain massive connected architectural columns & arches (strictly positive scale to prevent crossing 0)
-    mbox_scale: { min: 2.0, max: 2.65 },
-    mbox_fold_limit: { min: 0.9, max: 1.25 },
-    mbox_min_radius: { min: 0.3, max: 0.55 },
-    mbox_fixed_radius: { min: 1.0, max: 1.35 },
-    mbox_rot_x: { min: -0.12, max: 0.12 },
-    mbox_rot_y: { min: -0.12, max: 0.12 },
-    mbox_rot_z: { min: -0.12, max: 0.12 },
-    mbox_offset_x: { min: -0.25, max: 0.25 },
-    mbox_offset_y: { min: -0.25, max: 0.25 },
-    mbox_offset_z: { min: -0.25, max: 0.25 },
-    mbox_near_clip: { min: 0.6, max: 0.9 },
 
     // Kaleidoscopic IFS: Keep interconnected polyhedral origami
     kifs_scale: { min: 1.8, max: 2.5 },
@@ -165,12 +154,12 @@ export class StateManager {
         this.snapshotA = null;
         this.snapshotB = null;
         this.morphProgress = 0.0;
-        
+
         // Smooth deformation animation
         this.morphAnim = null;
         this.formulaMorphCount = 0;
         this.minMorphsPerFormula = 3; // At least 3 morphs on same formula before switching
-        
+
         // Undo / Redo history
         this.history = [];
         this.historyIndex = -1;
@@ -179,7 +168,7 @@ export class StateManager {
         // Metamorphic 3D formula transition
         this.formulaMorph = null;
         this.formulaMorphListeners = new Set();
-        
+
         // Listeners for UI / Renderer sync
         this.listeners = new Set();
         this.formulaChangeListeners = new Set();
@@ -275,6 +264,10 @@ export class StateManager {
         return this.targetValues[id] ?? this.values[id];
     }
 
+    getValues() {
+        return { ...this.values };
+    }
+
     set(id, val, pushHist = false) {
         this.targetValues[id] = val;
         // If morph animation is running, let it drive directly
@@ -331,7 +324,7 @@ export class StateManager {
         const morph = this.activeParamMorph;
         morph.elapsed += dt;
         const linearT = Math.min(1.0, Math.max(0.0, morph.elapsed / morph.duration));
-        
+
         // Easing: quintic or cosine
         const easedT = (morph.ease === 'cosine')
             ? (0.5 - 0.5 * Math.cos(Math.PI * linearT))
@@ -439,7 +432,7 @@ export class StateManager {
         return FORMULAS[this.activeFormulaId];
     }
 
-    setFormula(formulaId, immediate = false) {
+    setFormula(formulaId, immediate = false, recordHistory = true) {
         if (!FORMULAS[formulaId] || this.activeFormulaId === formulaId) return;
         if (immediate) {
             this.formulaMorph = null;
@@ -450,7 +443,7 @@ export class StateManager {
             this.morphAnim = null;
             this.formulaMorphCount = 0;
             this.formulaChangeListeners.forEach(cb => cb(this.getActiveFormula()));
-            this.pushHistory();
+            if (recordHistory) this.pushHistory();
         } else {
             this.startFormulaMorph(formulaId, 1.6);
         }
@@ -536,10 +529,10 @@ export class StateManager {
     setMorphProgress(t) {
         this.morphProgress = Math.max(0.0, Math.min(1.0, t));
         if (!this.snapshotA || !this.snapshotB) return;
-        
+
         const formula = this.getActiveFormula();
         const relevantParams = [...formula.params, ...GLOBAL_PARAMS];
-        
+
         for (const p of relevantParams) {
             const valA = this.snapshotA[p.id];
             const valB = this.snapshotB[p.id];
@@ -585,7 +578,7 @@ export class StateManager {
             }
             const currentVal = this.values[p.id] ?? p.default;
             const baseVal = baseValues[p.id] ?? p.default;
-            const bounds = COHESIVE_FORMULA_BOUNDS[p.id];
+            const bounds = COHESIVE_FORMULA_BOUNDS[p.sourceParamId ?? p.id];
             const rangeMin = bounds ? (typeof bounds === 'function' ? p.min : bounds.min) : p.min;
             const rangeMax = bounds ? (typeof bounds === 'function' ? p.max : bounds.max) : p.max;
 
@@ -622,7 +615,7 @@ export class StateManager {
         const formula = this.getActiveFormula();
         // Mutate formula-specific mathematical parameters and color cycle/phase
         const mutatable = [...formula.params, ...GLOBAL_PARAMS.filter(g => g.group === 'shading')];
-        
+
         for (const p of mutatable) {
             if (p.type === 'int' && p.enumNames) {
                 // Occasionally swap enum if high mutation
@@ -652,7 +645,7 @@ export class StateManager {
         this.history = this.history.slice(0, this.historyIndex + 1);
         this.history.push({
             formulaId: this.activeFormulaId,
-            values: { ...this.values }
+            values: { ...this.values, ...this.targetValues }
         });
         if (this.history.length > this.maxHistory) {
             this.history.shift();
@@ -664,16 +657,7 @@ export class StateManager {
     undo() {
         if (this.historyIndex > 0) {
             this.historyIndex--;
-            const item = this.history[this.historyIndex];
-            const formulaChanged = (this.activeFormulaId !== item.formulaId);
-            this.activeFormulaId = item.formulaId;
-            this.values = { ...item.values };
-            if (formulaChanged) {
-                this.formulaChangeListeners.forEach(cb => cb(this.getActiveFormula()));
-            }
-            for (const [k, v] of Object.entries(this.values)) {
-                this.notify(k, v);
-            }
+            this.restoreHistoryItem();
             return true;
         }
         return false;
@@ -682,18 +666,26 @@ export class StateManager {
     redo() {
         if (this.historyIndex < this.history.length - 1) {
             this.historyIndex++;
-            const item = this.history[this.historyIndex];
-            const formulaChanged = (this.activeFormulaId !== item.formulaId);
-            this.activeFormulaId = item.formulaId;
-            this.values = { ...item.values };
-            if (formulaChanged) {
-                this.formulaChangeListeners.forEach(cb => cb(this.getActiveFormula()));
-            }
-            for (const [k, v] of Object.entries(this.values)) {
-                this.notify(k, v);
-            }
+            this.restoreHistoryItem();
             return true;
         }
         return false;
+    }
+
+    restoreHistoryItem() {
+        const item = this.history[this.historyIndex];
+        const formulaChanged = this.activeFormulaId !== item.formulaId || this.formulaMorph !== null;
+        this.activeFormulaId = item.formulaId;
+        this.formulaMorph = null;
+        this.activeParamMorph = null;
+        this.values = { ...item.values };
+        this.targetValues = { ...item.values };
+        this.velocities = {};
+        if (formulaChanged) {
+            this.formulaChangeListeners.forEach(cb => cb(this.getActiveFormula()));
+        }
+        for (const [id, value] of Object.entries(this.values)) {
+            this.notify(id, value);
+        }
     }
 }

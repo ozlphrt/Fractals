@@ -1,15 +1,25 @@
 // js/main.js
 // Main entry point orchestrating Raymarcher, State, Audio, Modulation, Camera, and UI
 
-import { StateManager } from './state/parameters.js';
+import { GLOBAL_PARAMS, StateManager } from './state/parameters.js';
 import { ModulationEngine } from './modulation/engine.js';
 import { AudioEngine } from './audio/analyzer.js';
 import { CameraController } from './camera/controller.js';
 import { Raymarcher } from './renderer/raymarcher.js';
 import { CockpitUI } from './ui/cockpit.js';
-import { GalleryManager } from './gallery/community.js';
+import { GalleryManager, normalizeScene } from './gallery/community.js';
 import { FORMULAS } from './formulas/registry.js';
 import { PALETTE_PRESETS } from './state/palettes.js';
+import { KeyframeLoop, keyframeSignature, keyframesForTrack, mergeKeyframeSources, playableKeyframeTab, resolveKeyframe, serializeKeyframes } from './state/keyframes.js';
+import { USER_KEYFRAMES } from './state/user-keyframes.js';
+
+const KEYFRAME_STORAGE = 'fractal-studio-keyframes-v2';
+const DEFAULT_KEYFRAME_TAB = 'tab-settings-quick';
+
+const parameterMetadata = new Map(
+    [...GLOBAL_PARAMS, ...Object.values(FORMULAS).flatMap(formula => formula.params)]
+        .map(param => [param.id, param])
+);
 
 class FractalSynthApp {
     constructor() {
@@ -17,9 +27,7 @@ class FractalSynthApp {
         this.state = new StateManager();
         this.modulation = new ModulationEngine();
         this.audio = new AudioEngine();
-        this.camera = new CameraController(this.canvas, () => {
-            this.raymarcher.resetAccumulation();
-        });
+        this.camera = new CameraController(this.canvas);
 
         // Initialize camera to active formula's dramatic canonical framing
         const initialFormula = this.state.getActiveFormula();
@@ -28,18 +36,59 @@ class FractalSynthApp {
         }
 
         // Initialize sun azimuth and elevation to align with initial camera viewpoint
-        this.updateSunAutoTracking(1.0);
+        this.updateSunAutoTracking(1.0, this.state.getValues());
 
         this.raymarcher = new Raymarcher(this.canvas, this.state);
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) this.camera.autoRotate = false;
         this.ui = new CockpitUI(this.state, this.modulation, this.audio, this.camera, this.raymarcher);
+        this.keyframes = new KeyframeLoop(parameterMetadata);
+        this.loadKeyframes();
+        this.ui.setupKeyframes({
+            add: () => {
+                if (this.keyframes.playing) return;
+                this.userKeyframes.push(this.captureKeyframe());
+                this.saveKeyframes();
+                this.refreshKeyframeTrack();
+            },
+            edit: (index, announce) => this.editKeyframe(index, announce),
+            save: (index, draft) => {
+                if (draft && this.keyframes.previewing) this.stopKeyframes();
+                const frame = this.keyframes.frames[index];
+                if (draft?.omitted?.length === 0) delete draft.omitted;
+                this.changeKeyframe(index, draft ?? { ...this.captureKeyframe(), ...(frame?.omitted && { omitted: frame.omitted }) });
+            },
+            remove: index => this.changeKeyframe(index, null),
+            toggle: shuffle => {
+                if (this.keyframes.playing) this.stopKeyframes();
+                else this.playKeyframes(shuffle);
+            },
+            dice: () => {
+                if (this.keyframes.playing && !this.keyframes.previewing && this.keyframes.useInterludes) {
+                    this.stopKeyframes();
+                } else {
+                    this.startDicePlayback();
+                }
+            },
+            export: () => this.exportKeyframes(),
+            stop: () => this.stopKeyframes(),
+            tabChange: () => {
+                this.stopKeyframes();
+                this.refreshKeyframeTrack();
+            }
+        });
+        this.state.onFormulaChange(() => this.refreshKeyframeTrack());
+        this.state.onFormulaMorph(() => this.refreshKeyframeTrack());
+        this.refreshKeyframeTrack();
+        for (const event of ['pointerdown', 'wheel']) {
+            this.canvas.addEventListener(event, () => this.stopKeyframes(), { capture: true, passive: true });
+        }
 
         // Community Folder & URL Creation Sharing System
         const self = this;
         const appAdapter = {
             canvas: this.canvas,
             formulaRegistry: {
-                get activeFormula() { return self.state.getActiveFormula(); },
-                getFormula: (id) => FORMULAS[id]
+                get activeFormula() { return self.state.getActiveFormula(); }
             },
             params: this.state,
             materials: {
@@ -47,10 +96,21 @@ class FractalSynthApp {
                     const idx = self.ui.activeMaterialIndex || 0;
                     return PALETTE_PRESETS[idx]?.id || 'dark_loam';
                 },
-                applyPreset: (id) => self.ui.applyMaterialPreset(id)
+                applyPreset: id => self.ui.applyMaterialPreset(id, false)
             },
             camera: this.camera,
-            setFormula: (id, imm = true) => this.state.setFormula(id, imm)
+            prepareSceneLoad: () => {
+                this.stopKeyframes();
+                const wasSwitching = this.state.formulaMorph !== null;
+                this.state.activeParamMorph = null;
+                this.state.formulaMorph = null;
+                if (wasSwitching) this.ui.updateHeaderInfo();
+            },
+            setFormula: id => this.state.setFormula(id, true, false),
+            syncCamera: () => {
+                this.ui.syncActiveCameraPreset(this.camera.activeCameraPreset);
+                this.ui.syncAutoRotate?.();
+            }
         };
         this.gallery = new GalleryManager(appAdapter);
 
@@ -58,22 +118,236 @@ class FractalSynthApp {
         this.fps = 60;
         this.fpsAlpha = 0.05;
 
-        // Periodic cinematic camera preset cycling
-        this.presetTimer = 0.0;
-        this.presetCycleInterval = 28.0 + Math.random() * 10.0;
+        this.modulatedValues = Object.create(null);
+        this.camera.setCollisionProvider(position => {
+            const evaluate = this.state.getActiveFormula().cpuEvalDE;
+            return evaluate ? evaluate(position, this.effectiveValues) : 1.0;
+        });
 
         this.setupResize();
+        this.gallery.checkSharedUrl();
+        if (!location.hash && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) this.startDicePlayback(false);
         this.startLoop();
+    }
+
+    playKeyframes(shuffle, dice = false) {
+        const entry = this.captureKeyframe();
+        if (!this.keyframes.start(entry, {
+            shuffle,
+            interludes: dice,
+            resolve: frame => resolveKeyframe(frame, entry),
+            makeInterlude: (from, to, camera) => this.makeRandomKeyframe(from, to, camera)
+        })) return;
+        this.ui.syncKeyframeDice(dice);
+        this.state.activeParamMorph = null;
+        this.state.formulaMorph = null;
+        this.trackedSun = null;
+        this.refreshKeyframeTrack();
+    }
+
+    startDicePlayback(announce = true) {
+        if (this.keyframes.playing && !this.keyframes.previewing) {
+            this.keyframes.setInterludes(true);
+            this.ui.syncKeyframeDice(true);
+            return;
+        }
+        const { formulaId, tabId } = this.getKeyframeScope();
+        const playableTab = playableKeyframeTab(this.userKeyframes, formulaId, tabId);
+        if (!playableTab) {
+            if (announce) this.ui.showToast('Add at least two keyframes in one tab to play this formula.');
+            return;
+        }
+        this.stopKeyframes();
+        if (playableTab !== tabId) this.ui.selectKeyframeTab(playableTab);
+        this.playKeyframes(this.ui.shouldShuffleKeyframes(), true);
+    }
+
+    getKeyframeScope() {
+        return {
+            formulaId: this.state.formulaMorph?.toId ?? this.state.activeFormulaId,
+            tabId: this.ui.getKeyframeTab() ?? DEFAULT_KEYFRAME_TAB
+        };
+    }
+
+    refreshKeyframeTrack() {
+        const { formulaId, tabId } = this.getKeyframeScope();
+        if (!this.keyframes.playing) {
+            this.keyframes.frames = keyframesForTrack(this.userKeyframes, formulaId, tabId);
+        }
+        this.ui.syncKeyframes(this.keyframes, this.userKeyframes.length, `${formulaId}/${tabId}`);
+    }
+
+    editKeyframe(index, announce = true) {
+        const frame = this.keyframes.frames[index];
+        if ((this.keyframes.playing && !this.keyframes.previewing) || !frame) return;
+        const from = this.captureKeyframe();
+        this.state.formulaMorph = null;
+        this.state.activeParamMorph = null;
+        this.keyframes.preview(from, resolveKeyframe(frame, from));
+        this.refreshKeyframeTrack();
+        if (announce) this.ui.showToast(`Moving to keyframe ${index + 1}. Adjust the scene when it arrives, then click Save.`);
+    }
+
+    changeKeyframe(index, replacement) {
+        const frame = this.keyframes.frames[index];
+        if (this.keyframes.playing || !frame) return;
+        const position = this.userKeyframes.indexOf(frame);
+        if (this.bundledKeyframes.delete(frame)) {
+            const key = keyframeSignature(frame);
+            this.dismissedKeyframes.set(key, (this.dismissedKeyframes.get(key) ?? 0) + 1);
+        }
+        if (replacement) this.userKeyframes[position] = replacement;
+        else this.userKeyframes.splice(position, 1);
+        if (this.saveKeyframes()) {
+            this.ui.showToast(replacement ? `Keyframe ${index + 1} saved.` : `Keyframe ${index + 1} deleted.`);
+        }
+        this.refreshKeyframeTrack();
+    }
+
+    loadKeyframes() {
+        let savedFrames = [];
+        this.dismissedKeyframes = new Map();
+        try {
+            localStorage.removeItem('fractal-studio-keyframes-v1');
+            const saved = JSON.parse(localStorage.getItem(KEYFRAME_STORAGE));
+            if (Array.isArray(saved)) savedFrames = saved;
+            else if (saved) {
+                if (Array.isArray(saved.frames)) savedFrames = saved.frames;
+                if (Array.isArray(saved.dismissed)) this.dismissedKeyframes = new Map(saved.dismissed);
+            }
+        } catch {
+            this.ui.showToast('Saved keyframes could not be read.');
+        }
+        const defaults = this.state.getValues();
+        const tabIds = new Set(Array.from(this.ui.elSettingsDrawer.querySelectorAll('.tab-pane'), pane => pane.id));
+        const normalizeKeyframe = frame => {
+            const normalized = normalizeScene({ formula: frame?.formulaId, camera: frame?.camera });
+            if (!normalized?.camera?.pos || !normalized.camera.target || !normalized.camera.up) return null;
+            const values = { ...defaults };
+            for (const [id, param] of parameterMetadata) {
+                const value = frame.values?.[id];
+                if (Number.isFinite(value)) {
+                    const clamped = Math.max(param.min, Math.min(param.max, value));
+                    values[id] = param.type === 'int' ? Math.round(clamped) : clamped;
+                }
+            }
+            return {
+                formulaId: normalized.formula,
+                tabId: tabIds.has(frame.tabId) ? frame.tabId : DEFAULT_KEYFRAME_TAB,
+                camera: normalized.camera,
+                values,
+                ...(Array.isArray(frame.omitted) && {
+                    omitted: frame.omitted.filter(field => Array.isArray(field) && (
+                        (field.length === 1 && parameterMetadata.has(field[0])) ||
+                        (field.length === 2 && ['pos', 'target', 'up'].includes(field[0]) && [0, 1, 2].includes(field[1]))
+                    ))
+                })
+            };
+        };
+        const { frames, bundled } = mergeKeyframeSources(
+            USER_KEYFRAMES.map(normalizeKeyframe).filter(Boolean),
+            savedFrames.map(normalizeKeyframe).filter(Boolean),
+            this.dismissedKeyframes
+        );
+        this.userKeyframes = frames;
+        this.bundledKeyframes = bundled;
+    }
+
+    saveKeyframes() {
+        try {
+            localStorage.setItem(KEYFRAME_STORAGE, JSON.stringify({
+                frames: this.userKeyframes,
+                dismissed: [...this.dismissedKeyframes]
+            }));
+            return true;
+        } catch {
+            this.ui.showToast('Keyframes could not be saved. Export them before refreshing.');
+            return false;
+        }
+    }
+
+    exportKeyframes() {
+        const count = this.userKeyframes.length;
+        if (count === 0) return;
+        const code = serializeKeyframes(this.userKeyframes);
+        const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'user-keyframes.js';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.ui.showToast(`Exported ${count} keyframe${count === 1 ? '' : 's'} from all tracks to user-keyframes.js.`);
+    }
+
+    makeRandomKeyframe(from, to, camera) {
+        const formulaId = from.formulaId;
+        const values = { ...from.values };
+        for (const [id, value] of Object.entries(values)) {
+            const end = to.values[id] ?? value;
+            if (parameterMetadata.get(id)?.type === 'int') continue;
+            const delta = id === 'sun_azimuth' ? Math.atan2(Math.sin(end - value), Math.cos(end - value)) : end - value;
+            values[id] = value + delta * 0.5;
+        }
+        for (const param of FORMULAS[formulaId].params) {
+            if (param.type === 'int') continue;
+            const offset = (Math.random() - 0.5) * (param.max - param.min) * 0.08;
+            values[param.id] = Math.max(param.min, Math.min(param.max, values[param.id] + offset));
+        }
+        return { formulaId, tabId: from.tabId, values, camera };
+    }
+
+    captureKeyframe() {
+        return {
+            ...this.getKeyframeScope(),
+            values: { ...(this.effectiveValues ?? this.state.getValues()) },
+            camera: { ...this.camera.getState(), up: [...this.camera.getUpVector()] }
+        };
+    }
+
+    stopKeyframes() {
+        if (!this.keyframes.playing) return;
+        this.keyframes.stop();
+        const sample = this.keyframeSample;
+        this.keyframeSample = null;
+        this.state.formulaMorph = null;
+        if (sample) {
+            this.state.setFormula(sample.progress < 0.5 ? sample.fromId : sample.toId, true, false);
+            this.state.setMany(sample.values);
+            this.trackedSun = { azimuth: sample.values.sun_azimuth, elevation: sample.values.sun_elevation };
+            this.ui.updateHeaderInfo();
+            this.ui.syncActiveCameraPreset(this.camera.activeCameraPreset);
+            this.ui.syncAutoRotate?.();
+        }
+        this.refreshKeyframeTrack();
+        this.ui.syncKeyframeDice(false);
+    }
+
+    applyKeyframeSample(sample) {
+        if (this.state.activeFormulaId !== sample.fromId) {
+            this.state.setFormula(sample.fromId, true, false);
+        }
+        this.state.formulaMorph = sample.crossfade ? {
+            fromId: sample.fromId,
+            toId: sample.toId,
+            progress: sample.progress,
+            discreteFrom: sample.discreteFrom,
+            discreteTo: sample.discreteTo
+        } : null;
+        this.camera.setState({ ...sample.camera, autoRotate: false, zoomOverridden: true });
+        if (this.lastKeyframeIndex !== this.keyframes.index) {
+            this.lastKeyframeIndex = this.keyframes.index;
+            this.refreshKeyframeTrack();
+        }
+        this.keyframeSample = sample;
     }
 
     // Continuous smooth and gradual auto-adjustment of Sun Light 1 azimuth and elevation
     // Ensures the object is always beautifully and consistently illuminated from the camera's viewpoint
-    updateSunAutoTracking(dt) {
-        // If user is actively dragging sun sliders in the UI, pause auto-tracking for 4s
-        if (this.ui && this.ui.isUserAdjustingSun && (performance.now() - this.ui.lastSunUserInteractionTime) < 4000) {
+    updateSunAutoTracking(dt, values) {
+        if (!this.state.get('sun_follow_camera')) {
+            this.trackedSun = null;
             return;
         }
-
         // Compute direction vector from view target towards camera
         let dx, dy, dz;
         if (this.camera.mode === 'flight') {
@@ -105,8 +379,8 @@ class FractalSynthApp {
         const targetSunElevation = Math.max(0.40, Math.min(1.30, baseElevation + 0.45));
 
         // Current sun azimuth and elevation
-        let curAz = this.state.values['sun_azimuth'] ?? 0.76;
-        let curEl = this.state.values['sun_elevation'] ?? 0.90;
+        let curAz = this.trackedSun?.azimuth ?? values.sun_azimuth;
+        let curEl = this.trackedSun?.elevation ?? values.sun_elevation;
 
         // Shortest arc angular difference for azimuth (handles wraparound seamlessly)
         let dAz = targetSunAzimuth - curAz;
@@ -125,25 +399,17 @@ class FractalSynthApp {
         let newEl = curEl + dEl * lerpFactor;
         newEl = Math.max(0.1, Math.min(1.5, newEl));
 
-        this.state.values['sun_azimuth'] = newAz;
-        this.state.values['sun_elevation'] = newEl;
-        this.state.targetValues['sun_azimuth'] = newAz;
-        this.state.targetValues['sun_elevation'] = newEl;
-
-        // Throttled UI sync
-        if (this.ui && (!this._lastSunUiSync || (performance.now() - this._lastSunUiSync) > 150)) {
-            this._lastSunUiSync = performance.now();
-            this.ui.syncSliderUI('sun_azimuth', newAz);
-            this.ui.syncSliderUI('sun_elevation', newEl);
-        }
+        this.trackedSun = { azimuth: newAz, elevation: newEl };
+        values.sun_azimuth = newAz;
+        values.sun_elevation = newEl;
     }
 
     setupResize() {
         const resize = () => {
-            // Cap DPR at 1.0 and limit maximum dimensions to 1600x1000 so 4K/Retina displays maintain silky 60 FPS
+            // Limit fragment work on high-DPI and large displays.
             const dpr = Math.min(window.devicePixelRatio || 1, 1.0);
-            let w = Math.floor(window.innerWidth * dpr);
-            let h = Math.floor(window.innerHeight * dpr);
+            let w = Math.max(1, Math.floor(this.canvas.clientWidth * dpr));
+            let h = Math.max(1, Math.floor(this.canvas.clientHeight * dpr));
             const maxDim = 1600;
             if (w > maxDim || h > maxDim) {
                 const ratio = Math.min(maxDim / w, maxDim / h);
@@ -153,10 +419,10 @@ class FractalSynthApp {
             if (this.canvas.width !== w || this.canvas.height !== h) {
                 this.canvas.width = w;
                 this.canvas.height = h;
-                this.raymarcher.resetAccumulation();
             }
         };
-        window.addEventListener('resize', resize);
+        this.resizeObserver = new ResizeObserver(resize);
+        this.resizeObserver.observe(this.canvas);
         resize();
     }
 
@@ -164,11 +430,12 @@ class FractalSynthApp {
         const frame = (now) => {
             requestAnimationFrame(frame);
 
-            const dt = Math.min(0.1, (now - this.lastTime) * 0.001);
+            const elapsed = (now - this.lastTime) * 0.001;
+            const dt = Math.min(0.1, elapsed);
             this.lastTime = now;
 
             // Instant FPS estimate
-            const instantFps = dt > 0 ? (1.0 / dt) : 60;
+            const instantFps = elapsed > 0 ? (1.0 / elapsed) : 60;
             this.fps = this.fps * (1.0 - this.fpsAlpha) + instantFps * this.fpsAlpha;
 
             // 1. Audio update
@@ -178,84 +445,57 @@ class FractalSynthApp {
             this.modulation.update(dt);
 
             // 2b. Step 3D metamorphic formula morphing
-            const isFormulaMorphing = this.state.updateFormulaMorph(dt);
+            const keyframeSample = this.keyframes.step(dt);
+            if (keyframeSample) {
+                this.applyKeyframeSample(keyframeSample);
+                if (keyframeSample.finished) this.stopKeyframes();
+            }
+            const isFormulaMorphing = !keyframeSample && this.state.updateFormulaMorph(dt);
 
             // 2c. Step synchronized parameter morphing (eliminates dual-rAF frame rate race condition)
-            const isParamMorphing = this.state.updateParamMorph(dt);
+            const isParamMorphing = !keyframeSample && this.state.updateParamMorph(dt);
 
             // 3. Step physical slider inertia (heavy moment of inertia for sliders)
-            const slidersMoving = this.state.updateInertia(dt);
+            const slidersMoving = !keyframeSample && this.state.updateInertia(dt);
 
             // 4. Compute modulated parameter values for active formula and globals
-            const modulatedValues = {};
+            const modulatedValues = this.modulatedValues;
+            for (const id of Object.keys(modulatedValues)) delete modulatedValues[id];
+            const effectiveValues = keyframeSample?.values ?? this.state.getValues();
+            this.effectiveValues = effectiveValues;
             const activeFormula = this.state.getActiveFormula();
-            const hasMod = this.modulation.hasActiveModulation();
-
-            for (const p of activeFormula.params) {
-                const baseVal = this.state.getCurrent(p.id);
-                const modVal = this.modulation.computeModulatedValue(p.id, baseVal, p.min, p.max, audioBands, dt);
-                modulatedValues[p.id] = modVal;
-                // Temporarily mirror modulated value to state values for GPU upload without pushing history
-                this.state.values[p.id] = modVal;
+            for (const id of keyframeSample ? [] : this.modulation.bindings.keys()) {
+                const p = parameterMetadata.get(id);
+                if (!p) continue;
+                const value = this.modulation.computeModulatedValue(id, effectiveValues[id], p.min, p.max, audioBands, dt);
+                effectiveValues[id] = modulatedValues[id] = p.type === 'int' ? Math.round(value) : value;
             }
 
             // 5. Connect collision provider & settings to camera
-            const collisionEnabled = (this.state.get('collision_enabled') ?? 1) === 1;
-            const collisionClearance = this.state.get('collision_clearance') ?? 0.02;
+            const collisionEnabled = (effectiveValues.collision_enabled ?? 1) >= 0.5;
+            const collisionClearance = effectiveValues.collision_clearance ?? 0.02;
             this.camera.setCollisionSettings(collisionEnabled, collisionClearance);
             
-            if (activeFormula.cpuEvalDE) {
-                this.camera.setCollisionProvider((p) => {
-                    try {
-                        return activeFormula.cpuEvalDE(p, this.state.values);
-                    } catch (e) {
-                        return 1.0;
-                    }
-                });
-            } else {
-                this.camera.setCollisionProvider(null);
-            }
-
             // Suspend camera collision while the formula is morphing (outgoing DE is meaningless then)
             this.camera.collisionSuspended = Boolean(this.state.formulaMorph);
 
             // 5b. Auto zoom to include 80% of the fractal inside the viewport at all times
-            this.camera.updateAutoZoom(activeFormula, this.state.values, this.state.get('fov') || 60, dt, this.state.formulaMorph);
+            if (!keyframeSample) this.camera.updateAutoZoom(activeFormula, effectiveValues, effectiveValues.fov || 60, dt, this.state.formulaMorph);
 
             // 6. Camera flight / orbit update with collision resolution
-            const camMoved = this.camera.update(dt, 1.0);
-            const surfaceDE = this.camera.currentDE;
+            const camMoved = Boolean(keyframeSample) || this.camera.update(dt, 1.0);
 
             // 6b. Continuous smooth auto-tracking of key lighting to keep visible surface sculpted & well-lit
-            this.updateSunAutoTracking(dt);
-
-            // 6c. Periodic automatic camera preset cycling (keeps cinematic views varied & fresh)
-            if (this.camera.mode === 'orbit' && !this.camera.isDraggingOrbit && !this.camera.isZoomOverridden) {
-                this.presetTimer += dt;
-                if (this.presetTimer >= this.presetCycleInterval) {
-                    this.presetTimer = 0.0;
-                    this.presetCycleInterval = 25.0 + Math.random() * 15.0;
-                    const presets = ['turntable', 'action', 'flyby', 'follow', 'dynamic', 'hero'];
-                    const candidates = presets.filter(p => p !== this.camera.activeCameraPreset);
-                    const nextPreset = candidates[Math.floor(Math.random() * candidates.length)];
-                    this.camera.setCameraPreset(nextPreset);
-                    if (this.ui && this.ui.syncActiveCameraPreset) {
-                        this.ui.syncActiveCameraPreset(nextPreset);
-                    }
-                }
-            } else {
-                // Pause / slowly decay timer while user is actively dragging or zooming
-                this.presetTimer = Math.max(0.0, this.presetTimer - dt * 0.5);
-            }
+            if (!keyframeSample) this.updateSunAutoTracking(dt, effectiveValues);
 
             const isMorphing = (this.state.morphAnim !== null) || isFormulaMorphing || isParamMorphing;
-            const isDynamic = camMoved || slidersMoving || isMorphing || (hasMod && (this.audio.isPlaying || this.modulation.bindings.size > 0));
+            const isDynamic = camMoved || slidersMoving || isMorphing || Object.keys(modulatedValues).length > 0;
 
             // 7. Raymarch render (with live FPS for dynamic resolution governor)
-            this.raymarcher.render(this.camera, now * 0.001, isDynamic, this.fps);
+            this.raymarcher.render(this.camera, now * 0.001, isDynamic, this.fps, effectiveValues, elapsed * 1000, Boolean(keyframeSample));
 
             // 7. UI update
-            this.ui.updateFrame(modulatedValues, audioBands, this.fps, surfaceDE, this.camera.currentSpeed);
+            this.ui.updateFrame(modulatedValues, audioBands, this.fps, now, keyframeSample?.values);
         };
         requestAnimationFrame(frame);
     }
@@ -263,5 +503,12 @@ class FractalSynthApp {
 
 // Boot application once DOM is ready
 window.addEventListener('DOMContentLoaded', () => {
-    new FractalSynthApp();
+    try {
+        new FractalSynthApp();
+    } catch (error) {
+        console.error(error);
+        const status = document.getElementById('graphics-status');
+        status.textContent = 'The fractal studio could not start. Check that WebGL2 is available and reload the page.';
+        status.hidden = false;
+    }
 });
