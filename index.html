@@ -10,7 +10,7 @@
     <meta name="color-scheme" content="dark">
     <title>3D Fractal Synth — Studio</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌌</text></svg>">
-    <link rel="stylesheet" href="css/cockpit.css?v=1.0.1">
+    <link rel="stylesheet" href="css/cockpit.css?v=1.0.2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -63,6 +63,7 @@
                 <button class="d-tab-btn active" data-tab="tab-settings-quick">Quick</button>
                 <button class="d-tab-btn" data-tab="tab-settings-geo">Geometry</button>
                 <button class="d-tab-btn" data-tab="tab-settings-presets">Presets</button>
+                <button class="d-tab-btn" data-tab="tab-settings-material">Material</button>
                 <button class="d-tab-btn" data-tab="tab-settings-light">Lighting</button>
                 <button class="d-tab-btn" data-tab="tab-settings-optics">Optics</button>
                 <button class="d-tab-btn" data-tab="tab-settings-cam">Camera</button>
@@ -196,6 +197,22 @@
                     </div>
                 </div>
 
+                <!-- Tab: Material & Surface Shading -->
+                <div class="tab-pane" id="tab-settings-material">
+                    <div class="drawer-group">
+                        <label class="group-label">Natural Geological Materials</label>
+                        <div class="material-presets-grid" id="material-presets-grid"></div>
+                    </div>
+                    <div class="drawer-group">
+                        <label class="group-label">Surface Shading & Texture</label>
+                        <div class="sliders-stack" id="material-shading-container"></div>
+                    </div>
+                    <div class="drawer-group">
+                        <label class="group-label">Cosine Palette Color Harmonics</label>
+                        <div class="sliders-stack" id="material-palette-container"></div>
+                    </div>
+                </div>
+
                 <!-- Tab: Lighting Studio -->
                 <div class="tab-pane" id="tab-settings-light">
                     <!-- Light 1: Key Directional Sun -->
@@ -246,11 +263,11 @@
                     </div>
                 </div>
 
-                <!-- Tab: Surface Optics -->
+                <!-- Tab: Raymarching Optics & Atmosphere -->
                 <div class="tab-pane" id="tab-settings-optics">
                     <div class="drawer-group">
-                        <label class="group-label">Surface Optics & Orbit Trap</label>
-                        <div class="sliders-stack" id="shading-params-container"></div>
+                        <label class="group-label">Optics & Rendering Quality</label>
+                        <div class="sliders-stack" id="optics-params-container"></div>
                     </div>
                 </div>
 
@@ -427,6 +444,6 @@
     <p id="graphics-status" class="graphics-status" role="status" hidden></p>
 
     <!-- Application Script -->
-    <script type="module" src="js/main.js?v=1.0.1"></script>
+    <script type="module" src="js/main.js?v=1.0.2"></script>
 </body>
 </html>

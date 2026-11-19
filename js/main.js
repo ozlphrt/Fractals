@@ -126,19 +126,22 @@ class FractalSynthApp {
 
         this.setupResize();
         this.gallery.checkSharedUrl();
-        if (!location.hash && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) this.startDicePlayback(false);
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            this.ui.stopContinuousAutoMorph?.();
+        }
         this.startLoop();
     }
 
     playKeyframes(shuffle, dice = false) {
+        this.ui.stopContinuousAutoMorph?.();
         const entry = this.captureKeyframe();
         if (!this.keyframes.start(entry, {
             shuffle,
-            interludes: dice,
+            interludes: false,
             resolve: frame => resolveKeyframe(frame, entry),
-            makeInterlude: (from, to, camera) => this.makeRandomKeyframe(from, to, camera)
+            makeInterlude: null
         })) return;
-        this.ui.syncKeyframeDice(dice);
+        this.ui.syncKeyframeDice(false);
         this.state.activeParamMorph = null;
         this.state.formulaMorph = null;
         this.trackedSun = null;
@@ -147,8 +150,8 @@ class FractalSynthApp {
 
     startDicePlayback(announce = true) {
         if (this.keyframes.playing && !this.keyframes.previewing) {
-            this.keyframes.setInterludes(true);
-            this.ui.syncKeyframeDice(true);
+            this.keyframes.setInterludes(false);
+            this.ui.syncKeyframeDice(false);
             return;
         }
         const { formulaId, tabId } = this.getKeyframeScope();
@@ -159,7 +162,7 @@ class FractalSynthApp {
         }
         this.stopKeyframes();
         if (playableTab !== tabId) this.ui.selectKeyframeTab(playableTab);
-        this.playKeyframes(this.ui.shouldShuffleKeyframes(), true);
+        this.playKeyframes(this.ui.shouldShuffleKeyframes(), false);
     }
 
     getKeyframeScope() {

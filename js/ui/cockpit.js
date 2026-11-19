@@ -65,6 +65,10 @@ export class CockpitUI {
         this.elFormulaParamsContainer = document.getElementById('formula-params-container');
         this.elPresetsGrid = document.getElementById('presets-grid');
         this.elPaletteSelect = document.getElementById('palette-preset-select');
+        this.elMaterialPresetsGrid = document.getElementById('material-presets-grid');
+        this.elMaterialShadingContainer = document.getElementById('material-shading-container');
+        this.elMaterialPaletteContainer = document.getElementById('material-palette-container');
+        this.elOpticsParamsContainer = document.getElementById('optics-params-container');
         this.elShadingParamsContainer = document.getElementById('shading-params-container');
         this.elLightSunContainer = document.getElementById('light-sun-container');
         this.elLightRimContainer = document.getElementById('light-rim-container');
@@ -75,6 +79,7 @@ export class CockpitUI {
         this.elHudFps = document.getElementById('hud-fps');
         this.elFpsDot = document.querySelector('.fps-dot');
         this.lastReportedFps = -1;
+        this.activeMaterialIndex = 0;
         
         // Populate Formula Select with concise titles for top bar
         if (this.elFormulaSelect) {
@@ -103,8 +108,9 @@ export class CockpitUI {
         const elMatName = document.getElementById('material-name-display');
         if (elMatName) elMatName.textContent = PALETTE_PRESETS[0].name;
 
-        // Render Global Controls
+        // Render Global Controls & Material Presets
         this.renderGlobalParams();
+        this.renderMaterialPresets();
         this.updateHeaderInfo();
     }
 
@@ -139,6 +145,44 @@ export class CockpitUI {
                 this.state.morphToValues(p.values, 1.3);
             });
             this.elPresetsGrid.appendChild(btn);
+        });
+    }
+
+    renderMaterialPresets() {
+        if (!this.elMaterialPresetsGrid) return;
+        this.elMaterialPresetsGrid.innerHTML = '';
+        PALETTE_PRESETS.forEach((p, idx) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `material-preset-btn ${idx === this.activeMaterialIndex ? 'active' : ''}`;
+            btn.dataset.materialId = p.id;
+
+            const r = Math.round((p.values.pal_a_r ?? 0.5) * 255);
+            const g = Math.round((p.values.pal_a_g ?? 0.5) * 255);
+            const b = Math.round((p.values.pal_a_b ?? 0.5) * 255);
+            const swatchColor = `rgb(${r}, ${g}, ${b})`;
+
+            btn.innerHTML = `
+                <div class="material-preset-header">
+                    <span class="material-swatch" style="background: ${swatchColor};"></span>
+                    <span class="material-preset-title">${p.name}</span>
+                </div>
+                <span class="material-preset-desc">${p.description || ''}</span>
+            `;
+
+            btn.addEventListener('click', () => {
+                if (this.applyMaterialPreset) {
+                    this.applyMaterialPreset(p.id);
+                }
+            });
+            this.elMaterialPresetsGrid.appendChild(btn);
+        });
+    }
+
+    syncMaterialPresetsUI(id) {
+        if (!this.elMaterialPresetsGrid) return;
+        this.elMaterialPresetsGrid.querySelectorAll('.material-preset-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.materialId === id);
         });
     }
 
@@ -423,19 +467,40 @@ export class CockpitUI {
     }
 
     renderGlobalParams() {
-        this.elShadingParamsContainer.innerHTML = '';
+        if (this.elShadingParamsContainer) this.elShadingParamsContainer.innerHTML = '';
+        if (this.elMaterialShadingContainer) this.elMaterialShadingContainer.innerHTML = '';
+        if (this.elMaterialPaletteContainer) this.elMaterialPaletteContainer.innerHTML = '';
+        if (this.elOpticsParamsContainer) this.elOpticsParamsContainer.innerHTML = '';
         if (this.elLightSunContainer) this.elLightSunContainer.innerHTML = '';
         if (this.elLightRimContainer) this.elLightRimContainer.innerHTML = '';
         if (this.elLightEnvContainer) this.elLightEnvContainer.innerHTML = '';
         if (this.elLightGlowContainer) this.elLightGlowContainer.innerHTML = '';
         if (this.elCamParamsContainer) this.elCamParamsContainer.innerHTML = '';
 
-        // 1. Shading & Camera general params
+        // 1. Shading, Material, Optics & Camera general params
         for (const p of GLOBAL_PARAMS) {
-            if (p.group === 'shading' || p.group === 'render') {
-                this.elShadingParamsContainer.appendChild(this.createSliderRow(p));
+            if (p.id === 'roughness' || p.id === 'metallic' || p.id === 'trap_mode' || p.id === 'color_cycle' || p.id === 'color_phase') {
+                if (this.elMaterialShadingContainer) {
+                    this.elMaterialShadingContainer.appendChild(this.createSliderRow(p));
+                } else if (this.elShadingParamsContainer) {
+                    this.elShadingParamsContainer.appendChild(this.createSliderRow(p));
+                }
+            } else if (p.id.startsWith('pal_')) {
+                if (this.elMaterialPaletteContainer) {
+                    this.elMaterialPaletteContainer.appendChild(this.createSliderRow(p));
+                } else if (this.elShadingParamsContainer) {
+                    this.elShadingParamsContainer.appendChild(this.createSliderRow(p));
+                }
+            } else if (p.id === 'sky_detail' || p.id === 'hit_epsilon' || p.id === 'max_steps') {
+                if (this.elOpticsParamsContainer) {
+                    this.elOpticsParamsContainer.appendChild(this.createSliderRow(p));
+                } else if (this.elShadingParamsContainer) {
+                    this.elShadingParamsContainer.appendChild(this.createSliderRow(p));
+                }
             } else if (p.group === 'camera' && this.elCamParamsContainer) {
                 this.elCamParamsContainer.appendChild(this.createSliderRow(p));
+            } else if (p.group === 'shading' || p.group === 'render') {
+                if (this.elShadingParamsContainer) this.elShadingParamsContainer.appendChild(this.createSliderRow(p));
             }
         }
         this.renderCameraPoseSliders();
@@ -887,13 +952,7 @@ export class CockpitUI {
         save.addEventListener('click', () => actions.save(Number(select.value), fieldDraft));
         remove.addEventListener('click', () => actions.remove(Number(select.value)));
         exportButton.addEventListener('click', actions.export);
-        const dice = document.getElementById('deform-dice-btn');
-        dice.addEventListener('click', actions.dice);
-        this.syncKeyframeDice = enabled => {
-            dice.classList.toggle('active', enabled);
-            dice.setAttribute('aria-pressed', String(enabled));
-            dice.title = enabled ? 'Stop keyframe dice playback' : 'Play this formula’s keyframes with dice variations';
-        };
+        this.syncKeyframeDice = enabled => {};
         for (const event of ['click', 'input']) {
             this.elSettingsDrawer.querySelector('.drawer-body').addEventListener(event, e => {
                 if (!e.target.closest('button, input, select')) return;
@@ -996,18 +1055,30 @@ export class CockpitUI {
         // Formula Switcher
         if (this.elFormulaSelect) {
             this.elFormulaSelect.addEventListener('change', (e) => {
-                this.state.startFormulaMorph(e.target.value, 1.6);
+                this.state.startFormulaMorph(e.target.value, 1.8);
             });
         }
 
+        this.isAutoDeforming = true;
+        this.autoDeformTimer = null;
+        this.deformCount = 0;
+        this.formulaDwellTime = 0.0;
+
         const switchFormulaByIndex = (direction) => {
+            this.deformCount = 0;
+            this.formulaDwellTime = 0.0;
             const currentActive = this.state.formulaMorph ? this.state.formulaMorph.toId : this.state.activeFormulaId;
             const currentIdx = FORMULA_CYCLE_ORDER.indexOf(currentActive);
             const baseIdx = currentIdx >= 0 ? currentIdx : 0;
             let nextIdx = (baseIdx + direction + FORMULA_CYCLE_ORDER.length) % FORMULA_CYCLE_ORDER.length;
             const nextId = FORMULA_CYCLE_ORDER[nextIdx];
-            this.state.startFormulaMorph(nextId, 1.6);
+            this.state.startFormulaMorph(nextId, 1.8);
             if (this.elFormulaSelect) this.elFormulaSelect.value = nextId;
+            const elFormulaDisplay = document.getElementById('formula-name-display');
+            if (elFormulaDisplay) elFormulaDisplay.textContent = getFormulaLabel(nextId);
+            const elFormulaName = document.getElementById('hud-formula-name');
+            if (elFormulaName) elFormulaName.textContent = getFormulaLabel(nextId);
+            this.raymarcher.resetAccumulation();
         };
         this.switchFormulaByIndex = switchFormulaByIndex;
 
@@ -1017,6 +1088,121 @@ export class CockpitUI {
         if (fPrev) fPrev.addEventListener('click', (e) => { e.stopPropagation(); switchFormulaByIndex(-1); });
         if (fNext) fNext.addEventListener('click', (e) => { e.stopPropagation(); switchFormulaByIndex(1); });
         if (fCycle) fCycle.addEventListener('click', (e) => { e.stopPropagation(); switchFormulaByIndex(1); });
+
+        // Continuous Auto-Deform Randomizer & Formula Cycler Toggle (ON BY DEFAULT)
+        const deformBtn = document.getElementById('deform-dice-btn');
+        if (deformBtn) {
+            const runAutoDeformCycle = (isStartup = false) => {
+                if (!this.isAutoDeforming) return;
+
+                deformBtn.classList.add('active');
+                deformBtn.setAttribute('aria-pressed', 'true');
+                deformBtn.title = 'Continuous Auto-Deform: Active (Click to Pause)';
+
+                // First shape morph right at start is swift (~3.2s) so viewers are instantly captivated;
+                // Subsequent continuous shape morphs run smoothly and majestically at 5.0s
+                const duration = isStartup ? 3.2 : 5.0;
+
+                this.state.smoothDeformRandom(duration, 
+                    (progress) => {
+                        this.raymarcher.resetAccumulation();
+                    },
+                    () => {
+                        // Morph completed!
+                        if (!this.isAutoDeforming) {
+                            deformBtn.classList.remove('active');
+                            deformBtn.setAttribute('aria-pressed', 'false');
+                            deformBtn.title = 'Continuous Auto-Deform: Paused (Click to Start)';
+                            return;
+                        }
+
+                        this.deformCount++;
+                        this.formulaDwellTime += duration;
+
+                        // Keep on current formula for 15-20 seconds (17.5s target) before cycling to the next formula
+                        if (this.formulaDwellTime >= 17.5) {
+                            this.formulaDwellTime = 0.0;
+                            this.deformCount = 0;
+                            switchFormulaByIndex(1);
+                        }
+
+                        // CONTINUOUS: Immediately trigger next random shape with ZERO wait!
+                        // No pausing or freezing on completed shapes
+                        if (this.isAutoDeforming) {
+                            runAutoDeformCycle(false);
+                        }
+                    }
+                );
+            };
+
+            deformBtn.addEventListener('click', () => {
+                if (this.stopKeyframePlayback) this.stopKeyframePlayback();
+
+                this.isAutoDeforming = !this.isAutoDeforming;
+
+                if (this.isAutoDeforming) {
+                    this.deformCount = 0;
+                    this.formulaDwellTime = 0.0;
+                    deformBtn.classList.add('active');
+                    deformBtn.setAttribute('aria-pressed', 'true');
+                    deformBtn.title = 'Continuous Auto-Deform: Active (Click to Pause)';
+                    runAutoDeformCycle(false);
+                } else {
+                    deformBtn.classList.remove('active');
+                    deformBtn.setAttribute('aria-pressed', 'false');
+                    deformBtn.title = 'Continuous Auto-Deform: Paused (Click to Start)';
+                    if (this.autoDeformTimer) {
+                        clearTimeout(this.autoDeformTimer);
+                        this.autoDeformTimer = null;
+                    }
+                    if (this.state.morphAnim) {
+                        cancelAnimationFrame(this.state.morphAnim);
+                        this.state.morphAnim = null;
+                    }
+                    if (this.state.activeParamMorph) {
+                        this.state.activeParamMorph = null;
+                    }
+                }
+            });
+
+            this.startContinuousAutoMorph = () => {
+                this.isAutoDeforming = true;
+                this.deformCount = 0;
+                this.formulaDwellTime = 0.0;
+                deformBtn.classList.add('active');
+                deformBtn.setAttribute('aria-pressed', 'true');
+                deformBtn.title = 'Continuous Auto-Deform: Active (Click to Pause)';
+                runAutoDeformCycle(false);
+            };
+
+            this.stopContinuousAutoMorph = () => {
+                this.isAutoDeforming = false;
+                deformBtn.classList.remove('active');
+                deformBtn.setAttribute('aria-pressed', 'false');
+                deformBtn.title = 'Continuous Auto-Deform: Paused (Click to Start)';
+                if (this.autoDeformTimer) {
+                    clearTimeout(this.autoDeformTimer);
+                    this.autoDeformTimer = null;
+                }
+                if (this.state.morphAnim) {
+                    cancelAnimationFrame(this.state.morphAnim);
+                    this.state.morphAnim = null;
+                }
+                if (this.state.activeParamMorph) {
+                    this.state.activeParamMorph = null;
+                }
+            };
+
+            // Start morphing almost immediately on boot (50ms) to captivate the viewer right away
+            deformBtn.classList.add('active');
+            deformBtn.setAttribute('aria-pressed', 'true');
+            deformBtn.title = 'Continuous Auto-Deform: Active (Click to Pause)';
+            setTimeout(() => {
+                if (this.isAutoDeforming) {
+                    runAutoDeformCycle(true);
+                }
+            }, 50);
+        }
 
         // 2. Camera Preset Stepper & Cycler (Top Navigation Pill)
         const CAMERA_PRESETS = ['turntable', 'action', 'flyby', 'follow', 'dynamic', 'hero'];
@@ -1056,6 +1242,10 @@ export class CockpitUI {
                 }
             }
             this.state.setMany(cleanValues, recordHistory);
+            for (const [k, v] of Object.entries(cleanValues)) {
+                this.syncSliderUI(k, v);
+            }
+            this.syncMaterialPresetsUI(preset.id);
         };
 
         this.activeMaterialIndex = 0;

@@ -609,7 +609,7 @@ body.zen-mode .studio-ui {
     position: absolute;
     top: 72px;
     bottom: 20px;
-    width: 410px;
+    width: 440px;
     max-width: calc(100vw - 32px);
     background: var(--drawer-bg);
     backdrop-filter: blur(28px);
@@ -1192,6 +1192,71 @@ select option:checked,
 }
 
 .cam-preset-desc {
+    font-size: 0.63rem;
+    color: var(--text-tertiary);
+    line-height: 1.25;
+}
+
+/* Material Presets Grid */
+.material-presets-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 7px;
+    margin-bottom: 4px;
+}
+
+.material-preset-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--drawer-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition);
+    text-align: left;
+    width: 100%;
+}
+
+.material-preset-btn:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+.material-preset-btn.active {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--brand-accent);
+    color: var(--text-primary);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.05);
+}
+
+.material-preset-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+}
+
+.material-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.material-preset-title {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.material-preset-desc {
     font-size: 0.63rem;
     color: var(--text-tertiary);
     line-height: 1.25;
