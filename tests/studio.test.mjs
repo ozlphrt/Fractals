@@ -322,3 +322,37 @@ test('a late microphone result is released when the request is superseded', asyn
     assert.equal(stopped, 1);
     assert.equal(audio.sourceType, 'none');
 });
+
+test('keyframe loops track completed cycles and notify on full tour completion', () => {
+    const loop = new KeyframeLoop(new Map());
+    const camera = { mode: 'orbit', target: [0, 0, 0], pos: [0, 0, 3], up: [0, 1, 0] };
+    loop.add({ formulaId: 'mandelbulb', values: { glow: 0.1 }, camera });
+    loop.add({ formulaId: 'mandelbulb', values: { glow: 0.5 }, camera });
+    let cycleCalls = 0;
+    loop.start(null, { onCycleComplete: (count) => { cycleCalls = count; } });
+    assert.equal(loop.completedCycles, 0);
+    // Segment 0: 0 -> 1 (6 seconds)
+    loop.step(6);
+    assert.equal(loop.completedCycles, 0);
+    // Segment 1: 1 -> 0 (wrap back to start, completing full tour)
+    loop.step(6);
+    assert.equal(loop.completedCycles, 1);
+    assert.equal(cycleCalls, 1);
+});
+
+test('formula morph smoothly interpolates parameters to target values', () => {
+    const state = new StateManager();
+    state.setFormula('mandelbulb', true);
+    state.startFormulaMorph('jerusalem', 2.0, { fov: 40 });
+    assert.equal(Boolean(state.formulaMorph), true);
+    // Step halfway (1.0 second of 2.0s)
+    state.updateFormulaMorph(1.0);
+    assert.equal(state.formulaMorph.progress, 0.5);
+    // Smoothstep at 0.5 is 0.5, fov goes from 60 to 40 -> 50
+    assert.ok(Math.abs(state.get('fov') - 50) < 1e-4);
+    // Finish morph
+    state.updateFormulaMorph(1.0);
+    assert.equal(state.formulaMorph, null);
+    assert.equal(state.activeFormulaId, 'jerusalem');
+    assert.equal(state.get('fov'), 40);
+});

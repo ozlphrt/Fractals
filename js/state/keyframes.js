@@ -100,7 +100,7 @@ function orbitCoordinates(camera) {
     return [Math.hypot(x, y, z), Math.atan2(x, z), Math.atan2(y, Math.hypot(x, z))];
 }
 
-function interpolateCamera(cameras, t) {
+export function interpolateCamera(cameras, t) {
     const target = interpolateVector(cameras.map(camera => camera.target), t);
     const coordinates = cameras.map(orbitCoordinates);
     const radius = interpolate(...coordinates.map(point => point[0]), t);
@@ -123,13 +123,15 @@ export class KeyframeLoop {
         this.playing = false;
         this.index = 0;
         this.elapsed = 0;
+        this.completedCycles = 0;
+        this.onCycleComplete = null;
     }
 
     add(scene) {
         if (!this.playing) this.frames.push(scene);
     }
 
-    start(entry = null, { shuffle = false, interludes = false, makeInterlude, resolve = frame => frame } = {}) {
+    start(entry = null, { shuffle = false, interludes = false, makeInterlude, resolve = frame => frame, onCycleComplete = null } = {}) {
         if (this.frames.length < 2 || this.playing) return false;
         this.previewing = false;
         this.order = this.frames.map((scene, index) => ({ ...resolve(scene), userIndex: index }));
@@ -147,6 +149,8 @@ export class KeyframeLoop {
         this.previousAtWrap = null;
         this.index = entry ? -1 : 0;
         this.elapsed = 0;
+        this.completedCycles = 0;
+        this.onCycleComplete = onCycleComplete;
         this.playing = true;
         return true;
     }
@@ -187,6 +191,12 @@ export class KeyframeLoop {
         while (!this.previewing && this.elapsed >= SEGMENT_SECONDS) {
             this.elapsed -= SEGMENT_SECONDS;
             const last = this.index === this.sequence.length - 1;
+            if (last && !this.entry) {
+                this.completedCycles++;
+                if (this.onCycleComplete) {
+                    this.onCycleComplete(this.completedCycles);
+                }
+            }
             this.previousAtWrap = this.entry ? this.sequence[0] : last ? this.sequence.at(-1) : null;
             this.index = (this.index + 1) % this.sequence.length;
             if (last && this.nextSequence) this.sequence = this.nextSequence;
@@ -227,6 +237,7 @@ export class KeyframeLoop {
             toId: to.formulaId,
             progress,
             finished: this.previewing && progress === 1,
+            completedCycles: this.completedCycles,
             values,
             discreteFrom,
             discreteTo,

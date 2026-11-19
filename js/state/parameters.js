@@ -173,6 +173,11 @@ export class StateManager {
         this.listeners = new Set();
         this.formulaChangeListeners = new Set();
 
+        this.paramMap = new Map(
+            [...GLOBAL_PARAMS, ...Object.values(FORMULAS).flatMap(f => f.params)]
+                .map(param => [param.id, param])
+        );
+
         // Initialize default values for all formulas and globals
         this.initDefaults();
 
@@ -453,7 +458,7 @@ export class StateManager {
         this.setFormula(formulaId, immediate);
     }
 
-    startFormulaMorph(toFormulaId, duration = 1.6) {
+    startFormulaMorph(toFormulaId, duration = 2.8, targetValues = null, onComplete = null) {
         if (!FORMULAS[toFormulaId] || this.activeFormulaId === toFormulaId) return;
         if (this.formulaMorph && this.formulaMorph.toId === toFormulaId) return;
 
@@ -461,9 +466,12 @@ export class StateManager {
         this.formulaMorph = {
             fromId: fromId,
             toId: toFormulaId,
-            duration: Math.max(0.2, duration),
+            duration: Math.max(0.4, duration),
             elapsed: 0.0,
-            progress: 0.0
+            progress: 0.0,
+            fromValues: { ...this.values },
+            targetValues: targetValues ? { ...targetValues } : null,
+            onComplete
         };
 
         this.formulaMorphListeners.forEach(cb => cb(this.formulaMorph));
@@ -476,13 +484,40 @@ export class StateManager {
         const rawT = Math.min(1.0, this.formulaMorph.elapsed / this.formulaMorph.duration);
         this.formulaMorph.progress = rawT;
 
+        if (this.formulaMorph.targetValues && this.formulaMorph.fromValues) {
+            const easeT = rawT * rawT * (3.0 - 2.0 * rawT);
+            const fromVals = this.formulaMorph.fromValues;
+            const toVals = this.formulaMorph.targetValues;
+            for (const [id, toVal] of Object.entries(toVals)) {
+                const fromVal = fromVals[id];
+                if (typeof fromVal === 'number' && typeof toVal === 'number') {
+                    const p = this.paramMap.get(id);
+                    if (p?.type === 'int') {
+                        this.values[id] = easeT < 0.5 ? fromVal : toVal;
+                    } else {
+                        this.values[id] = fromVal + (toVal - fromVal) * easeT;
+                    }
+                    this.targetValues[id] = this.values[id];
+                } else if (typeof toVal === 'number' && fromVal === undefined) {
+                    this.values[id] = toVal;
+                    this.targetValues[id] = toVal;
+                }
+            }
+        }
+
         if (rawT >= 1.0) {
             const nextId = this.formulaMorph.toId;
+            const onComplete = this.formulaMorph.onComplete;
+            if (this.formulaMorph.targetValues) {
+                Object.assign(this.values, this.formulaMorph.targetValues);
+                Object.assign(this.targetValues, this.formulaMorph.targetValues);
+            }
             this.formulaMorph = null;
             this.activeFormulaId = nextId;
             this.formulaMorphCount = 0;
             this.formulaChangeListeners.forEach(cb => cb(this.getActiveFormula()));
             this.pushHistory();
+            if (onComplete) onComplete();
         }
         return true;
     }

@@ -204,32 +204,6 @@ export class Raymarcher {
             }
         }
 
-        // Ordered Bayer 4x4 matrix dither - perfectly eliminates 8-bit Mach bands and contour tearing
-        float bayer4x4(vec2 p) {
-            vec2 b = floor(mod(p, 4.0));
-            int x = int(b.x);
-            int y = int(b.y);
-            int idx = x + y * 4;
-            float m = 0.0;
-            if (idx == 0) m = 0.0;
-            else if (idx == 1) m = 8.0;
-            else if (idx == 2) m = 2.0;
-            else if (idx == 3) m = 10.0;
-            else if (idx == 4) m = 12.0;
-            else if (idx == 5) m = 4.0;
-            else if (idx == 6) m = 14.0;
-            else if (idx == 7) m = 6.0;
-            else if (idx == 8) m = 3.0;
-            else if (idx == 9) m = 11.0;
-            else if (idx == 10) m = 1.0;
-            else if (idx == 11) m = 9.0;
-            else if (idx == 12) m = 15.0;
-            else if (idx == 13) m = 7.0;
-            else if (idx == 14) m = 13.0;
-            else m = 5.0;
-            return (m / 16.0 - 0.5) / 255.0;
-        }
-
         void main() {
             vec2 rcpFrame = (vec2(1.0) / max(vec2(1.0), u_render_size)) * u_uv_scale;
             vec2 uv = clamp(v_uv * u_uv_scale, vec2(0.5) / u_tex_size, (u_render_size - vec2(0.5)) / u_tex_size);
@@ -248,8 +222,7 @@ export class Raymarcher {
             
             vec3 mapped = aces(rawCol * 0.92);
             mapped = pow(mapped, vec3(1.0 / 2.2));
-            float dither = bayer4x4(gl_FragCoord.xy) * 0.75;
-            fragColor = vec4(clamp(mapped + vec3(dither), 0.0, 1.0), 1.0);
+            fragColor = vec4(clamp(mapped, 0.0, 1.0), 1.0);
         }`;
 
         const vs = this.compileShader(gl.VERTEX_SHADER, vsSource);
@@ -391,18 +364,22 @@ vec3 cosinePalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
     return a + b * cos(6.28318 * (c * t + d));
 }
 
-// High-fidelity Continuous Soft Shadow with dynamic step budget and acne suppression
+// High-fidelity Continuous Soft Shadow with geometric penumbra and acne suppression (Inigo Quilez)
 float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
     float res = 1.0;
+    float ph = 1e10;
     float t = mint;
-    int maxSteps = clamp(u_shadow_steps, 6, 16);
+    int maxSteps = clamp(u_shadow_steps, 8, 16);
     for (int i = 0; i < 16; i++) {
         if (i >= maxSteps || t >= maxt) break;
         float h = map(ro + rd * t);
-        if (h < 0.001) return 0.0;
-        res = min(res, k * h / t);
+        if (h < 0.0005) return 0.0;
+        float y = h * h / (2.0 * ph);
+        float d = sqrt(max(0.0, h * h - y * y));
+        res = min(res, k * d / max(0.0, t - y));
+        ph = h;
         if (res < 0.02) return 0.0; // Early exit when already in deep shadow
-        t += clamp(h * 0.90, 0.015, 0.35);
+        t += clamp(h * 0.85, 0.015, 0.35);
     }
     return clamp(res, 0.0, 1.0);
 }
@@ -765,7 +742,7 @@ void main() {
         
         // Main Sun Light - fully continuous shadow and diffuse, acne-free offset
         float dif = clamp(dot(nor, sunDir), 0.0, 1.0);
-        float sha = (dif > 0.001 && u_sun_intensity > 0.001) ? softShadow(pos + nor * max(0.02, normEps * 5.0), sunDir, 0.035, 5.0, u_shadow_softness) : 0.0;
+        float sha = (dif > 0.005 && u_sun_intensity > 0.001) ? softShadow(pos + nor * max(0.015, normEps * 4.0), sunDir, 0.025, 4.5, u_shadow_softness) : 0.0;
         
         // Specular highlight (smooth filtered Blinn-Phong)
         vec3 hal = normalize(sunDir - rd);
@@ -1018,9 +995,9 @@ void main() {
         const boundRadius = this.computeSafeBoundingRadius(formula, values);
         set1f('u_bound_radius', boundRadius);
 
-        // Dynamic shadow & AO tap allocation based on movement
-        set1i('u_shadow_steps', isMoving ? 8 : 16);
-        set1i('u_ao_taps', isMoving ? 2 : 4);
+        // Stable shadow & AO tap allocation (eliminates step-count popping and flickering on drag)
+        set1i('u_shadow_steps', 14);
+        set1i('u_ao_taps', 3);
 
         // Keep moving scenes within a lower ray-step budget.
         const userSteps = getValue('max_steps') ?? 140;

@@ -544,6 +544,7 @@ export class CameraController {
                             this.angularVelYaw += (targetVelX - this.angularVelYaw) * 0.22;
                             this.angularVelPitch += (targetVelY - this.angularVelPitch) * 0.22;
                             this.rotateOrbit(this.angularVelYaw, this.angularVelPitch);
+                            this.hasMoved = true;
                         } else if (e.buttons === 2) { // Right drag -> Pan
                             const panSpeed = this.orbitRadius * 0.0015;
                             const right = this.getRightVector();

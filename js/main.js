@@ -10,7 +10,7 @@ import { CockpitUI } from './ui/cockpit.js';
 import { GalleryManager, normalizeScene } from './gallery/community.js';
 import { FORMULAS } from './formulas/registry.js';
 import { PALETTE_PRESETS } from './state/palettes.js';
-import { KeyframeLoop, keyframeSignature, keyframesForTrack, mergeKeyframeSources, playableKeyframeTab, resolveKeyframe, serializeKeyframes } from './state/keyframes.js';
+import { KeyframeLoop, interpolateCamera, keyframeSignature, keyframesForTrack, mergeKeyframeSources, playableKeyframeTab, resolveKeyframe, serializeKeyframes } from './state/keyframes.js';
 import { USER_KEYFRAMES } from './state/user-keyframes.js';
 
 const KEYFRAME_STORAGE = 'fractal-studio-keyframes-v3';
@@ -204,6 +204,38 @@ class FractalSynthApp {
         this.trackedSun = null;
         this.refreshKeyframeTrack();
         return true;
+    }
+
+    startFormulaTransition(nextId, duration = 3.0) {
+        if (!FORMULAS[nextId]) return;
+        const currentActive = this.state.formulaMorph ? this.state.formulaMorph.toId : this.state.activeFormulaId;
+        if (currentActive === nextId) return;
+
+        this.stopKeyframes();
+
+        const fromCamera = this.camera.getState();
+        const frames = keyframesForTrack(this.userKeyframes, nextId, 'tab-settings-geo');
+        const targetFrame = frames[0] || null;
+        const targetCamera = targetFrame?.camera || this.camera.getState();
+        const targetValues = targetFrame?.values || null;
+
+        this.cameraMorph = {
+            from: fromCamera,
+            to: targetCamera,
+            duration: Math.max(0.6, duration),
+            elapsed: 0.0
+        };
+
+        this.state.startFormulaMorph(nextId, duration, targetValues, () => {
+            this.cameraMorph = null;
+            this.formulaDwellTime = 0.0;
+            if (this.ui?.isAutoDeforming) {
+                this.playCurrentFormulaKeyframes();
+            }
+        });
+
+        this.ui?.syncFormulaDisplay?.(nextId);
+        this.refreshKeyframeTrack();
     }
 
     getKeyframeScope() {
@@ -568,19 +600,38 @@ class FractalSynthApp {
                 if (keyframeSample.finished) this.stopKeyframes();
             }
 
-            // Step continuous formula cycling across user keyframes (15-20s dwell)
+            // Step camera transition during formula morph
+            if (this.cameraMorph) {
+                this.cameraMorph.elapsed += dt;
+                const rawT = Math.min(1.0, this.cameraMorph.elapsed / this.cameraMorph.duration);
+                const easeT = rawT * rawT * (3.0 - 2.0 * rawT);
+                const blendedCam = interpolateCamera([this.cameraMorph.from, this.cameraMorph.from, this.cameraMorph.to, this.cameraMorph.to], easeT);
+                this.camera.setState({ ...blendedCam, autoRotate: false, zoomOverridden: true });
+            }
+
+            // Step continuous formula cycling across user keyframes
             if (this.ui?.isAutoDeforming) {
-                this.formulaDwellTime = (this.formulaDwellTime || 0) + dt;
-
-                // Seamlessly resume user keyframe loop if interrupted and user is done interacting
-                if (!this.keyframes.playing && !this.isUserInteracting && !this.state.formulaMorph) {
-                    this.playCurrentFormulaKeyframes?.();
-                }
-
-                // Advance to next formula every 17.5s (15-20 seconds dwell)
-                if (this.formulaDwellTime >= 17.5) {
+                if (this.state.formulaMorph || this.cameraMorph) {
                     this.formulaDwellTime = 0.0;
-                    this.ui.switchFormulaByIndex?.(1);
+                } else if (!this.isUserInteracting) {
+                    if (this.keyframes.playing) {
+                        // Wait until the formula's stored keyframes have completed a full cycle!
+                        if (this.keyframes.completedCycles >= 1) {
+                            this.keyframes.completedCycles = 0;
+                            this.formulaDwellTime = 0.0;
+                            this.ui.switchFormulaByIndex?.(1);
+                        }
+                    } else {
+                        // Formula has no active keyframes playing: try to start or dwell for 18.0s
+                        const started = this.playCurrentFormulaKeyframes?.();
+                        if (!started) {
+                            this.formulaDwellTime = (this.formulaDwellTime || 0) + dt;
+                            if (this.formulaDwellTime >= 18.0) {
+                                this.formulaDwellTime = 0.0;
+                                this.ui.switchFormulaByIndex?.(1);
+                            }
+                        }
+                    }
                 }
             }
             const isFormulaMorphing = !keyframeSample && this.state.updateFormulaMorph(dt);
@@ -616,12 +667,12 @@ class FractalSynthApp {
             if (!keyframeSample) this.camera.updateAutoZoom(activeFormula, effectiveValues, effectiveValues.fov || 60, dt, this.state.formulaMorph);
 
             // 6. Camera flight / orbit update with collision resolution
-            const camMoved = Boolean(keyframeSample) || this.camera.update(dt, 1.0);
+            const camMoved = Boolean(keyframeSample) || Boolean(this.cameraMorph) || this.camera.update(dt, 1.0);
 
             // 6b. Continuous smooth auto-tracking of key lighting to keep visible surface sculpted & well-lit
-            if (!keyframeSample) this.updateSunAutoTracking(dt, effectiveValues);
+            if (!keyframeSample && !this.cameraMorph) this.updateSunAutoTracking(dt, effectiveValues);
 
-            const isMorphing = (this.state.morphAnim !== null) || isFormulaMorphing || isParamMorphing;
+            const isMorphing = (this.state.morphAnim !== null) || isFormulaMorphing || isParamMorphing || Boolean(this.cameraMorph);
             const isDynamic = camMoved || slidersMoving || isMorphing || Object.keys(modulatedValues).length > 0;
 
             // 7. Raymarch render (with live FPS for dynamic resolution governor)

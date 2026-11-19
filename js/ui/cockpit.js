@@ -51,6 +51,17 @@ export class CockpitUI {
         });
     }
 
+    syncFormulaDisplay(formulaId) {
+        if (this.elFormulaSelect) this.elFormulaSelect.value = formulaId;
+        const targetFormula = FORMULAS[formulaId];
+        const elFormulaDisplay = document.getElementById('formula-name-display');
+        if (elFormulaDisplay) elFormulaDisplay.textContent = getFormulaLabel(formulaId);
+        const elFormulaName = document.getElementById('hud-formula-name');
+        if (elFormulaName) elFormulaName.textContent = getFormulaLabel(formulaId);
+        const elFormulaSub = document.getElementById('hud-formula-sub');
+        if (elFormulaSub && targetFormula) elFormulaSub.textContent = targetFormula.subtitle;
+    }
+
     initDOMElements() {
         this.eqMeters = [
             ['bass', document.getElementById('eq-bar-bass')],
@@ -1071,7 +1082,12 @@ export class CockpitUI {
         // Formula Switcher
         if (this.elFormulaSelect) {
             this.elFormulaSelect.addEventListener('change', (e) => {
-                this.state.startFormulaMorph(e.target.value, 1.8);
+                if (this.app?.startFormulaTransition) {
+                    this.app.startFormulaTransition(e.target.value, 3.0);
+                } else {
+                    this.state.startFormulaMorph(e.target.value, 2.8);
+                    this.syncFormulaDisplay(e.target.value);
+                }
             });
         }
 
@@ -1089,14 +1105,14 @@ export class CockpitUI {
             const baseIdx = currentIdx >= 0 ? currentIdx : 0;
             let nextIdx = (baseIdx + direction + FORMULA_CYCLE_ORDER.length) % FORMULA_CYCLE_ORDER.length;
             const nextId = FORMULA_CYCLE_ORDER[nextIdx];
-            this.state.startFormulaMorph(nextId, 1.8);
-            if (this.elFormulaSelect) this.elFormulaSelect.value = nextId;
-            const elFormulaDisplay = document.getElementById('formula-name-display');
-            if (elFormulaDisplay) elFormulaDisplay.textContent = getFormulaLabel(nextId);
-            const elFormulaName = document.getElementById('hud-formula-name');
-            if (elFormulaName) elFormulaName.textContent = getFormulaLabel(nextId);
-            if (this.isAutoDeforming && this.app?.playCurrentFormulaKeyframes) {
-                this.app.playCurrentFormulaKeyframes();
+            if (this.app?.startFormulaTransition) {
+                this.app.startFormulaTransition(nextId, 3.0);
+            } else {
+                this.state.startFormulaMorph(nextId, 2.8);
+                this.syncFormulaDisplay(nextId);
+                if (this.isAutoDeforming && this.app?.playCurrentFormulaKeyframes) {
+                    this.app.playCurrentFormulaKeyframes();
+                }
             }
         };
         this.switchFormulaByIndex = switchFormulaByIndex;
@@ -1127,7 +1143,7 @@ export class CockpitUI {
                         () => {
                             if (!this.isAutoDeforming) return;
                             this.formulaDwellTime += duration;
-                            if (this.formulaDwellTime >= 17.5) {
+                            if (this.formulaDwellTime >= 18.0) {
                                 this.formulaDwellTime = 0.0;
                                 switchFormulaByIndex(1);
                             } else {
