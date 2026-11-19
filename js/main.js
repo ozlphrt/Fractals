@@ -13,7 +13,7 @@ import { PALETTE_PRESETS } from './state/palettes.js';
 import { KeyframeLoop, interpolateCamera, keyframeSignature, keyframesForTrack, mergeKeyframeSources, playableKeyframeTab, resolveKeyframe, serializeKeyframes } from './state/keyframes.js';
 import { USER_KEYFRAMES } from './state/user-keyframes.js';
 
-const KEYFRAME_STORAGE = 'fractal-studio-keyframes-v3';
+const KEYFRAME_STORAGE = 'fractal-studio-keyframes-v4';
 const DEFAULT_KEYFRAME_TAB = 'tab-settings-quick';
 
 const parameterMetadata = new Map(
@@ -42,7 +42,7 @@ class FractalSynthApp {
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) this.camera.autoRotate = false;
         this.ui = new CockpitUI(this.state, this.modulation, this.audio, this.camera, this.raymarcher);
         this.ui.app = this;
-        this.keyframes = new KeyframeLoop(parameterMetadata);
+        this.keyframes = new KeyframeLoop(parameterMetadata, 4.5);
         this.loadKeyframes();
         this.ui.setupKeyframes({
             add: () => {
@@ -85,16 +85,10 @@ class FractalSynthApp {
         let userInteractTimer = null;
         this.notifyUserInteraction = () => {
             this.isUserInteracting = true;
-            if (this.ui?.isAutoDeforming && this.keyframes.playing) {
-                this.keyframes.stop();
-            }
             if (userInteractTimer) clearTimeout(userInteractTimer);
             userInteractTimer = setTimeout(() => {
                 this.isUserInteracting = false;
-                if (this.ui?.isAutoDeforming && !this.keyframes.playing && !this.state.formulaMorph) {
-                    this.playCurrentFormulaKeyframes();
-                }
-            }, 2000);
+            }, 1200);
         };
 
         for (const event of ['pointerdown', 'wheel']) {
@@ -186,17 +180,17 @@ class FractalSynthApp {
         this.playKeyframes(this.ui.shouldShuffleKeyframes(), false);
     }
 
-    playCurrentFormulaKeyframes() {
+    playCurrentFormulaKeyframes(useEntry = true) {
         const { formulaId, tabId } = this.getKeyframeScope();
         const frames = keyframesForTrack(this.userKeyframes, formulaId, tabId);
         if (frames.length < 2) return false;
-        const entry = this.captureKeyframe();
+        const entry = useEntry ? this.captureKeyframe() : null;
         this.keyframes.stop();
         this.keyframes.frames = frames;
         if (!this.keyframes.start(entry, {
             shuffle: false,
             interludes: false,
-            resolve: frame => resolveKeyframe(frame, entry),
+            resolve: frame => resolveKeyframe(frame, entry ?? frames[0]),
             makeInterlude: null
         })) return false;
         this.state.activeParamMorph = null;
@@ -214,7 +208,8 @@ class FractalSynthApp {
         this.stopKeyframes();
 
         const fromCamera = this.camera.getState();
-        const frames = keyframesForTrack(this.userKeyframes, nextId, 'tab-settings-geo');
+        const tabId = playableKeyframeTab(this.userKeyframes, nextId, 'tab-settings-geo') ?? 'tab-settings-geo';
+        const frames = keyframesForTrack(this.userKeyframes, nextId, tabId);
         const targetFrame = frames[0] || null;
         const targetCamera = targetFrame?.camera || this.camera.getState();
         const targetValues = targetFrame?.values || null;
@@ -230,7 +225,7 @@ class FractalSynthApp {
             this.cameraMorph = null;
             this.formulaDwellTime = 0.0;
             if (this.ui?.isAutoDeforming) {
-                this.playCurrentFormulaKeyframes();
+                this.playCurrentFormulaKeyframes(false);
             }
         });
 
@@ -242,7 +237,7 @@ class FractalSynthApp {
         const formulaId = this.state.formulaMorph?.toId ?? this.state.activeFormulaId;
         const currentTab = this.ui.getKeyframeTab() ?? DEFAULT_KEYFRAME_TAB;
         const currentFrames = keyframesForTrack(this.userKeyframes, formulaId, currentTab);
-        if (currentFrames.length > 0) {
+        if (currentFrames.length >= 2) {
             return { formulaId, tabId: currentTab };
         }
         const fallbackTab = playableKeyframeTab(this.userKeyframes, formulaId, 'tab-settings-geo') ?? 'tab-settings-geo';
@@ -290,6 +285,7 @@ class FractalSynthApp {
         try {
             localStorage.removeItem('fractal-studio-keyframes-v1');
             localStorage.removeItem('fractal-studio-keyframes-v2');
+            localStorage.removeItem('fractal-studio-keyframes-v3');
             const saved = JSON.parse(localStorage.getItem(KEYFRAME_STORAGE));
             if (Array.isArray(saved)) savedFrames = saved;
             else if (saved) {
@@ -594,7 +590,8 @@ class FractalSynthApp {
             this.modulation.update(dt);
 
             // 2b. Step 3D metamorphic formula morphing
-            const keyframeSample = this.keyframes.step(dt);
+            // While the user is actively interacting with the camera, pause keyframe stepping so user has free look
+            const keyframeSample = (!this.isUserInteracting) ? this.keyframes.step(dt) : null;
             if (keyframeSample) {
                 this.applyKeyframeSample(keyframeSample);
                 if (keyframeSample.finished) this.stopKeyframes();
@@ -614,23 +611,21 @@ class FractalSynthApp {
                 if (this.state.formulaMorph || this.cameraMorph) {
                     this.formulaDwellTime = 0.0;
                 } else if (!this.isUserInteracting) {
-                    if (this.keyframes.playing) {
-                        // Wait until the formula's stored keyframes have completed a full cycle!
-                        if (this.keyframes.completedCycles >= 1) {
+                    this.formulaDwellTime = (this.formulaDwellTime || 0) + dt;
+
+                    const cycleDone = this.keyframes.playing && this.keyframes.completedCycles >= 1;
+                    const segmentBoundary = !this.keyframes.playing || this.keyframes.elapsed < dt * 1.5;
+                    const timeDone = this.formulaDwellTime >= 18.0 && segmentBoundary;
+                    const maxTimeExceeded = this.formulaDwellTime >= 28.0;
+
+                    if (cycleDone || timeDone || maxTimeExceeded) {
+                        this.formulaDwellTime = 0.0;
+                        if (this.keyframes.playing) {
                             this.keyframes.completedCycles = 0;
-                            this.formulaDwellTime = 0.0;
-                            this.ui.switchFormulaByIndex?.(1);
                         }
-                    } else {
-                        // Formula has no active keyframes playing: try to start or dwell for 18.0s
-                        const started = this.playCurrentFormulaKeyframes?.();
-                        if (!started) {
-                            this.formulaDwellTime = (this.formulaDwellTime || 0) + dt;
-                            if (this.formulaDwellTime >= 18.0) {
-                                this.formulaDwellTime = 0.0;
-                                this.ui.switchFormulaByIndex?.(1);
-                            }
-                        }
+                        this.ui.switchFormulaByIndex?.(1);
+                    } else if (!this.keyframes.playing) {
+                        this.playCurrentFormulaKeyframes?.(false);
                     }
                 }
             }

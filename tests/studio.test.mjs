@@ -356,3 +356,34 @@ test('formula morph smoothly interpolates parameters to target values', () => {
     assert.equal(state.activeFormulaId, 'jerusalem');
     assert.equal(state.get('fov'), 40);
 });
+
+test('playableKeyframeTab falls back to Geometry when current tab has fewer than 2 frames', async () => {
+    const { playableKeyframeTab } = await import('../js/state/keyframes.js');
+    const frames = [
+        { formulaId: 'juliabulb', tabId: 'tab-settings-quick' },
+        { formulaId: 'juliabulb', tabId: 'tab-settings-geo' },
+        { formulaId: 'juliabulb', tabId: 'tab-settings-geo' }
+    ];
+    const chosen = playableKeyframeTab(frames, 'juliabulb', 'tab-settings-quick');
+    assert.equal(chosen, 'tab-settings-geo');
+});
+
+test('all 20 formulas have playable keyframes and cycle sequentially in FORMULA_CYCLE_ORDER', async () => {
+    const { FORMULA_CYCLE_ORDER } = await import('../js/formulas/registry.js');
+    const { USER_KEYFRAMES } = await import('../js/state/user-keyframes.js');
+    const { keyframesForTrack, playableKeyframeTab } = await import('../js/state/keyframes.js');
+
+    assert.equal(FORMULA_CYCLE_ORDER.length, 20);
+
+    for (let i = 0; i < FORMULA_CYCLE_ORDER.length; i++) {
+        const id = FORMULA_CYCLE_ORDER[i];
+        const tab = playableKeyframeTab(USER_KEYFRAMES, id, 'tab-settings-geo');
+        assert.ok(tab, `Formula ${id} must have a playable tab`);
+        const frames = keyframesForTrack(USER_KEYFRAMES, id, tab);
+        assert.ok(frames.length >= 2, `Formula ${id} must have at least 2 keyframes (got ${frames.length})`);
+
+        // Check sequential stepping
+        const nextId = FORMULA_CYCLE_ORDER[(i + 1) % FORMULA_CYCLE_ORDER.length];
+        assert.notEqual(id, nextId, `Formula ${id} must advance to a different formula`);
+    }
+});

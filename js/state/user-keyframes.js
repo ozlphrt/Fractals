@@ -1713,7 +1713,7 @@ export const USER_KEYFRAMES = [
     },
     {
         "formulaId": "juliabulb",
-        "tabId": "tab-settings-quick",
+        "tabId": "tab-settings-geo",
         "values": {
             "max_steps": 200,
             "hit_epsilon": 0.0015,
@@ -27821,7 +27821,7 @@ export const USER_KEYFRAMES = [
     },
     {
         "formulaId": "quartz_julia",
-        "tabId": "tab-settings-quick",
+        "tabId": "tab-settings-geo",
         "values": {
             "max_steps": 200,
             "hit_epsilon": 0.0015,

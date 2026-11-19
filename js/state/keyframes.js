@@ -117,8 +117,9 @@ export function interpolateCamera(cameras, t) {
 }
 
 export class KeyframeLoop {
-    constructor(parameterMetadata) {
+    constructor(parameterMetadata, segmentSeconds = 6) {
         this.parameterMetadata = parameterMetadata;
+        this.segmentSeconds = segmentSeconds;
         this.frames = [];
         this.playing = false;
         this.index = 0;
@@ -188,8 +189,9 @@ export class KeyframeLoop {
     step(dt) {
         if (!this.playing) return null;
         this.elapsed += dt;
-        while (!this.previewing && this.elapsed >= SEGMENT_SECONDS) {
-            this.elapsed -= SEGMENT_SECONDS;
+        const segSec = this.segmentSeconds || SEGMENT_SECONDS;
+        while (!this.previewing && this.elapsed >= segSec) {
+            this.elapsed -= segSec;
             const last = this.index === this.sequence.length - 1;
             if (last && !this.entry) {
                 this.completedCycles++;
@@ -214,7 +216,7 @@ export class KeyframeLoop {
         if (this.previousAtWrap) frames[0] = this.previousAtWrap;
         if (this.nextSequence) frames[3] = this.nextSequence[1];
         const [previous, from, to, next] = frames;
-        const progress = Math.min(1, this.elapsed / SEGMENT_SECONDS);
+        const progress = Math.min(1, this.elapsed / segSec);
         const values = {};
         const discreteFrom = {};
         const discreteTo = {};

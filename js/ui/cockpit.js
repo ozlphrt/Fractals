@@ -1127,30 +1127,15 @@ export class CockpitUI {
         // Continuous Auto-Deform Randomizer & Formula Cycler Toggle (ON BY DEFAULT)
         const deformBtn = document.getElementById('deform-dice-btn');
         if (deformBtn) {
-            const runAutoDeformCycle = (isStartup = false) => {
+            const runAutoDeformCycle = () => {
                 if (!this.isAutoDeforming) return;
 
                 deformBtn.classList.add('active');
                 deformBtn.setAttribute('aria-pressed', 'true');
                 deformBtn.title = 'Continuous Auto-Play: Active (Click to Pause)';
 
-                // Prefer playing user-defined keyframes!
-                const playedKeyframes = this.app?.playCurrentFormulaKeyframes ? this.app.playCurrentFormulaKeyframes() : false;
-                if (!playedKeyframes) {
-                    const duration = isStartup ? 3.2 : 5.0;
-                    this.state.smoothDeformRandom(duration, 
-                        null,
-                        () => {
-                            if (!this.isAutoDeforming) return;
-                            this.formulaDwellTime += duration;
-                            if (this.formulaDwellTime >= 18.0) {
-                                this.formulaDwellTime = 0.0;
-                                switchFormulaByIndex(1);
-                            } else {
-                                runAutoDeformCycle(false);
-                            }
-                        }
-                    );
+                if (this.app?.playCurrentFormulaKeyframes) {
+                    this.app.playCurrentFormulaKeyframes(false);
                 }
             };
 
@@ -1164,7 +1149,7 @@ export class CockpitUI {
                     deformBtn.classList.add('active');
                     deformBtn.setAttribute('aria-pressed', 'true');
                     deformBtn.title = 'Continuous Auto-Play: Active (Click to Pause)';
-                    runAutoDeformCycle(false);
+                    runAutoDeformCycle();
                 } else {
                     deformBtn.classList.remove('active');
                     deformBtn.setAttribute('aria-pressed', 'false');
@@ -1192,7 +1177,7 @@ export class CockpitUI {
                 deformBtn.classList.add('active');
                 deformBtn.setAttribute('aria-pressed', 'true');
                 deformBtn.title = 'Continuous Auto-Play: Active (Click to Pause)';
-                runAutoDeformCycle(false);
+                runAutoDeformCycle();
             };
 
             this.stopContinuousAutoMorph = () => {
@@ -1220,7 +1205,7 @@ export class CockpitUI {
             deformBtn.title = 'Continuous Auto-Play: Active (Click to Pause)';
             setTimeout(() => {
                 if (this.isAutoDeforming) {
-                    runAutoDeformCycle(true);
+                    runAutoDeformCycle();
                 }
             }, 50);
         }
