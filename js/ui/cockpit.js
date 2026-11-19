@@ -1078,7 +1078,6 @@ export class CockpitUI {
             if (elFormulaDisplay) elFormulaDisplay.textContent = getFormulaLabel(nextId);
             const elFormulaName = document.getElementById('hud-formula-name');
             if (elFormulaName) elFormulaName.textContent = getFormulaLabel(nextId);
-            this.raymarcher.resetAccumulation();
         };
         this.switchFormulaByIndex = switchFormulaByIndex;
 
@@ -1104,9 +1103,7 @@ export class CockpitUI {
                 const duration = isStartup ? 3.2 : 5.0;
 
                 this.state.smoothDeformRandom(duration, 
-                    (progress) => {
-                        this.raymarcher.resetAccumulation();
-                    },
+                    null,
                     () => {
                         // Morph completed!
                         if (!this.isAutoDeforming) {
