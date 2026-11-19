@@ -74,16 +74,35 @@ class FractalSynthApp {
             import: file => this.importKeyframes(file),
             stop: () => this.stopKeyframes(),
             tabChange: () => {
-                this.stopKeyframes();
+                if (!this.ui?.isAutoDeforming) this.stopKeyframes();
                 this.refreshKeyframeTrack();
             }
         });
         this.state.onFormulaChange(() => this.refreshKeyframeTrack());
         this.state.onFormulaMorph(() => this.refreshKeyframeTrack());
         this.refreshKeyframeTrack();
+
+        let userInteractTimer = null;
+        this.notifyUserInteraction = () => {
+            this.isUserInteracting = true;
+            if (this.ui?.isAutoDeforming && this.keyframes.playing) {
+                this.keyframes.stop();
+            }
+            if (userInteractTimer) clearTimeout(userInteractTimer);
+            userInteractTimer = setTimeout(() => {
+                this.isUserInteracting = false;
+                if (this.ui?.isAutoDeforming && !this.keyframes.playing && !this.state.formulaMorph) {
+                    this.playCurrentFormulaKeyframes();
+                }
+            }, 2000);
+        };
+
         for (const event of ['pointerdown', 'wheel']) {
-            this.canvas.addEventListener(event, () => this.stopKeyframes(), { capture: true, passive: true });
+            this.canvas.addEventListener(event, () => this.notifyUserInteraction(), { capture: true, passive: true });
         }
+        this.canvas.addEventListener('pointermove', e => {
+            if (e.buttons > 0) this.notifyUserInteraction();
+        }, { capture: true, passive: true });
 
         // Community Folder & URL Creation Sharing System
         const self = this;
@@ -550,8 +569,15 @@ class FractalSynthApp {
             }
 
             // Step continuous formula cycling across user keyframes (15-20s dwell)
-            if (this.ui?.isAutoDeforming && this.keyframes.playing) {
+            if (this.ui?.isAutoDeforming) {
                 this.formulaDwellTime = (this.formulaDwellTime || 0) + dt;
+
+                // Seamlessly resume user keyframe loop if interrupted and user is done interacting
+                if (!this.keyframes.playing && !this.isUserInteracting && !this.state.formulaMorph) {
+                    this.playCurrentFormulaKeyframes?.();
+                }
+
+                // Advance to next formula every 17.5s (15-20 seconds dwell)
                 if (this.formulaDwellTime >= 17.5) {
                     this.formulaDwellTime = 0.0;
                     this.ui.switchFormulaByIndex?.(1);

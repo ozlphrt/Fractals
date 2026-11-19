@@ -698,7 +698,8 @@ export class CockpitUI {
             const apply = () => {
                 if (!Number.isFinite(mark.value)) return;
                 const value = mark.value;
-                this.stopKeyframePlayback?.();
+                if (this.app?.notifyUserInteraction) this.app.notifyUserInteraction();
+                else this.stopKeyframePlayback?.();
                 const step = slider.step;
                 slider.step = 'any';
                 slider.value = value;
@@ -968,7 +969,11 @@ export class CockpitUI {
             this.elSettingsDrawer.querySelector('.drawer-body').addEventListener(event, e => {
                 if (!e.target.closest('button, input, select')) return;
                 const value = e.target.value;
-                actions.stop();
+                if (this.app?.notifyUserInteraction) {
+                    this.app.notifyUserInteraction();
+                } else if (!this.isAutoDeforming) {
+                    actions.stop();
+                }
                 if (e.type === 'input') e.target.value = value;
             }, true);
         }
